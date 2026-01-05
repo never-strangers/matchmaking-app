@@ -16,10 +16,20 @@ const mockEvents = [
   },
 ];
 
+import Link from "next/link";
+
 export default function EventsPage() {
   return (
     <div className="max-w-2xl mx-auto px-4 py-16">
-      <h1 className="text-3xl font-bold text-gray-dark mb-8">Events</h1>
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold text-gray-dark">Events</h1>
+        <Link
+          href="/onboarding/setup"
+          className="bg-red-accent text-white px-6 py-3 rounded-lg font-medium hover:opacity-90 transition-opacity"
+        >
+          Create Event
+        </Link>
+      </div>
       <p className="text-gray-medium mb-8">
         In the next version, you&apos;ll see curated community events here.
       </p>
