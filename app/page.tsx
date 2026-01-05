@@ -18,7 +18,7 @@ export default function Home() {
             Book Your Slot
           </Link>
           <Link
-            href="/match"
+            href="/register"
             className="bg-gray-dark text-white px-8 py-3 rounded-lg font-medium hover:opacity-90 transition-opacity"
           >
             Sign Up

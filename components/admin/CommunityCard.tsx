@@ -14,10 +14,10 @@ export default function CommunityCard({ members }: CommunityCardProps) {
           Community
         </h2>
         <Link
-          href="#"
+          href="/admin/followers"
           className="text-xs text-gray-medium hover:text-gray-dark transition-colors"
         >
-          All followers →
+          ALL FOLLOWERS →
         </Link>
       </div>
       <div className="space-y-3">

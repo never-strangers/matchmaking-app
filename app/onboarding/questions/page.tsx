@@ -59,8 +59,20 @@ export default function QuestionsPage() {
   );
 
   const handleNext = () => {
-    console.log("Selected questions:", selectedQuestions);
-    // router.push("/events/new/review");
+    // Load existing event data
+    const existingData = JSON.parse(
+      localStorage.getItem("eventData") || "{}"
+    );
+    
+    // Save event data with question count
+    const eventData = {
+      ...existingData,
+      questionCount: selectedQuestions.length,
+      selectedQuestions: selectedQuestions,
+    };
+    
+    localStorage.setItem("eventData", JSON.stringify(eventData));
+    router.push("/onboarding/review");
   };
 
   return (

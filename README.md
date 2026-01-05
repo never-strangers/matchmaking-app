@@ -86,21 +86,338 @@ This repo hosts the new **Matching Core** — a lightweight, AI-powered system r
 - **Supabase Client**: Configured and ready for database integration (`lib/supabase/client.ts`)
 - **API Route**: Test endpoint available at `/api/test` for Supabase connection verification
 
-### 🔄 Using Mock Data
-Currently, the following features use mock data and need database integration:
-- User profiles and onboarding submissions
-- Events listing and creation
-- Match calculations and results
-- Admin KPIs and community data
-- Signups and match pairs
+### 🔄 Currently Mocked Features
 
-### 🔌 Next Steps for Database Integration
-1. Set up Supabase database schema (profiles, events, matches, signups tables)
-2. Connect onboarding form submissions to Supabase
-3. Implement event creation persistence
-4. Build matching algorithm with Supabase queries
-5. Connect admin dashboard to real data
-6. Add authentication flow (Supabase Auth)
+The following features are currently using mock data or localStorage and need database integration:
+
+#### 📝 User Registration & Authentication
+- **Registration Form** (`/register`)
+  - Form submissions stored in `localStorage`
+  - Profile photo upload (not persisted)
+  - Email verification flow (mocked)
+- **User Authentication**
+  - No login/logout functionality
+  - No session management
+  - No password hashing/validation
+
+#### 👤 User Profiles & Onboarding
+- **Basic Onboarding** (`/onboarding`)
+  - Form data stored in `localStorage`
+  - No profile persistence
+- **Matching Customization** (`/onboarding/setup`)
+  - Event preferences stored in `localStorage`
+  - No user profile linking
+- **Question Selection** (`/onboarding/questions`)
+  - Selected questions stored in `localStorage`
+  - No question library database
+
+#### 🎟️ Events Management
+- **Events Listing** (`/events`)
+  - Events stored in `localStorage`
+  - No database persistence
+  - No event status tracking
+- **Event Creation** (`/events/new`)
+  - Event data stored in `localStorage`
+  - No event ownership/user association
+  - No event slug generation/validation
+- **Event Review** (`/onboarding/review`)
+  - Account info stored in `localStorage`
+  - No billing integration
+  - No email notifications
+
+#### 🎯 Matching System
+- **Match Preview** (`/match`)
+  - Uses hardcoded `mockMatches` array
+  - No real matching algorithm
+  - No user similarity calculations
+- **Matching Algorithm** (`/admin/matches`)
+  - Mock match pairs from `lib/admin/matches.mock.ts`
+  - No AI embeddings (OpenAI + pgvector)
+  - No cosine similarity calculations
+  - No match score computation
+
+#### 🧮 Admin Dashboard
+- **KPIs** (`/admin`)
+  - Hardcoded values from `lib/admin/mock.ts`
+  - No real-time analytics
+- **Community Members** (`/admin`)
+  - Mock data from `lib/admin/mock.ts`
+  - No follower relationship tracking
+- **Followers List** (`/admin/followers`)
+  - Mock data from `lib/admin/mock.ts`
+  - No follower management
+- **Past Events** (`/admin`)
+  - Mock data from `lib/admin/mock.ts`
+  - No event history tracking
+- **Signups Management** (`/admin/matches`)
+  - Mock signups from `lib/admin/matches.mock.ts`
+  - No event signup tracking
+  - No user-event relationships
+
+#### 📚 Question Library
+- **Question Database** (`lib/events/new/mock.ts`)
+  - Hardcoded 72 questions
+  - No database storage
+  - No question management (CRUD)
+  - No question categories management
+
+---
+
+## 🏗️ Production Implementation Plan
+
+### Phase 1: Database Schema & Authentication
+
+#### 1.1 Supabase Database Schema
+
+```sql
+-- Users & Authentication
+CREATE TABLE profiles (
+  id UUID PRIMARY KEY REFERENCES auth.users(id),
+  email TEXT UNIQUE NOT NULL,
+  first_name TEXT,
+  last_name TEXT,
+  city TEXT,
+  birth_date DATE,
+  gender TEXT,
+  profile_photo_url TEXT,
+  instagram_username TEXT,
+  bio TEXT,
+  interests TEXT[],
+  attracted_to TEXT[],
+  looking_for TEXT[],
+  verification_status TEXT DEFAULT 'pending',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Events
+CREATE TABLE events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organizer_id UUID REFERENCES profiles(id),
+  title TEXT NOT NULL,
+  slug TEXT UNIQUE NOT NULL,
+  host_name TEXT,
+  event_date DATE,
+  city TEXT,
+  matching_mode TEXT, -- 'Platonic', 'Romantic', 'Professional'
+  age_mode TEXT, -- 'Ignore', 'Consider'
+  tier_id TEXT, -- 'free', 'basic', 'premium', 'elite'
+  max_guests INTEGER,
+  status TEXT DEFAULT 'draft', -- 'draft', 'active', 'completed'
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Event Questions
+CREATE TABLE event_questions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_id UUID REFERENCES events(id) ON DELETE CASCADE,
+  question_id UUID REFERENCES questions(id),
+  order_index INTEGER,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Questions Library
+CREATE TABLE questions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  text TEXT NOT NULL,
+  category TEXT, -- 'Suggested', 'Popular', 'Important', 'Spicy', 'Queer', 'Random'
+  is_premium BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Event Signups
+CREATE TABLE event_signups (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_id UUID REFERENCES events(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  answers JSONB, -- Store question answers
+  status TEXT DEFAULT 'pending', -- 'pending', 'approved', 'rejected'
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(event_id, user_id)
+);
+
+-- Matches
+CREATE TABLE matches (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_id UUID REFERENCES events(id) ON DELETE CASCADE,
+  user_a_id UUID REFERENCES profiles(id),
+  user_b_id UUID REFERENCES profiles(id),
+  match_type TEXT, -- 'romantic', 'friend'
+  compatibility_score DECIMAL(5,2),
+  group_number TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- User Embeddings (for AI matching)
+CREATE TABLE user_embeddings (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  embedding vector(1536), -- OpenAI embedding dimension
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Followers
+CREATE TABLE followers (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  follower_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  following_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(follower_id, following_id)
+);
+
+-- Create indexes
+CREATE INDEX idx_events_organizer ON events(organizer_id);
+CREATE INDEX idx_events_slug ON events(slug);
+CREATE INDEX idx_signups_event ON event_signups(event_id);
+CREATE INDEX idx_signups_user ON event_signups(user_id);
+CREATE INDEX idx_matches_event ON matches(event_id);
+CREATE INDEX idx_user_embeddings_user ON user_embeddings(user_id);
+CREATE INDEX idx_followers_follower ON followers(follower_id);
+CREATE INDEX idx_followers_following ON followers(following_id);
+```
+
+#### 1.2 Authentication Flow
+- **Supabase Auth Integration**
+  - Email/password authentication
+  - Magic link authentication
+  - Social OAuth (Google, Instagram)
+  - Session management with cookies
+  - Protected routes with middleware
+  - Role-based access control (admin, organizer, user)
+
+#### 1.3 File Storage
+- **Supabase Storage**
+  - Profile photos: `profiles/{user_id}/photo.jpg`
+  - Event images: `events/{event_id}/images/`
+  - RLS policies for access control
+
+---
+
+### Phase 2: Core Features Implementation
+
+#### 2.1 User Registration & Profiles
+- Replace `localStorage` with Supabase `profiles` table
+- Implement profile photo upload to Supabase Storage
+- Add email verification workflow
+- Create profile management API routes
+- Implement profile completion tracking
+
+#### 2.2 Events Management
+- Replace `localStorage` with Supabase `events` table
+- Implement event CRUD operations
+- Add event slug generation and validation
+- Create event ownership/permissions system
+- Implement event status workflow (draft → active → completed)
+
+#### 2.3 Question Library
+- Migrate questions from `lib/events/new/mock.ts` to `questions` table
+- Create question management API
+- Add question categories management
+- Implement question search and filtering
+
+#### 2.4 Event Signups
+- Replace mock signups with `event_signups` table
+- Implement signup form with question answers
+- Add signup approval workflow
+- Create signup management for organizers
+
+---
+
+### Phase 3: Matching Algorithm
+
+#### 3.1 AI Embeddings Generation
+- **OpenAI Integration**
+  - Generate embeddings for user profiles
+  - Combine: bio, interests, answers, preferences
+  - Store in `user_embeddings` table with pgvector
+  - Update embeddings when profile changes
+
+#### 3.2 Matching Algorithm
+- **Similarity Calculation**
+  - Use pgvector cosine similarity
+  - Calculate compatibility scores (0-100)
+  - Apply filters (gender, age, city, preferences)
+  - Group matches by type (romantic vs friend)
+
+#### 3.3 Match Generation API
+- Create `/api/events/[id]/matches` endpoint
+- Run matching algorithm for event signups
+- Store results in `matches` table
+- Support recalculation and options
+
+---
+
+### Phase 4: Admin Dashboard
+
+#### 4.1 Real-time KPIs
+- Query Supabase for:
+  - Total events count
+  - Active users (last 30 days)
+  - Events this month
+  - Total matches created
+  - Signup conversion rates
+
+#### 4.2 Community Management
+- Replace mock data with `followers` table queries
+- Implement follower search and filtering
+- Add follower export functionality
+- Create follower analytics
+
+#### 4.3 Event Management
+- Load real events from database
+- Implement event filtering and search
+- Add event status management
+- Create event analytics dashboard
+
+---
+
+### Phase 5: Additional Features
+
+#### 5.1 Email Notifications
+- **Email Service Integration** (SendGrid/Resend)
+  - Registration confirmation
+  - Profile verification status
+  - Event creation confirmation
+  - Match notifications
+  - Event reminders
+
+#### 5.2 Billing Integration
+- **Payment Processing** (Stripe)
+  - Tier-based pricing
+  - Per-guest billing
+  - Payment webhooks
+  - Invoice generation
+
+#### 5.3 Analytics
+- **PostHog/Plausible Integration**
+  - User behavior tracking
+  - Event conversion funnels
+  - Match success rates
+  - Retention metrics
+
+---
+
+### Phase 6: Performance & Security
+
+#### 6.1 Database Optimization
+- Add database indexes for common queries
+- Implement query optimization
+- Set up connection pooling
+- Add caching layer (Redis)
+
+#### 6.2 Security
+- Implement Row Level Security (RLS) policies
+- Add rate limiting
+- Input validation and sanitization
+- CSRF protection
+- XSS prevention
+
+#### 6.3 Monitoring
+- Error tracking (Sentry)
+- Performance monitoring
+- Database query monitoring
+- Uptime monitoring
 
 ---
 

@@ -30,6 +30,17 @@ export default function SetupPage() {
   const [guestCount, setGuestCount] = useState(50);
 
   const handleNext = () => {
+    // Save event data to localStorage
+    const eventData = {
+      eventTitle,
+      hostName,
+      date,
+      matchingMode,
+      ageMode,
+      selectedTier,
+      guestCount,
+    };
+    localStorage.setItem("eventData", JSON.stringify(eventData));
     router.push("/onboarding/questions");
   };
 
