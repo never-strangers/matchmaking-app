@@ -51,30 +51,30 @@ export default function EventsPage() {
         </Link>
       </div>
       {events.length === 0 ? (
-        <p className="text-gray-medium mb-8">
-          In the next version, you&apos;ll see curated community events here.
-        </p>
+      <p className="text-gray-medium mb-8">
+        In the next version, you&apos;ll see curated community events here.
+      </p>
       ) : (
-        <div className="space-y-4">
+      <div className="space-y-4">
           {events.map((event, index) => (
-            <div
-              key={index}
+          <div
+            key={index}
               className="border border-beige-frame rounded-lg p-4 bg-white hover:shadow-md transition-shadow"
-            >
-              <h2 className="text-lg font-semibold text-gray-dark mb-2">
-                {event.title}
-              </h2>
-              <p className="text-sm text-gray-medium">
-                {event.city} • {event.date}
-              </p>
+          >
+            <h2 className="text-lg font-semibold text-gray-dark mb-2">
+              {event.title}
+            </h2>
+            <p className="text-sm text-gray-medium">
+              {event.city} • {event.date}
+            </p>
               {event.url && (
                 <p className="text-xs text-gray-medium font-mono mt-2">
                   {event.url}
                 </p>
               )}
-            </div>
-          ))}
-        </div>
+          </div>
+        ))}
+      </div>
       )}
     </div>
   );

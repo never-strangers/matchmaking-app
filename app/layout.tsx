@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
+import NavBar from "@/components/NavBar";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -36,32 +37,7 @@ export default function RootLayout({
                   </div>
                 </Link>
               </div>
-              <nav className="flex space-x-6">
-                <Link
-                  href="/onboarding"
-                  className="text-gray-medium hover:text-gray-dark text-sm font-medium transition-colors"
-                >
-                  Onboarding
-                </Link>
-                <Link
-                  href="/match"
-                  className="text-gray-medium hover:text-gray-dark text-sm font-medium transition-colors"
-                >
-                  Match
-                </Link>
-                <Link
-                  href="/events"
-                  className="text-gray-medium hover:text-gray-dark text-sm font-medium transition-colors"
-                >
-                  Events
-                </Link>
-                <Link
-                  href="/admin"
-                  className="text-gray-medium hover:text-gray-dark text-sm font-medium transition-colors"
-                >
-                  Admin
-                </Link>
-              </nav>
+              <NavBar />
             </div>
           </div>
         </header>

@@ -574,3 +574,170 @@ After deployment, you can add/update environment variables:
 - Preview deployments are created for pull requests
 - Environment variables are encrypted and secure
 - Custom domains support HTTPS automatically via Vercel's SSL certificates
+
+---
+
+## 💬 Demo Chat (Mock Realtime)
+
+The app includes a **demo-ready mocked realtime chat** system for CEO demonstrations. This is a fully functional chat UI that works across multiple browser tabs/windows without requiring any backend infrastructure.
+
+### How It Works
+
+The chat system uses:
+- **BroadcastChannel API** for realtime synchronization between tabs
+- **localStorage** for message persistence
+- **Window Storage Events** as a fallback for Safari compatibility
+
+### Demo Instructions
+
+1. **Open Two Browser Tabs**:
+   - Navigate to the app in both tabs
+   - Go to `/messages` in both tabs
+
+2. **Select Different Users**:
+   - In Tab 1: Click the user dropdown in the header → Select "Mikhail"
+   - In Tab 2: Click the user dropdown in the header → Select "Anna"
+
+3. **Start a Conversation**:
+   - In Tab 1: Go to `/match` → Click "Message" on Anna's profile
+   - This creates a conversation and opens the chat thread
+
+4. **Send Messages**:
+   - Type a message in Tab 1 and click "Send"
+   - The message will instantly appear in Tab 2
+   - Messages persist in localStorage, so refreshing won't lose data
+
+5. **Test Realtime Sync**:
+   - Send messages from either tab
+   - Watch them appear instantly in the other tab
+   - Try typing (you'll see "Typing..." indicator)
+
+### Features
+
+- ✅ **Realtime sync** between tabs using BroadcastChannel
+- ✅ **Message persistence** in localStorage
+- ✅ **User switching** via dropdown in chat header
+- ✅ **Conversation list** with last message preview and timestamps
+- ✅ **Unread badges** (fake, based on message count)
+- ✅ **Message bubbles** aligned left/right based on sender
+- ✅ **Typing indicators** (local only)
+- ✅ **Auto-scroll** to latest message
+- ✅ **Match page integration** - "Message" button creates conversations
+
+### File Structure
+
+```
+app/
+  messages/
+    page.tsx              # Conversation list
+    [id]/
+      page.tsx            # Chat thread view
+components/
+  Chat/
+    ChatHeader.tsx        # User dropdown + conversation title
+    ConversationListItem.tsx
+    MessageBubble.tsx
+    MessageComposer.tsx
+lib/
+  chatStore.ts            # Mock store with BroadcastChannel
+types/
+  chat.ts                 # TypeScript types
+```
+
+### Environment Variables
+
+Add to `.env.local`:
+
+```bash
+# Enable chat (default: enabled in dev, disabled in prod)
+NEXT_PUBLIC_ENABLE_CHAT=true
+
+# Chat mode (default: "mock")
+NEXT_PUBLIC_CHAT_MODE=mock
+```
+
+### Feature Flags
+
+The chat system respects feature flags:
+
+- **`NEXT_PUBLIC_ENABLE_CHAT`**: 
+  - Set to `"false"` to completely disable chat
+  - Default behavior: enabled in dev, disabled in prod (fail-safe)
+  - When disabled: "Messages" nav link is hidden, routes show "Chat Disabled"
+
+- **`NEXT_PUBLIC_CHAT_MODE`**:
+  - `"mock"` (default): Uses BroadcastChannel + localStorage
+  - `"supabase"`: Future production mode (not implemented yet)
+
+---
+
+## 🔄 Rollback to Production
+
+### Removing Demo Chat
+
+The demo chat is designed to be easily removable when transitioning to production:
+
+#### Option 1: Disable via Environment Variable (Recommended)
+
+Set in Vercel environment variables:
+```bash
+NEXT_PUBLIC_ENABLE_CHAT=false
+```
+
+This will:
+- Hide the "Messages" nav link
+- Show "Chat Disabled" message on chat routes
+- Keep code intact for future use
+
+#### Option 2: Complete Removal
+
+Delete the following files/folders:
+
+```bash
+# Routes
+rm -rf app/messages
+
+# Components
+rm -rf components/Chat
+
+# Library
+rm lib/chatStore.ts
+
+# Types
+rm types/chat.ts
+```
+
+Then remove the Messages nav link from `app/layout.tsx`:
+
+```tsx
+// Remove this block:
+{process.env.NEXT_PUBLIC_ENABLE_CHAT !== "false" && (
+  <Link href="/messages">Messages</Link>
+)}
+```
+
+And remove the Message button from `app/match/page.tsx`.
+
+#### Database Migration
+
+**No database migration required** - the mock chat uses localStorage only and doesn't create any database tables.
+
+#### Cleanup Checklist
+
+- [ ] Remove chat routes (`app/messages/*`)
+- [ ] Remove chat components (`components/Chat/*`)
+- [ ] Remove chat store (`lib/chatStore.ts`)
+- [ ] Remove chat types (`types/chat.ts`)
+- [ ] Remove Messages nav link from layout
+- [ ] Remove Message buttons from match page
+- [ ] Remove chat-related environment variables from `.env.example`
+- [ ] Update README to remove chat documentation
+
+---
+
+## 📝 Notes
+
+- Vercel automatically builds on every push to your main branch
+- Preview deployments are created for pull requests
+- Environment variables are encrypted and secure
+- Custom domains support HTTPS automatically via Vercel's SSL certificates
