@@ -33,11 +33,12 @@ export default function ChatHeader({
 
   return (
     <div className="bg-white border-b border-beige-frame px-4 py-3 flex items-center justify-between">
-      <h1 className="text-lg font-semibold text-gray-dark">
+      <h1 data-testid={conversationTitle ? "chat-thread-title" : "messages-title"} className="text-lg font-semibold text-gray-dark">
         {conversationTitle || "Messages"}
       </h1>
       <div className="relative">
         <button
+          data-testid="chat-user-switcher"
           onClick={() => setShowDropdown(!showDropdown)}
           className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-beige-light transition-colors"
         >
@@ -61,11 +62,15 @@ export default function ChatHeader({
           </svg>
         </button>
         {showDropdown && (
-          <div className="absolute right-0 mt-2 w-48 bg-white border border-beige-frame rounded-lg shadow-lg z-10">
+          <div 
+            data-testid="chat-user-dropdown"
+            className="absolute right-0 mt-2 w-48 bg-white border border-beige-frame rounded-lg shadow-lg z-10"
+          >
             <div className="py-1">
               {DEMO_USERS.map((user) => (
                 <button
                   key={user.id}
+                  data-testid={`chat-user-option-${user.id}`}
                   onClick={() => handleUserChange(user.id)}
                   className={`w-full text-left px-4 py-2 text-sm hover:bg-beige-light transition-colors flex items-center gap-2 ${
                     currentUser.id === user.id

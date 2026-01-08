@@ -36,6 +36,7 @@ export default function ConversationListItem({
 
   return (
     <Link
+      data-testid={`conversation-${conversation.id}`}
       href={`/messages/${conversation.id}`}
       className="block px-4 py-3 hover:bg-beige-light transition-colors border-b border-beige-frame"
     >

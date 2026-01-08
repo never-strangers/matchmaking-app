@@ -15,15 +15,17 @@ export default function CommunityCard({ members }: CommunityCardProps) {
         </h2>
         <Link
           href="/admin/followers"
+          data-testid="admin-community-all-followers-link"
           className="text-xs text-gray-medium hover:text-gray-dark transition-colors"
         >
           ALL FOLLOWERS →
         </Link>
       </div>
-      <div className="space-y-3">
+      <div className="space-y-3" data-testid="admin-users-table">
         {members.map((member, index) => (
           <div
             key={index}
+            data-testid={`admin-community-member-${index}`}
             className="flex justify-between items-center py-2 border-b border-beige-frame last:border-0"
           >
             <span className="text-sm text-gray-dark">{member.name}</span>

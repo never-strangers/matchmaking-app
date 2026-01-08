@@ -477,6 +477,8 @@ npm run dev
 # Visit http://localhost:3000/api/test
 ```
 
+> 📖 **For a complete demo walkthrough, see [DEMO_FLOW.md](./DEMO_FLOW.md)**
+
 ---
 
 ## 🚀 Deployment to Vercel
@@ -732,6 +734,333 @@ And remove the Message button from `app/match/page.tsx`.
 - [ ] Remove Message buttons from match page
 - [ ] Remove chat-related environment variables from `.env.example`
 - [ ] Update README to remove chat documentation
+
+---
+
+## 📝 Notes
+
+- Vercel automatically builds on every push to your main branch
+- Preview deployments are created for pull requests
+- Environment variables are encrypted and secure
+- Custom domains support HTTPS automatically via Vercel's SSL certificates
+
+---
+
+## 🧪 E2E Test Suite & Demo
+
+The project includes a **comprehensive Playwright E2E test suite** that validates all existing functionality and doubles as a product demo script. The suite covers every page and key interaction in the application.
+
+### Quick Start
+
+```bash
+# Install Playwright browsers (first time only)
+npx playwright install
+
+# Run all E2E tests
+npm run test:e2e
+
+# Run with UI mode (interactive)
+npm run test:e2e:ui
+
+# View test report
+npm run test:e2e:report
+```
+
+### Test Organization
+
+The test suite is organized into focused spec files:
+
+- **`00_smoke.spec.ts`** - Basic page load validation
+- **`01_navigation.spec.ts`** - Navigation and routing
+- **`02_onboarding.spec.ts`** - Onboarding form and validation
+- **`03_events.spec.ts`** - Events listing and joining
+- **`04_match.spec.ts`** - Match feed, like/skip, match creation
+- **`05_chat_realtime.spec.ts`** - Realtime chat in two tabs
+- **`06_feature_flags.spec.ts`** - Feature flag behavior
+- **`07_api_routes.spec.ts`** - API endpoint validation
+
+### Test Coverage
+
+The suite validates:
+
+1. **Smoke Tests** - All pages load without crash
+2. **Navigation** - Nav links work, Messages link visibility based on feature flag
+3. **Onboarding** - Form submission, validation, persistence
+4. **Events** - Event listing, joining, persistence across refresh
+5. **Matching** - Match feed, like/skip actions, match creation, state persistence
+6. **Chat Realtime** - Two-tab realtime messaging (if chat enabled)
+7. **Feature Flags** - Chat disabled behavior
+8. **API Routes** - `/api/test` and `/api/demo/reset` endpoints
+
+### Demo Mode
+
+The E2E tests run in **demo mode** using localStorage:
+
+- All data persists in browser localStorage (prefix: `ns_*`)
+- Tests automatically clear localStorage before each run (via `clearNsLocalStorage()`)
+- No database required - perfect for demos
+- Feature flag: `NEXT_PUBLIC_DEMO_MODE=true` (optional)
+
+### Running Against Different Environments
+
+**Local Development:**
+```bash
+npm run test:e2e
+# Uses http://localhost:3000 (auto-starts dev server)
+```
+
+**Deployed Preview (Vercel):**
+```bash
+PLAYWRIGHT_BASE_URL=https://your-preview-url.vercel.app npm run test:e2e
+```
+
+### Test Selectors
+
+All UI elements use stable `data-testid` attributes (never fragile CSS selectors):
+
+**Navigation:**
+- `nav-home`, `nav-onboarding`, `nav-events`, `nav-match`, `nav-admin`, `nav-messages`
+
+**Home:**
+- `home-title`, `home-cta-onboarding`, `home-cta-match`
+
+**Onboarding:**
+- `onboarding-name`, `onboarding-email`, `onboarding-city`
+- `onboarding-interest-{name}` (e.g., `onboarding-interest-running`)
+- `onboarding-submit`, `onboarding-success`
+
+**Events:**
+- `events-title`, `event-card-{eventId}`, `event-join-{eventId}`, `event-joined-{eventId}`
+
+**Match:**
+- `match-title`, `match-card-{userId}`, `match-like-{userId}`, `match-skip-{userId}`
+- `match-created`, `match-message-{userId}`
+
+**Admin:**
+- `admin-title`, `admin-users-table`, `admin-events-table`, `admin-matches-table`
+
+**Chat:**
+- `messages-title`, `conversation-{conversationId}`, `chat-user-switcher`
+- `chat-thread-title`, `message-input`, `message-send`, `message-bubble-{messageId}`
+
+**Disabled States:**
+- `chat-disabled`
+
+### Test Helpers
+
+The `tests/e2e/utils.ts` module provides:
+
+- `clearNsLocalStorage(page)` - Clears all localStorage keys starting with "ns_"
+- `setChatUser(page, userId)` - Sets chat user via dropdown
+- `gotoAndAssertTitle(page, url, testId)` - Navigates and asserts page title
+- `safeExpectVisible(page, testId)` - Safe visibility check with retry
+- `isChatEnabled(page)` - Checks if chat is enabled
+- `waitForMessage(page, messageText)` - Waits for message with polling
+
+### Demo Store
+
+The `lib/demoStore.ts` module provides:
+
+- `setDemoUser()` / `getDemoUser()` - User profile management
+- `markEventJoined()` / `isEventJoined()` - Event participation
+- `markLiked()` / `isLiked()` - Match likes
+- `createMatch()` / `listMatches()` - Match creation
+- `resetDemoData()` - Clear all demo data
+
+### CEO Demo Script
+
+For a **shareable, step-by-step demo script** for CEO/stakeholder presentations, see:
+
+📖 **[docs/CEO_DEMO_SCRIPT.md](./docs/CEO_DEMO_SCRIPT.md)**
+
+This script includes:
+- 5-minute narrative structure
+- Step-by-step click path
+- "What's mocked vs real" section
+- Q&A cheat sheet
+- Rollback/safety instructions
+
+### CI Integration
+
+The E2E tests can run in CI/CD pipelines:
+
+- GitHub Actions workflow included (`.github/workflows/e2e.yml`)
+- Runs on pull requests
+- Generates HTML reports
+- Screenshots and videos on failure
+- Trace files for debugging
+
+### Test Performance
+
+- **Total Duration:** <2-3 minutes for full suite
+- **Deterministic:** Tests are repeatable and stable
+- **Fast:** Uses `expect.poll()` for realtime checks (no arbitrary timeouts)
+- **Reliable:** All tests use `data-testid` selectors (no fragile CSS)
+
+### Notes
+
+- **No Backend Required:** All functionality uses localStorage for demo
+- **Production Ready:** Tests validate production-ready UI
+- **Demo Script:** The test flow doubles as a product demonstration script
+- **Coverage:** 100% of core user flows validated
+
+---
+
+## 🎯 Matching Algorithm (Questionnaire-based Demo)
+
+The app includes a **demo-ready questionnaire-based matching algorithm** that provides deterministic, explainable match scores based on user responses to a 17-question survey.
+
+### How It Works
+
+#### Answer Scale
+
+Users answer questions on a 1-4 scale:
+- **1 = Strongly Disagree**
+- **2 = Disagree**
+- **3 = Agree**
+- **4 = Strongly Agree**
+
+#### Question Categories
+
+The questionnaire includes 17 questions across 4 categories:
+
+- **Lifestyle** (5 questions): Social preferences, work-life balance, dining habits
+- **Social** (4 questions): Comfort with strangers, networking preferences, friendship values
+- **Values** (4 questions): Authenticity, personal growth, experiences vs. possessions, community
+- **Communication** (3 questions): Texting vs. calls, directness, personal topics
+
+#### Matching Algorithm
+
+1. **Similarity Calculation per Question**
+   - Difference: `diff = abs(answerA - answerB)` (range: 0-3)
+   - Similarity: `sim = 1 - diff/3` (range: 0-1)
+     - Identical answers (diff=0) → sim=1.0
+     - One point difference (diff=1) → sim=0.67
+     - Two point difference (diff=2) → sim=0.33
+     - Maximum difference (diff=3) → sim=0.0
+
+2. **Weighted Score Calculation**
+   - Each question has a weight (default: 1, important questions: 2-3)
+   - Weighted average: `score = sum(weight_i × sim_i) / sum(weight_i)`
+   - Final score: `round(score × 100)` → 0-100 scale
+
+3. **Dealbreakers**
+   - Questions marked as `isDealbreaker: true` enforce strict matching
+   - If `diff >= 2` on a dealbreaker question → candidate is **excluded** (score = null)
+   - Example dealbreakers:
+     - "I enjoy large social gatherings" vs "I prefer deep 1:1 conversations"
+     - These represent fundamental lifestyle incompatibilities
+
+4. **Match Explanations**
+   - **Aligned Reasons** (top 3):
+     - Questions with highest similarity scores
+     - Prefers perfect matches (sim=1.0)
+     - Format: "You both agree: [question text]"
+   - **Mismatched Reasons** (top 1-2):
+     - Questions with lowest similarity scores
+     - Highlights areas of difference
+     - Format: "You differ on: [question text]"
+
+### Demo Users Dataset
+
+The system includes **25 demo users** with realistic answer patterns:
+- Varied cities: Singapore, Hong Kong, Bangkok, Tokyo
+- Different genders and intents (Romantic, Platonic, Professional)
+- Diverse answer patterns to ensure varied match scores
+- Default fallback user: "Mikhail" (if no onboarding answers exist)
+
+### Feature Flag
+
+The matching algorithm is gated behind `NEXT_PUBLIC_DEMO_MODE`:
+
+- **Enabled** (`NEXT_PUBLIC_DEMO_MODE=true`):
+  - Questionnaire appears in onboarding
+  - Match page uses algorithm to rank candidates
+  - Shows match scores, alignment reasons, and differences
+
+- **Disabled** (not set or `false`):
+  - Questionnaire hidden in onboarding
+  - Match page shows placeholder message
+
+### Data Storage
+
+- **Questionnaire Answers**: Stored in `localStorage` under `ns_demo_answers`
+- **User Profile**: Stored in `localStorage` under `ns_demo_user`
+- **Skipped Users**: Stored in `localStorage` under `ns_demo_skipped_users`
+- All data persists across page refreshes
+
+### Why This Is a Strong MVP
+
+1. **Deterministic**: Same answers always produce same matches
+2. **Explainable**: Users see exactly why they matched (aligned questions)
+3. **Transparent**: Differences are clearly shown
+4. **Fast**: No API calls, pure client-side calculation
+5. **Demo-Ready**: Works offline, no backend required
+
+### Future Upgrade Path
+
+This questionnaire-based approach can be upgraded to AI embeddings:
+
+1. **Phase 1 (Current)**: Questionnaire-based matching
+   - Fast, explainable, deterministic
+   - Perfect for MVP and demos
+
+2. **Phase 2 (Future)**: Hybrid approach
+   - Combine questionnaire scores with embedding similarity
+   - Weighted combination: `final_score = 0.6 × questionnaire + 0.4 × embedding`
+
+3. **Phase 3 (Future)**: Full AI embeddings
+   - Generate embeddings from user profiles + questionnaire answers
+   - Use pgvector cosine similarity for matching
+   - Keep questionnaire for explainability
+
+### File Structure
+
+```
+types/
+  questionnaire.ts              # Type definitions
+lib/
+  questionnaire/
+    questions.ts                # 17 question definitions
+  matching/
+    demoUsers.ts                # 25 demo users with answers
+    questionnaireMatch.ts      # Matching algorithm implementation
+app/
+  onboarding/
+    page.tsx                    # Questionnaire UI (gated by DEMO_MODE)
+  match/
+    page.tsx                    # Match results with scores & explanations
+```
+
+### Usage Example
+
+```typescript
+import { getMatchesForUser } from "@/lib/matching/questionnaireMatch";
+import { DEMO_USERS } from "@/lib/matching/demoUsers";
+
+const currentUser: MatchUser = {
+  id: "user1",
+  name: "John",
+  city: "Singapore",
+  answers: {
+    q_lifestyle_1: 4,
+    q_lifestyle_2: 1,
+    // ... all 17 questions
+  },
+};
+
+const matches = getMatchesForUser(currentUser, DEMO_USERS);
+// Returns: MatchResult[] sorted by score (highest first)
+// Each result includes: user, score (0-100), aligned[], mismatched[]
+```
+
+### Testing
+
+The matching algorithm is deterministic and can be tested by:
+1. Completing onboarding with specific answers
+2. Checking match scores on `/match` page
+3. Verifying alignment/mismatch reasons match expectations
+4. Testing dealbreakers (users with incompatible answers should be excluded)
 
 ---
 

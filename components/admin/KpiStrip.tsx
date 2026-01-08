@@ -10,7 +10,11 @@ export default function KpiStrip({ kpis }: KpiStripProps) {
     <Card className="mb-8">
       <div className="grid grid-cols-3 gap-6">
         {kpis.map((kpi, index) => (
-          <div key={index} className="text-center">
+          <div 
+            key={index} 
+            data-testid={`kpi-${kpi.label.toLowerCase().replace(/\s+/g, '-')}`}
+            className="text-center"
+          >
             <p className="text-2xl font-semibold text-gray-dark mb-1">
               {kpi.value}
             </p>

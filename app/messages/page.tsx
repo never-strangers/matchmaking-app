@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import ChatHeader from "@/components/Chat/ChatHeader";
 import ConversationListItem from "@/components/Chat/ConversationListItem";
 import {
@@ -46,15 +47,15 @@ export default function MessagesPage() {
     return (
       <div className="max-w-2xl mx-auto px-4 py-16 text-center">
         <h1 className="text-2xl font-bold text-gray-dark mb-4">Chat Disabled</h1>
-        <p className="text-gray-medium mb-8">
+        <p data-testid="chat-disabled" className="text-gray-medium mb-8">
           Chat functionality is currently disabled.
         </p>
-        <a
+        <Link
           href="/"
           className="text-red-accent hover:underline"
         >
           Back to Home
-        </a>
+        </Link>
       </div>
     );
   }

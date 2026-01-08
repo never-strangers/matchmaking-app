@@ -57,6 +57,7 @@ export default function MessageComposer({
       )}
       <div className="flex items-end gap-2">
         <textarea
+          data-testid="message-input"
           value={message}
           onChange={(e) => handleInputChange(e.target.value)}
           onKeyPress={handleKeyPress}
@@ -66,6 +67,7 @@ export default function MessageComposer({
           style={{ minHeight: "40px", maxHeight: "120px" }}
         />
         <button
+          data-testid="message-send"
           onClick={handleSend}
           disabled={!message.trim()}
           className="bg-red-accent text-white px-6 py-2 rounded-lg font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"

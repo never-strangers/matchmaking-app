@@ -19,6 +19,7 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
 
   return (
     <div
+      data-testid={`message-bubble-${message.id}`}
       className={`flex items-end gap-2 mb-4 ${
         isOwnMessage ? "flex-row-reverse" : "flex-row"
       }`}

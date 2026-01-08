@@ -8,7 +8,7 @@ import { kpis, community, pastEvents } from "@/lib/admin/mock";
 export default function AdminPage() {
   return (
     <AdminShell>
-      <h1 className="text-4xl font-light text-gray-dark mb-12">
+      <h1 data-testid="admin-title" className="text-4xl font-light text-gray-dark mb-12">
         Your Events
       </h1>
       <KpiStrip kpis={kpis} />

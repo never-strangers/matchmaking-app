@@ -181,7 +181,7 @@ export default function MatchesPage() {
         </div>
 
         {/* Right Column - Sidebar */}
-        <div className="lg:sticky lg:top-6 lg:self-start">
+        <div className="lg:sticky lg:top-6 lg:self-start" data-testid="admin-matches-table">
           <MatchesSidebar matches={matchesRound1} />
         </div>
       </div>

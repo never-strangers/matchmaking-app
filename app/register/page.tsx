@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 
 const cities = [
   "Choose a City",
@@ -325,10 +326,13 @@ export default function RegisterPage() {
           <div className="flex items-center gap-4">
             <div className="w-24 h-24 border-2 border-beige-frame rounded-full flex items-center justify-center bg-white overflow-hidden">
               {formData.profilePhoto ? (
-                <img
+                <Image
                   src={URL.createObjectURL(formData.profilePhoto)}
                   alt="Profile preview"
+                  width={96}
+                  height={96}
                   className="w-full h-full object-cover"
+                  unoptimized
                 />
               ) : (
                 <div className="w-8 h-8 bg-blue-600 rounded-full"></div>

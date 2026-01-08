@@ -2,19 +2,23 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { markEventJoined, isEventJoined } from "@/lib/demoStore";
 
 const defaultEvents = [
   {
+    id: "event-coffee",
     title: "Coffee & Conversation",
     city: "Singapore",
     date: "March 15, 2024",
   },
   {
+    id: "event-running",
     title: "Running Club Meetup",
     city: "Hong Kong",
     date: "March 20, 2024",
   },
   {
+    id: "event-tech",
     title: "Tech Networking Night",
     city: "Bangkok",
     date: "March 25, 2024",
@@ -23,6 +27,7 @@ const defaultEvents = [
 
 export default function EventsPage() {
   const [events, setEvents] = useState(defaultEvents);
+  const [joinedEvents, setJoinedEvents] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     // Load events from localStorage
@@ -37,12 +42,27 @@ export default function EventsPage() {
       );
       setEvents(uniqueEvents);
     }
+    
+    // Load joined events
+    const joined = new Set<string>();
+    defaultEvents.forEach((event) => {
+      const eventId = event.id || `event-${defaultEvents.indexOf(event)}`;
+      if (isEventJoined(eventId)) {
+        joined.add(eventId);
+      }
+    });
+    setJoinedEvents(joined);
   }, []);
+
+  const handleJoin = (eventId: string) => {
+    markEventJoined(eventId);
+    setJoinedEvents((prev) => new Set([...prev, eventId]));
+  };
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-16">
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-dark">Events</h1>
+        <h1 data-testid="events-title" className="text-3xl font-bold text-gray-dark">Events</h1>
         <Link
           href="/onboarding/setup"
           className="bg-red-accent text-white px-6 py-3 rounded-lg font-medium hover:opacity-90 transition-opacity"
@@ -56,24 +76,45 @@ export default function EventsPage() {
       </p>
       ) : (
       <div className="space-y-4">
-          {events.map((event, index) => (
-          <div
-            key={index}
-              className="border border-beige-frame rounded-lg p-4 bg-white hover:shadow-md transition-shadow"
-          >
-            <h2 className="text-lg font-semibold text-gray-dark mb-2">
-              {event.title}
-            </h2>
-            <p className="text-sm text-gray-medium">
-              {event.city} • {event.date}
-            </p>
-              {event.url && (
-                <p className="text-xs text-gray-medium font-mono mt-2">
-                  {event.url}
-                </p>
-              )}
-          </div>
-        ))}
+          {events.map((event, index) => {
+            const eventId = event.id || `event-${index}`;
+            const joined = joinedEvents.has(eventId);
+            return (
+              <div
+                key={index}
+                data-testid={`event-card-${eventId}`}
+                className="border border-beige-frame rounded-lg p-4 bg-white hover:shadow-md transition-shadow"
+              >
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    <h2 className="text-lg font-semibold text-gray-dark mb-2">
+                      {event.title}
+                    </h2>
+                    <p className="text-sm text-gray-medium">
+                      {event.city} • {event.date}
+                    </p>
+                    {joined && (
+                      <span
+                        data-testid={`event-joined-${eventId}`}
+                        className="inline-block mt-2 text-xs bg-green-100 text-green-800 px-2 py-1 rounded"
+                      >
+                        ✓ Joined
+                      </span>
+                    )}
+                  </div>
+                  {!joined && (
+                    <button
+                      data-testid={`event-join-${eventId}`}
+                      onClick={() => handleJoin(eventId)}
+                      className="ml-4 bg-red-accent text-white px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity whitespace-nowrap"
+                    >
+                      Join
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
       </div>
       )}
     </div>
