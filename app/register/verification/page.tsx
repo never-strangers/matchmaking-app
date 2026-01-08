@@ -2,15 +2,16 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { getRegistrationData } from "@/lib/demoStore";
 
 export default function VerificationPage() {
   const [registrationData, setRegistrationData] = useState<any>(null);
 
   useEffect(() => {
-    // Load registration data from localStorage
-    const data = localStorage.getItem("registrationData");
+    // Load registration data
+    const data = getRegistrationData();
     if (data) {
-      setRegistrationData(JSON.parse(data));
+      setRegistrationData(data);
     }
   }, []);
 

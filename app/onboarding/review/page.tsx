@@ -5,17 +5,10 @@ import { useRouter } from "next/navigation";
 import FlowShell from "@/components/events/new/FlowShell";
 import PrimaryButton from "@/components/events/new/PrimaryButton";
 import TextField from "@/components/events/new/TextField";
+import { getEventData, clearEventData, addEvent } from "@/lib/demoStore";
 import { matchingModes, tiers } from "@/lib/events/new/mock";
 
-interface EventData {
-  eventTitle: string;
-  hostName: string;
-  date: string;
-  matchingMode: string;
-  selectedTier: string;
-  guestCount: number;
-  questionCount: number;
-}
+import type { EventData } from "@/lib/demoStore";
 
 export default function ReviewPage() {
   const router = useRouter();
@@ -26,21 +19,20 @@ export default function ReviewPage() {
   const [accountConfirmed, setAccountConfirmed] = useState(false);
 
   useEffect(() => {
-    // Load event data from localStorage
-    const stored = localStorage.getItem("eventData");
+    // Load event data
+    const stored = getEventData();
     if (stored) {
-      setEventData(JSON.parse(stored));
+      setEventData(stored);
     }
   }, []);
 
   const handleConfirm = () => {
     // Save event to events list
     if (eventData) {
-      const events = JSON.parse(localStorage.getItem("events") || "[]");
       const eventSlug = eventData.eventTitle
         ?.toLowerCase()
         .replace(/\s+/g, "") || "event";
-      const newEvent = {
+      addEvent({
         title: eventData.eventTitle || "New Event",
         city: "Singapore", // Default for now
         date: eventData.date || new Date().toLocaleDateString(),
@@ -48,12 +40,10 @@ export default function ReviewPage() {
         matchingMode: eventData.matchingMode,
         guestCount: eventData.guestCount,
         questionCount: eventData.questionCount,
-      };
-      events.unshift(newEvent); // Add to beginning
-      localStorage.setItem("events", JSON.stringify(events));
+      });
       
       // Clear event data
-      localStorage.removeItem("eventData");
+      clearEventData();
     }
     
     // Navigate to events page
@@ -72,7 +62,7 @@ export default function ReviewPage() {
 
   const matchingModeLabel = matchingModes.find(
     (m) => m.id === eventData.matchingMode
-  )?.title || eventData.matchingMode;
+  )?.title || eventData.matchingMode || "Platonic";
   const tier = tiers.find((t) => t.id === eventData.selectedTier);
   const eventSlug = eventData.eventTitle
     ?.toLowerCase()

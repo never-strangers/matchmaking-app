@@ -164,6 +164,104 @@ function getSkippedUsers(): string[] {
   }
 }
 
+// Event Data (for onboarding flow)
+export interface EventData {
+  eventTitle?: string;
+  hostName?: string;
+  date?: string;
+  matchingMode?: string;
+  ageMode?: string;
+  selectedTier?: string;
+  guestCount?: number;
+  questionCount?: number;
+  selectedQuestions?: string[];
+}
+
+export function setEventData(data: EventData): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(`${DEMO_PREFIX}event_data`, JSON.stringify(data));
+}
+
+export function getEventData(): EventData | null {
+  if (typeof window === "undefined") return null;
+  const stored = localStorage.getItem(`${DEMO_PREFIX}event_data`);
+  if (!stored) return null;
+  try {
+    return JSON.parse(stored);
+  } catch {
+    return null;
+  }
+}
+
+export function clearEventData(): void {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(`${DEMO_PREFIX}event_data`);
+}
+
+// Events List
+export interface DemoEvent {
+  id?: string;
+  title: string;
+  city: string;
+  date: string;
+  url?: string;
+  matchingMode?: string;
+  guestCount?: number;
+  questionCount?: number;
+}
+
+export function listEvents(): DemoEvent[] {
+  if (typeof window === "undefined") return [];
+  const stored = localStorage.getItem(`${DEMO_PREFIX}events`);
+  if (!stored) return [];
+  try {
+    return JSON.parse(stored);
+  } catch {
+    return [];
+  }
+}
+
+export function addEvent(event: DemoEvent): void {
+  if (typeof window === "undefined") return;
+  const events = listEvents();
+  events.unshift(event); // Add to beginning
+  localStorage.setItem(`${DEMO_PREFIX}events`, JSON.stringify(events));
+}
+
+// Registration Data (for register flow)
+export interface RegistrationData {
+  email?: string;
+  firstName?: string;
+  lastName?: string;
+  password?: string;
+  city?: string;
+  birthDate?: string;
+  gender?: string;
+  attractedTo?: string[];
+  lookingFor?: string[];
+  whyNeverStrangers?: string;
+  instagram?: string;
+  profilePhoto?: File | null;
+  termsAccepted?: boolean;
+  privacyAccepted?: boolean;
+}
+
+export function setRegistrationData(data: RegistrationData): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(`${DEMO_PREFIX}registration_data`, JSON.stringify(data));
+}
+
+export function getRegistrationData(): RegistrationData | null {
+  if (typeof window === "undefined") return null;
+  const stored = localStorage.getItem(`${DEMO_PREFIX}registration_data`);
+  if (!stored) return null;
+  try {
+    return JSON.parse(stored);
+  } catch {
+    return null;
+  }
+}
+
 // Reset all demo data
 export function resetDemoData(): void {
   if (typeof window === "undefined") return;

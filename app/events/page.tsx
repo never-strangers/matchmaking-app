@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { markEventJoined, isEventJoined } from "@/lib/demoStore";
+import { markEventJoined, isEventJoined, listEvents, type DemoEvent } from "@/lib/demoStore";
 
-const defaultEvents = [
+const defaultEvents: DemoEvent[] = [
   {
     id: "event-coffee",
     title: "Coffee & Conversation",
@@ -26,16 +26,15 @@ const defaultEvents = [
 ];
 
 export default function EventsPage() {
-  const [events, setEvents] = useState(defaultEvents);
+  const [events, setEvents] = useState<DemoEvent[]>(defaultEvents);
   const [joinedEvents, setJoinedEvents] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    // Load events from localStorage
-    const storedEvents = localStorage.getItem("events");
-    if (storedEvents) {
-      const parsed = JSON.parse(storedEvents);
+    // Load events from demo store
+    const storedEvents = listEvents();
+    if (storedEvents.length > 0) {
       // Merge with default events, avoiding duplicates
-      const allEvents = [...parsed, ...defaultEvents];
+      const allEvents = [...storedEvents, ...defaultEvents];
       // Remove duplicates based on title
       const uniqueEvents = Array.from(
         new Map(allEvents.map((e) => [e.title, e])).values()

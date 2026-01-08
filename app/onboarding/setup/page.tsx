@@ -9,11 +9,11 @@ import TextField from "@/components/events/new/TextField";
 import TierCard from "@/components/events/new/TierCard";
 import GuestsSlider from "@/components/events/new/GuestsSlider";
 import PrimaryButton from "@/components/events/new/PrimaryButton";
+import { setEventData } from "@/lib/demoStore";
 import {
   matchingModes,
   ageModes,
   tiers,
-  guestTicks,
   MatchingMode,
   AgeMode,
   TierId,
@@ -30,8 +30,8 @@ export default function SetupPage() {
   const [guestCount, setGuestCount] = useState(50);
 
   const handleNext = () => {
-    // Save event data to localStorage
-    const eventData = {
+    // Save event data
+    setEventData({
       eventTitle,
       hostName,
       date,
@@ -39,8 +39,7 @@ export default function SetupPage() {
       ageMode,
       selectedTier,
       guestCount,
-    };
-    localStorage.setItem("eventData", JSON.stringify(eventData));
+    });
     router.push("/onboarding/questions");
   };
 

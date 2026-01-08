@@ -59,7 +59,7 @@ export default function QuestionsPage() {
   );
 
   const handleNext = () => {
-    console.log("Selected questions:", selectedQuestions);
+    // TODO: Implement event creation flow
     // router.push("/events/new/review");
   };
 

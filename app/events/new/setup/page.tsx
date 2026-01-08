@@ -13,7 +13,6 @@ import {
   matchingModes,
   ageModes,
   tiers,
-  guestTicks,
   MatchingMode,
   AgeMode,
   TierId,

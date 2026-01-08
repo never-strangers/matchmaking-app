@@ -8,6 +8,7 @@ import PillTabs from "@/components/events/new/PillTabs";
 import QuestionChip from "@/components/events/new/QuestionChip";
 import SelectedQuestionList from "@/components/events/new/SelectedQuestionList";
 import PrimaryButton from "@/components/events/new/PrimaryButton";
+import { getEventData, setEventData } from "@/lib/demoStore";
 import {
   questions,
   questionCategories,
@@ -60,18 +61,15 @@ export default function QuestionsPage() {
 
   const handleNext = () => {
     // Load existing event data
-    const existingData = JSON.parse(
-      localStorage.getItem("eventData") || "{}"
-    );
+    const existingData = getEventData() || {};
     
     // Save event data with question count
-    const eventData = {
+    setEventData({
       ...existingData,
       questionCount: selectedQuestions.length,
       selectedQuestions: selectedQuestions,
-    };
+    });
     
-    localStorage.setItem("eventData", JSON.stringify(eventData));
     router.push("/onboarding/review");
   };
 

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+import { setRegistrationData } from "@/lib/demoStore";
 
 const cities = [
   "Choose a City",
@@ -67,7 +68,7 @@ export default function RegisterPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     // Save registration data (mocked)
-    localStorage.setItem("registrationData", JSON.stringify(formData));
+    setRegistrationData(formData);
     // Navigate to verification page
     router.push("/register/verification");
   };
