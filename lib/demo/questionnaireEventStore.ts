@@ -31,6 +31,9 @@ function listEventQuestionnaires(): EventQuestionnaireAnswers[] {
       }
     }
   }
+  if (!stored) {
+    return [];
+  }
   try {
     return JSON.parse(stored);
   } catch {

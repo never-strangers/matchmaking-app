@@ -68,6 +68,7 @@ export function initializeDemoData(): void {
       approvedAt: yesterday,
       gender: "female",
       orientation: { attractedTo: ["male"], lookingFor: ["date"] },
+      role: "user",
     },
     {
       id: "alex",
@@ -82,6 +83,7 @@ export function initializeDemoData(): void {
       approvedAt: yesterday,
       gender: "male",
       orientation: { attractedTo: ["female"], lookingFor: ["date", "friends"] },
+      role: "user",
     },
     {
       id: "daniel",
@@ -96,6 +98,7 @@ export function initializeDemoData(): void {
       approvedAt: yesterday,
       gender: "male",
       orientation: { attractedTo: ["female"], lookingFor: ["friends"] },
+      role: "user",
     },
     {
       id: "david",
@@ -110,6 +113,7 @@ export function initializeDemoData(): void {
       approvedAt: yesterday,
       gender: "male",
       orientation: { attractedTo: ["female"], lookingFor: ["date"] },
+      role: "user",
     },
     {
       id: "chris",
@@ -124,6 +128,7 @@ export function initializeDemoData(): void {
       approvedAt: oneHourAgo,
       gender: "male",
       orientation: { attractedTo: ["female"], lookingFor: ["date"] },
+      role: "user",
     },
     {
       id: "ethan",
@@ -138,6 +143,7 @@ export function initializeDemoData(): void {
       rejectedAt: twoDaysAgo,
       gender: "male",
       orientation: { attractedTo: ["female"], lookingFor: ["friends"] },
+      role: "user",
     },
     {
       id: "isabella",
@@ -152,6 +158,7 @@ export function initializeDemoData(): void {
       rejectedAt: oneHourAgo,
       gender: "female",
       orientation: { attractedTo: ["male"], lookingFor: ["date"] },
+      role: "user",
     },
     {
       id: "ava",
@@ -165,6 +172,7 @@ export function initializeDemoData(): void {
       createdAt: tenMinutesAgo,
       gender: "female",
       orientation: { attractedTo: ["male"], lookingFor: ["date"] },
+      role: "user",
     },
     {
       id: "emma",
@@ -180,6 +188,7 @@ export function initializeDemoData(): void {
       approvedAt: yesterday,
       gender: "female",
       orientation: { attractedTo: ["male"], lookingFor: ["date"] },
+      role: "user",
     },
     {
       id: "james",
@@ -194,6 +203,7 @@ export function initializeDemoData(): void {
       approvedAt: yesterday,
       gender: "male",
       orientation: { attractedTo: ["female"], lookingFor: ["friends"] },
+      role: "user",
     },
     {
       id: "sarah",
@@ -208,6 +218,7 @@ export function initializeDemoData(): void {
       approvedAt: yesterday,
       gender: "female",
       orientation: { attractedTo: ["male"], lookingFor: ["friends", "date"] },
+      role: "user",
     },
     {
       id: "mike",
@@ -222,6 +233,7 @@ export function initializeDemoData(): void {
       approvedAt: yesterday,
       gender: "male",
       orientation: { attractedTo: ["female"], lookingFor: ["date"] },
+      role: "user",
     },
   ];
 

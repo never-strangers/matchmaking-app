@@ -30,6 +30,9 @@ export function listRegistrations(): EventRegistration[] {
       return listRegistrations();
     }
   }
+  if (!stored) {
+    return [];
+  }
   try {
     return JSON.parse(stored);
   } catch {

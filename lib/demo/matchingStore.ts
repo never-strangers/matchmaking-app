@@ -38,6 +38,9 @@ function listMatchResults(): MatchResult[] {
       }
     }
   }
+  if (!stored) {
+    return [];
+  }
   try {
     return JSON.parse(stored);
   } catch {
@@ -113,6 +116,9 @@ function listMatchActions(): MatchActionRecord[] {
       }
     }
   }
+  if (!stored) {
+    return [];
+  }
   try {
     return JSON.parse(stored);
   } catch {
@@ -173,6 +179,9 @@ function listMutualLikes(): MutualLike[] {
         return listMutualLikes();
       }
     }
+  }
+  if (!stored) {
+    return [];
   }
   try {
     return JSON.parse(stored);
@@ -294,11 +303,11 @@ export function getUserMatchesForEvent(
     seedMatches();
     // Also seed mutual likes and actions
     const storedActions = localStorage.getItem(MATCH_ACTIONS_KEY);
-    if (!storedActions || JSON.parse(storedActions).length === 0) {
+    if (!storedActions || (storedActions && JSON.parse(storedActions).length === 0)) {
       seedMatchActions();
     }
     const storedLikes = localStorage.getItem(MUTUAL_LIKES_KEY);
-    if (!storedLikes || JSON.parse(storedLikes).length === 0) {
+    if (!storedLikes || (storedLikes && JSON.parse(storedLikes).length === 0)) {
       seedMutualLikes();
     }
   }

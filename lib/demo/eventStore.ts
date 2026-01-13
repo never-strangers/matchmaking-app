@@ -16,6 +16,9 @@ export function listEvents(): Event[] {
     saveEvents(seeded);
     return seeded;
   }
+  if (!stored) {
+    return [];
+  }
   try {
     return JSON.parse(stored);
   } catch {

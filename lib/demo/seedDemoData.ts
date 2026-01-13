@@ -56,6 +56,7 @@ export function seedAllDemoData() {
       approvedAt: yesterday,
       gender: "female",
       orientation: { attractedTo: ["male"], lookingFor: ["date"] },
+      role: "user",
     },
     {
       id: "alex",
@@ -70,6 +71,7 @@ export function seedAllDemoData() {
       approvedAt: yesterday,
       gender: "male",
       orientation: { attractedTo: ["female"], lookingFor: ["date", "friends"] },
+      role: "user",
     },
     {
       id: "daniel",
@@ -84,6 +86,7 @@ export function seedAllDemoData() {
       approvedAt: yesterday,
       gender: "male",
       orientation: { attractedTo: ["female"], lookingFor: ["friends"] },
+      role: "user",
     },
     {
       id: "david",
@@ -98,6 +101,7 @@ export function seedAllDemoData() {
       approvedAt: yesterday,
       gender: "male",
       orientation: { attractedTo: ["female"], lookingFor: ["date"] },
+      role: "user",
     },
     // Pending approval
     {
@@ -112,6 +116,7 @@ export function seedAllDemoData() {
       createdAt: oneHourAgo,
       gender: "male",
       orientation: { attractedTo: ["female"], lookingFor: ["date"] },
+      role: "user",
     },
     // Rejected (cooldown expired)
     {
@@ -127,6 +132,7 @@ export function seedAllDemoData() {
       rejectedAt: twoDaysAgo, // Can reapply now
       gender: "male",
       orientation: { attractedTo: ["female"], lookingFor: ["friends"] },
+      role: "user",
     },
     // Rejected (cooldown active)
     {
@@ -142,6 +148,7 @@ export function seedAllDemoData() {
       rejectedAt: oneHourAgo, // Still in cooldown
       gender: "female",
       orientation: { attractedTo: ["male"], lookingFor: ["date"] },
+      role: "user",
     },
     // Unverified
     {
@@ -156,6 +163,7 @@ export function seedAllDemoData() {
       createdAt: tenMinutesAgo,
       gender: "female",
       orientation: { attractedTo: ["male"], lookingFor: ["date"] },
+      role: "user",
     },
     // Approved with city change request
     {
@@ -172,6 +180,7 @@ export function seedAllDemoData() {
       approvedAt: yesterday,
       gender: "female",
       orientation: { attractedTo: ["male"], lookingFor: ["date"] },
+      role: "user",
     },
     // Approved (Hong Kong)
     {
@@ -187,6 +196,7 @@ export function seedAllDemoData() {
       approvedAt: yesterday,
       gender: "male",
       orientation: { attractedTo: ["female"], lookingFor: ["friends"] },
+      role: "user",
     },
   ];
 

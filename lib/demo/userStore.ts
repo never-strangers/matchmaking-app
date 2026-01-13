@@ -34,6 +34,9 @@ export function listUsers(): UserProfile[] {
       return seeded;
     }
   }
+  if (!stored) {
+    return [];
+  }
   try {
     return JSON.parse(stored);
   } catch {

@@ -26,6 +26,9 @@ function listCheckIns(): CheckIn[] {
       }
     }
   }
+  if (!stored) {
+    return [];
+  }
   try {
     return JSON.parse(stored);
   } catch {
