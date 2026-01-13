@@ -7,8 +7,12 @@ import DemoDataInit from "@/components/DemoDataInit";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Never Strangers",
-  description: "Invite-only matching for meaningful connections.",
+  title: {
+    default: "Never Strangers - A New Way to Meet People",
+    template: "%s | Never Strangers",
+  },
+  description:
+    "Using an algorithm to find your idea partner at the party itself. We are bringing back the joys of connecting with people organically. Say goodbye to dating apps!",
 };
 
 export default function RootLayout({
