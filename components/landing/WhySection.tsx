@@ -13,8 +13,8 @@ export default function WhySection() {
 
         <p className="text-2xl md:text-3xl lg:text-4xl font-normal text-gray-dark leading-relaxed">
           Say goodbye to online apps! With a little <strong>help from</strong>{" "}
-          <strong>us</strong>, we'll find your ideal match at a mixer*. We all
-          start as strangers until someone shows up with <strong>'Hello'.</strong>
+          <strong>us</strong>, we&apos;ll find your ideal match at a mixer*. We all
+          start as strangers until someone shows up with <strong>&apos;Hello&apos;.</strong>
         </p>
       </div>
     </section>
