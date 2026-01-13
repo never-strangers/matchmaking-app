@@ -61,10 +61,12 @@ export default function MessagesPage() {
   }
 
   return (
-    <div className="flex h-screen bg-beige-light">
-      <div className="w-full md:w-96 border-r border-beige-frame bg-white flex flex-col">
-        <ChatHeader />
-        <div className="flex-1 overflow-y-auto">
+    <div data-messages-page className="fixed inset-0 flex bg-beige-light overflow-hidden" style={{ height: '100vh', height: '100dvh' }}>
+      <div className="w-full md:w-96 border-r border-beige-frame bg-white flex flex-col overflow-hidden" style={{ height: '100%' }}>
+        <div className="flex-shrink-0">
+          <ChatHeader showBackButton={true} backHref="/" />
+        </div>
+        <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0">
           {conversations.length === 0 ? (
             <div className="px-4 py-8 text-center text-gray-medium">
               <p>No conversations yet.</p>

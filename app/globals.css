@@ -9,4 +9,40 @@
   }
 }
 
+@layer utilities {
+  /* Safe area insets for mobile devices (notches, home indicators) */
+  .safe-area-inset-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  
+  .safe-area-inset-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  
+  /* Touch-friendly tap targets */
+  .touch-manipulation {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  /* Dynamic viewport height for mobile (accounts for browser UI) */
+  .h-dvh {
+    height: 100dvh;
+  }
+  
+  .h-screen-dvh {
+    height: 100vh;
+    height: 100dvh; /* Use dynamic viewport height when supported */
+  }
+}
+
+/* Ensure messages pages are full-screen and hide layout header */
+body:has([data-messages-page]) header {
+  display: none;
+}
+
+body:has([data-messages-page]) {
+  overflow: hidden;
+}
+
 

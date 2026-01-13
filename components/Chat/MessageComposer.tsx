@@ -46,7 +46,7 @@ export default function MessageComposer({
   };
 
   return (
-    <div className="border-t border-beige-frame bg-white p-4">
+    <div className="bg-white p-3 sm:p-4 safe-area-inset-bottom w-full">
       {isTyping && (
         <div className="text-xs text-gray-medium mb-2 px-2">
           <span className="inline-flex items-center gap-1">
@@ -55,7 +55,7 @@ export default function MessageComposer({
           </span>
         </div>
       )}
-      <div className="flex items-end gap-2">
+      <div className="flex items-end gap-2 w-full">
         <textarea
           data-testid="message-input"
           value={message}
@@ -63,14 +63,14 @@ export default function MessageComposer({
           onKeyPress={handleKeyPress}
           placeholder="Type a message..."
           rows={1}
-          className="flex-1 px-4 py-2 border border-beige-frame rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-red-accent focus:border-transparent text-sm"
-          style={{ minHeight: "40px", maxHeight: "120px" }}
+          className="flex-1 px-3 sm:px-4 py-2 border border-beige-frame rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-red-accent focus:border-transparent text-sm sm:text-base"
+          style={{ minHeight: "44px", maxHeight: "120px" }}
         />
         <button
           data-testid="message-send"
           onClick={handleSend}
           disabled={!message.trim()}
-          className="bg-red-accent text-white px-6 py-2 rounded-lg font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+          className="bg-red-accent text-white px-4 sm:px-6 py-2.5 sm:py-2 rounded-lg font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base touch-manipulation min-w-[60px] sm:min-w-[80px] flex-shrink-0"
         >
           Send
         </button>

@@ -88,6 +88,7 @@ export default function RegisterPage() {
             type="email"
             id="email"
             name="email"
+            data-testid="register-email"
             value={formData.email}
             onChange={handleInputChange}
             required
@@ -107,6 +108,7 @@ export default function RegisterPage() {
             type="text"
             id="firstName"
             name="firstName"
+            data-testid="register-name"
             value={formData.firstName}
             onChange={handleInputChange}
             required
@@ -172,6 +174,7 @@ export default function RegisterPage() {
           <select
             id="city"
             name="city"
+            data-testid="register-city"
             value={formData.city}
             onChange={handleInputChange}
             required
@@ -399,9 +402,10 @@ export default function RegisterPage() {
         <div className="flex gap-4 pt-4">
           <button
             type="submit"
+            data-testid="register-submit"
             className="flex-1 bg-red-accent text-white px-8 py-3 rounded-lg font-medium hover:opacity-90 transition-opacity"
           >
-            Register
+            Request access
           </button>
           <Link
             href="/login"

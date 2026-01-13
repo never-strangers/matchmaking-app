@@ -115,8 +115,8 @@ export default function ConversationPage() {
   }
 
   return (
-    <div className="flex h-screen bg-beige-light">
-      <div className="hidden md:block w-96 border-r border-beige-frame bg-white">
+    <div data-messages-page className="fixed inset-0 flex bg-beige-light overflow-hidden" style={{ height: '100vh', height: '100dvh' }}>
+      <div className="hidden md:block w-96 border-r border-beige-frame bg-white flex-shrink-0">
         <div className="p-4">
           <Link
             href="/messages"
@@ -126,13 +126,37 @@ export default function ConversationPage() {
           </Link>
         </div>
       </div>
-      <div className="flex-1 flex flex-col bg-white">
-        <ChatHeader conversationTitle={conversation.title} />
-        <div className="flex-1 overflow-y-auto px-4 py-6">
+      <div className="flex-1 flex flex-col bg-white min-w-0 overflow-hidden" style={{ height: '100%' }}>
+        <div className="md:hidden border-b border-beige-frame bg-white px-4 py-3 flex-shrink-0">
+          <Link
+            href="/messages"
+            className="inline-flex items-center gap-2 text-sm text-gray-medium hover:text-gray-dark"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={2}
+              stroke="currentColor"
+              className="w-5 h-5"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M15.75 19.5L8.25 12l7.5-7.5"
+              />
+            </svg>
+            Back
+          </Link>
+        </div>
+        <div className="flex-shrink-0">
+          <ChatHeader conversationTitle={conversation.title} />
+        </div>
+        <div className="flex-1 overflow-y-auto overflow-x-hidden px-3 sm:px-4 py-4 sm:py-6 min-h-0">
           {messages.length === 0 ? (
             <div className="text-center text-gray-medium py-8">
-              <p>No messages yet.</p>
-              <p className="text-sm mt-2">Start the conversation!</p>
+              <p className="text-sm sm:text-base">No messages yet.</p>
+              <p className="text-xs sm:text-sm mt-2">Start the conversation!</p>
             </div>
           ) : (
             <>
@@ -143,12 +167,14 @@ export default function ConversationPage() {
             </>
           )}
         </div>
-        <MessageComposer
-          conversationId={conversationId}
-          onMessageSent={() => {
-            setMessages(listMessages(conversationId));
-          }}
-        />
+        <div className="flex-shrink-0 border-t border-beige-frame bg-white">
+          <MessageComposer
+            conversationId={conversationId}
+            onMessageSent={() => {
+              setMessages(listMessages(conversationId));
+            }}
+          />
+        </div>
       </div>
     </div>
   );

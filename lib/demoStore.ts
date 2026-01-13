@@ -1,6 +1,8 @@
 "use client";
 
 import { QuestionnaireAnswers } from "@/types/questionnaire";
+import { getUserById } from "@/lib/demo/userStore";
+import { getCurrentUserId } from "@/lib/demo/authStore";
 
 const DEMO_PREFIX = "ns_demo_";
 
@@ -27,6 +29,23 @@ export function setDemoUser(user: DemoUser): void {
 
 export function getDemoUser(): DemoUser | null {
   if (typeof window === "undefined") return null;
+  
+  // Try to get from new user store first
+  const userId = getCurrentUserId();
+  if (userId) {
+    const userProfile = getUserById(userId);
+    if (userProfile) {
+      return {
+        id: userProfile.id,
+        name: userProfile.name,
+        email: userProfile.email,
+        city: userProfile.city,
+        interests: [], // Interests not in new model, but keep for compatibility
+      };
+    }
+  }
+  
+  // Fallback to legacy storage
   const stored = localStorage.getItem(`${DEMO_PREFIX}user`);
   if (!stored) return null;
   try {

@@ -20,29 +20,29 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
   return (
     <div
       data-testid={`message-bubble-${message.id}`}
-      className={`flex items-end gap-2 mb-4 ${
+      className={`flex items-end gap-2 mb-3 sm:mb-4 ${
         isOwnMessage ? "flex-row-reverse" : "flex-row"
       }`}
     >
       {!isOwnMessage && (
-        <div className="w-8 h-8 rounded-full bg-red-accent flex items-center justify-center text-white text-xs font-medium flex-shrink-0">
+        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-red-accent flex items-center justify-center text-white text-xs font-medium flex-shrink-0">
           {sender?.name.charAt(0) || "?"}
         </div>
       )}
-      <div className={`flex flex-col ${isOwnMessage ? "items-end" : "items-start"} max-w-[70%]`}>
+      <div className={`flex flex-col ${isOwnMessage ? "items-end" : "items-start"} max-w-[85%] sm:max-w-[70%]`}>
         {!isOwnMessage && (
           <span className="text-xs text-gray-medium mb-1 px-1">
             {sender?.name || "Unknown"}
           </span>
         )}
         <div
-          className={`rounded-2xl px-4 py-2 ${
+          className={`rounded-2xl px-3 sm:px-4 py-2 ${
             isOwnMessage
               ? "bg-red-accent text-white"
               : "bg-white border border-beige-frame text-gray-dark"
           }`}
         >
-          <p className="text-sm whitespace-pre-wrap break-words">
+          <p className="text-sm sm:text-base whitespace-pre-wrap break-words">
             {message.body}
           </p>
         </div>

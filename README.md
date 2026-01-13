@@ -163,6 +163,83 @@ The following features are currently using mock data or localStorage and need da
 
 ---
 
+## 🎭 Demo Version - Enforced Rules
+
+The demo version now enforces all business rules end-to-end using localStorage and in-memory stores. See [docs/production-todos.md](./docs/production-todos.md) for what remains for production.
+
+### ✅ Demo Features Implemented
+
+- **Registration & OTP**: Mock email OTP verification (code: `123456`)
+- **User Status**: PENDING → APPROVED/REJECTED workflow with 24h cooldown
+- **City Locking**: City locked after approval; change requires admin approval
+- **Event Filtering**: Approved users only see events in their city
+- **Per-Event Questionnaire**: Answers stored per event; >=10 answers required for RSVP
+- **RSVP State Machine**: HOLD (10min) → CONFIRMED (after payment) → WAITLIST
+- **Capacity Enforcement**: Hard capacity limits with waitlist promotion
+- **Overlap Prevention**: Users cannot RSVP to overlapping events
+- **Check-in System**: Check-in required before matching
+- **Matching Constraints**: Gender/orientation, historical exclusion, max 3 matches
+- **Mutual Like**: Chat unlocked only after mutual like
+- **Notifications**: In-app notification center with email logging
+
+### 🎬 CEO Demo Script
+
+**Step 1: Create Users**
+1. Navigate to `/register`
+2. Fill out registration form (email, name, city, gender, etc.)
+3. Submit → OTP page appears
+4. Enter OTP: `123456` → Account created with status `PENDING`
+
+**Step 2: Admin Approval**
+1. Switch to Admin role (top right)
+2. Go to `/admin` → "User Approvals" tab
+3. Click "Approve" on pending user
+4. User receives notification (check `/notifications`)
+5. User's city is now locked
+
+**Step 3: Answer Questions & RSVP**
+1. Switch back to approved user
+2. Go to `/events` → See events in user's city only
+3. Click on event → Answer at least 10 questions (if not done)
+4. Click "RSVP" → Creates HOLD (10 min expiry)
+5. Click "Pay Now" → Mock payment → RSVP becomes CONFIRMED
+
+**Step 4: Check-in & Matching**
+1. Switch to Admin → `/admin` → "Events" tab
+2. Find event → Check in all confirmed attendees
+3. When all checked in → "Run Matching" button appears
+4. Click "Run Matching" → Matches created
+5. Users receive match notifications
+
+**Step 5: Mutual Like & Chat**
+1. Switch to user → `/match` → Select event
+2. See matches → Click "Like" on a match
+3. If other user also likes → Mutual like notification
+4. "Message" button appears → Click to open chat
+5. Chat is gated: only works if mutual like exists
+
+**Step 6: Test Edge Cases**
+- Try RSVPing to overlapping events → Blocked
+- Let RSVP hold expire → Seat released
+- Fill event capacity → Next RSVP goes to waitlist
+- Reject user → Try to reapply → 24h cooldown enforced
+
+### 📋 Demo vs Production
+
+| Feature | Demo | Production |
+|---------|------|------------|
+| Data Storage | localStorage | PostgreSQL |
+| Authentication | Mock OTP | Real email OTP |
+| Payments | Mock button | Stripe/PayPal |
+| Notifications | In-app + console.log | Email + Push |
+| Background Jobs | None | Job queue |
+| Real-time | BroadcastChannel | WebSockets |
+| Security | Minimal | Full hardening |
+
+See [docs/production-todos.md](./docs/production-todos.md) for complete production checklist.
+
+---
+
 ## 🏗️ Production Implementation Plan
 
 ### Phase 1: Database Schema & Authentication
@@ -746,6 +823,87 @@ And remove the Message button from `app/match/page.tsx`.
 
 ---
 
+## 🎯 Demo Happy Path (Fully Automated)
+
+The app includes a complete, deterministic demo flow that works entirely with localStorage and BroadcastChannel (no external dependencies). This is perfect for CEO demos and testing.
+
+### Running the Demo
+
+1. **Start the development server:**
+   ```bash
+   npm run dev
+   ```
+
+2. **Run the full happy path E2E test:**
+   ```bash
+   npm run test:e2e -- happy-path.spec.ts
+   ```
+
+### Happy Path Flow
+
+The automated test validates this complete flow:
+
+1. **Registration** → `/register`
+   - Fill name, email, city (Singapore)
+   - Enter OTP: `123456`
+   - Redirects to `/events` with "Pending admin approval" banner
+
+2. **Admin Approval** → `/admin`
+   - Switch to Admin role
+   - Approve user → City locked + notification sent
+
+3. **Answer Questions** → `/events/[eventId]/questions`
+   - Shows exactly 10 questions
+   - All pre-filled with default value 3 (Agree)
+   - Save answers → Questionnaire completed
+
+4. **RSVP** → `/events`
+   - Click "RSVP" → Creates HOLD registration
+   - Click "Pay Now" → Mock payment → CONFIRMED status
+
+5. **Check-in & Matching** → `/admin`
+   - Check in attendee
+   - "Check In All" button
+   - "Run Matching Now" appears after all checked in
+   - Creates matches + sends notifications
+
+6. **View Matches** → `/match`
+   - Shows matches for attended events in user's city
+   - Displays match score and alignment highlights
+
+7. **Like Match** → Mutual Like
+   - Like a match
+   - Switch to other user → Like back
+   - "Message" button appears on mutual like
+
+8. **Chat** → `/messages/[conversationId]`
+   - Message input visible at bottom
+   - Send messages
+   - Realtime sync works across two tabs (BroadcastChannel)
+
+### Feature Flags
+
+Set these environment variables (or use `.env.local`):
+
+```bash
+NEXT_PUBLIC_DEMO_MODE=true
+NEXT_PUBLIC_ENABLE_CHAT=true
+NEXT_PUBLIC_CHAT_MODE=mock
+NEXT_PUBLIC_DEMO_OTP=123456
+```
+
+### Deterministic Data
+
+The demo uses fixed IDs and data:
+- Event ID: `event_coffee` (Singapore)
+- Admin ID: `admin_001`
+- Demo users: `usr_mikhail`, `usr_anna`, etc.
+- Default city: Singapore
+
+All data persists in localStorage with `ns_*` keys and can be reset by clearing localStorage or running the test (which auto-resets).
+
+---
+
 ## 🧪 E2E Test Suite & Demo
 
 The project includes a **comprehensive Playwright E2E test suite** that validates all existing functionality and doubles as a product demo script. The suite covers every page and key interaction in the application.
@@ -778,6 +936,7 @@ The test suite is organized into focused spec files:
 - **`05_chat_realtime.spec.ts`** - Realtime chat in two tabs
 - **`06_feature_flags.spec.ts`** - Feature flag behavior
 - **`07_api_routes.spec.ts`** - API endpoint validation
+- **`happy-path.spec.ts`** - Complete CEO demo flow (registration → matching → chat)
 
 ### Test Coverage
 
@@ -1061,6 +1220,151 @@ The matching algorithm is deterministic and can be tested by:
 2. Checking match scores on `/match` page
 3. Verifying alignment/mismatch reasons match expectations
 4. Testing dealbreakers (users with incompatible answers should be excluded)
+
+---
+
+## 👥 Roles (Demo)
+
+The app now supports four distinct user roles with different access levels:
+
+### Guest
+- **Access**: Only `/register` page
+- **Behavior**: 
+  - All other tabs/routes hidden in navigation
+  - If guest tries to access any other route directly: redirects to `/register`
+  - Default role for new users
+
+### User
+- **Access**: `/events`, `/match`, `/messages` (if enabled)
+- **Behavior**:
+  - Can view events in their city
+  - Can RSVP to events
+  - After RSVP, must answer event questionnaire (10 questions) to be eligible for matching
+  - No global "onboarding" anymore - questionnaires are per-event
+
+### Host
+- **Access**: `/host` (Host Dashboard), `/events` (read-only)
+- **Behavior**:
+  - Can create/manage events ONLY in their own city
+  - Can view attendee list for events in their city
+  - Can check in attendees / mark missing attendees
+  - Cannot approve users globally (admin can still do approvals)
+  - Host dashboard shows events in host's city only
+
+### Admin
+- **Access**: Full access to all routes
+- **Behavior**:
+  - Can do everything host can, plus global management
+  - Can approve/reject users
+  - Can manage events across all cities
+  - Can run matching for any event
+
+### Role Switching (Demo Mode)
+
+In demo mode, users can switch roles using the role switcher in the navigation bar:
+- Click "Role: [Current Role]" dropdown
+- Select: Guest, User, Host, or Admin
+- Page refreshes to apply role changes
+
+---
+
+## 🔄 Updated Flow
+
+### No Global Onboarding
+
+The global onboarding flow has been **removed**. Questionnaires are now **per-event** and collected **after RSVP + payment**.
+
+### Per-Event Questionnaire After RSVP
+
+**New RSVP Flow:**
+1. User clicks "RSVP" → Creates HOLD (registration.status="hold")
+2. User clicks "Pay Now" → Confirmed payment (paymentStatus="paid", rsvpStatus="confirmed")
+3. **After payment confirmed**: Questionnaire section appears
+4. User must answer exactly 10 questions (prefilled with default value 3)
+5. After completing questionnaire: `registration.questionnaireCompleted=true`
+6. Only questionnaire-completed attendees can appear in matching for that event
+
+**Matching Eligibility:**
+- User must have:
+  - `rsvpStatus = "confirmed"` (payment confirmed)
+  - `attendanceStatus = "checked_in"` (checked in by host)
+  - `questionnaireCompleted = true` (completed questionnaire)
+  - Event must be in user's city
+
+**Questionnaire Behavior:**
+- Appears only after RSVP + payment confirmed
+- Exactly 10 questions required
+- All questions pre-filled with default value 3 (Agree)
+- Can be saved and edited until RSVP is confirmed
+- Once questionnaire is completed, user is eligible for matching
+
+### Host Workflow
+
+**Creating Events:**
+- Host can only create events in their own city
+- If host tries to create event in another city: blocked
+- Host dashboard shows only events in host's city
+
+**Managing Attendees:**
+- Host can view list of registrations with confirmed payment
+- Host can:
+  - "Check In" - marks attendee as checked in
+  - "Mark Missing" - marks attendee as missing
+- Missing state stored on registration: `attendanceStatus: "checked_in" | "missing" | "none"`
+
+**Running Matching:**
+- Only admin can run matching (hosts cannot)
+- Matching only includes attendees who:
+  - Payment confirmed
+  - Attendance status = checked_in
+  - Questionnaire completed = true
+  - City matches event city
+
+### Route Guards
+
+The app implements role-based route guards:
+- **Guest**: Can only access `/register` and `/` (home)
+- **User**: Can access `/events`, `/match`, `/messages` (if enabled)
+- **Host**: Can access `/host/*` and `/events` (read-only)
+- **Admin**: Can access all routes
+
+If a user tries to access a route they don't have permission for, they are automatically redirected to an allowed route.
+
+---
+
+## 🧪 Testing the New Roles
+
+### Test Guest Flow
+1. Set role to "Guest" (default)
+2. Try to navigate to `/events` → Should redirect to `/register`
+3. Only "Register" tab visible in navigation
+
+### Test User Flow
+1. Set role to "User"
+2. Register and get approved (or use existing approved user)
+3. Navigate to `/events` → See events in user's city
+4. RSVP to event → Creates HOLD
+5. Pay Now → Payment confirmed
+6. Questionnaire section appears
+7. Answer 10 questions → Save
+8. Navigate to `/match` → See matches from attended events
+
+### Test Host Flow
+1. Set role to "Host"
+2. Navigate to `/host` → See Host Dashboard
+3. Create event in host's city → Success
+4. Try to create event in another city → Blocked
+5. View event → See attendee list
+6. Check in attendees → Mark attendance status
+7. Mark missing attendees → Update attendance status
+
+### Test Admin Flow
+1. Set role to "Admin"
+2. Navigate to `/admin` → See Admin Dashboard
+3. Approve/reject users
+4. Create events in any city
+5. Run matching for events
+6. All features accessible
 
 ---
 
