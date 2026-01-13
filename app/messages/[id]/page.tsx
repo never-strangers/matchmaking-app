@@ -115,7 +115,7 @@ export default function ConversationPage() {
   }
 
   return (
-    <div data-messages-page className="fixed inset-0 flex bg-beige-light overflow-hidden" style={{ height: '100vh', height: '100dvh' }}>
+    <div data-messages-page className="fixed inset-0 flex bg-beige-light overflow-hidden h-screen-dvh">
       <div className="hidden md:block w-96 border-r border-beige-frame bg-white flex-shrink-0">
         <div className="p-4">
           <Link

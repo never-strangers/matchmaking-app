@@ -61,7 +61,7 @@ export default function MessagesPage() {
   }
 
   return (
-    <div data-messages-page className="fixed inset-0 flex bg-beige-light overflow-hidden" style={{ height: '100vh', height: '100dvh' }}>
+    <div data-messages-page className="fixed inset-0 flex bg-beige-light overflow-hidden h-screen-dvh">
       <div className="w-full md:w-96 border-r border-beige-frame bg-white flex flex-col overflow-hidden" style={{ height: '100%' }}>
         <div className="flex-shrink-0">
           <ChatHeader showBackButton={true} backHref="/" />
