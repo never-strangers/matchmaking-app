@@ -19,9 +19,12 @@ export default function RouteGuard({ children }: RouteGuardProps) {
   useEffect(() => {
     const role = getRole();
     const userId = getCurrentUserId();
+    const isPilotPreseedEnabled = process.env.NEXT_PUBLIC_PILOT_PRESEED === "true";
 
     // Public routes that everyone can access
-    const publicRoutes = ["/", "/register"];
+    const publicRoutes = isPilotPreseedEnabled
+      ? ["/", "/register", "/pilot", "/match"]
+      : ["/", "/register"];
     
     // Guest can only access register and home
     if (role === "guest") {
@@ -33,7 +36,7 @@ export default function RouteGuard({ children }: RouteGuardProps) {
 
     // User can access: /events, /match, /messages (if enabled)
     if (role === "user") {
-      const allowedRoutes = ["/events", "/match", "/messages", "/notifications"];
+      const allowedRoutes = ["/events", "/match", "/pilot", "/messages", "/notifications"];
       if (!publicRoutes.includes(pathname) && !allowedRoutes.includes(pathname) && !pathname.startsWith("/events/")) {
         router.push("/events");
         return;
@@ -42,7 +45,7 @@ export default function RouteGuard({ children }: RouteGuardProps) {
 
     // Host can access: /host/*, /events (read-only)
     if (role === "host") {
-      const allowedRoutes = ["/events", "/notifications"];
+      const allowedRoutes = ["/events", "/pilot", "/notifications"];
       if (!publicRoutes.includes(pathname) && !pathname.startsWith("/host") && !allowedRoutes.includes(pathname) && !pathname.startsWith("/events/")) {
         router.push("/host");
         return;

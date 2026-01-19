@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { getRole, getCurrentUserId } from "@/lib/demo/authStore";
@@ -18,6 +18,13 @@ export default function HostEventManagePage() {
   const [event, setEvent] = useState<Event | null>(null);
   const [registrations, setRegistrations] = useState<EventRegistration[]>([]);
   const [hostCity, setHostCity] = useState<string | null>(null);
+
+  const loadRegistrations = useCallback(() => {
+    const regs = getRegistrationsForEvent(eventId);
+    // Only show confirmed registrations
+    const confirmed = regs.filter((r) => r.rsvpStatus === "confirmed");
+    setRegistrations(confirmed);
+  }, [eventId]);
 
   useEffect(() => {
     const role = getRole();
@@ -57,14 +64,7 @@ export default function HostEventManagePage() {
 
     setEvent(eventData);
     loadRegistrations();
-  }, [eventId, router]);
-
-  const loadRegistrations = () => {
-    const regs = getRegistrationsForEvent(eventId);
-    // Only show confirmed registrations
-    const confirmed = regs.filter((r) => r.rsvpStatus === "confirmed");
-    setRegistrations(confirmed);
-  };
+  }, [eventId, loadRegistrations, router]);
 
   const handleCheckIn = (userId: string) => {
     checkInUser(eventId, userId);

@@ -656,6 +656,38 @@ After deployment, you can add/update environment variables:
 
 ---
 
+## Internal Pilot (Preseed Matching Demo)
+
+Enable a fast matching demo that skips event RSVP/payment/check-in and uses preseed profiles + questionnaire answers.
+
+### How to run
+
+1. Set the feature flag:
+
+```bash
+NEXT_PUBLIC_PILOT_PRESEED=true
+```
+
+2. Start the app:
+
+```bash
+npm run dev
+```
+
+3. Sign in (Supabase Auth if configured) or use the existing demo flow.
+   - If the signed-in email matches an entry in `lib/pilot/preseedUsers.ts`, you’ll be mapped to that preseed profile.
+   - If there’s no match, a new deterministic pilot profile is created with default answers \(= 3\).
+
+### Using the dashboard
+
+- Visit `/match` (it will redirect to `/pilot` when the flag is enabled)
+- The Pilot dashboard shows:
+  - Top matches + score \(0–100\)
+  - Why you matched (top aligned questions + top mismatch)
+  - Optional: edit 10 answers and re-run instantly
+
+---
+
 ## 💬 Demo Chat (Mock Realtime)
 
 The app includes a **demo-ready mocked realtime chat** system for CEO demonstrations. This is a fully functional chat UI that works across multiple browser tabs/windows without requiring any backend infrastructure.

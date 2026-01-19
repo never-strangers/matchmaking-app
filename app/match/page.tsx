@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import PilotDashboard from "@/components/pilot/PilotDashboard";
 import { ensureConversation, getCurrentUserId as getChatUserId } from "@/lib/chatStore";
 import { getCurrentUserId } from "@/lib/demo/authStore";
 import { getUserById, isApproved } from "@/lib/demo/userStore";
@@ -21,6 +22,7 @@ import { Event } from "@/types/event";
 import { MatchResult } from "@/types/matching";
 
 const isChatEnabled = process.env.NEXT_PUBLIC_ENABLE_CHAT !== "false";
+const isPilotPreseedEnabled = process.env.NEXT_PUBLIC_PILOT_PRESEED === "true";
 
 export default function MatchPage() {
   const router = useRouter();
@@ -31,6 +33,8 @@ export default function MatchPage() {
   const [userApproved, setUserApproved] = useState(false);
 
   useEffect(() => {
+    if (isPilotPreseedEnabled) return;
+
     const userId = getCurrentUserId();
     setCurrentUserId(userId);
 
@@ -67,6 +71,8 @@ export default function MatchPage() {
   }, []);
 
   useEffect(() => {
+    if (isPilotPreseedEnabled) return;
+
     if (!selectedEventId || !currentUserId) {
       setMatchResults([]);
       return;
@@ -127,6 +133,10 @@ export default function MatchPage() {
   };
 
   const selectedEvent = selectedEventId ? getEventById(selectedEventId) : null;
+
+  if (isPilotPreseedEnabled) {
+    return <PilotDashboard />;
+  }
 
   if (!currentUserId) {
     return (
