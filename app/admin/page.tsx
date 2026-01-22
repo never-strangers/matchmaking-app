@@ -1,593 +1,328 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import AdminShell from "@/components/admin/AdminShell";
-import Card from "@/components/admin/Card";
-import {
-  listUsers,
-  setUserStatus,
-  getUserById,
-  approveCityChange,
-  rejectCityChange,
-  canReapply,
-} from "@/lib/demo/userStore";
-import { listEvents, getEventById } from "@/lib/demo/eventStore";
-import {
-  getRegistrationsForEvent,
-  getRegistration,
-} from "@/lib/demo/registrationStore";
-import {
-  checkInUser,
-  getCheckedInUsers,
-  areAllAttendeesCheckedIn,
-} from "@/lib/demo/checkInStore";
-import {
-  runMatchingForEvent,
-  getMatchesForEvent,
-  hasMatchingRun,
-} from "@/lib/demo/matchingStore";
-import {
-  notifyUserApproved,
-  notifyUserRejected,
-  notifyMatchRevealed,
-  notifyCityChangeApproved,
-  notifyCityChangeRejected,
-} from "@/lib/demo/notificationStore";
-import { getEventQuestionnaire } from "@/lib/demo/questionnaireEventStore";
-import { resetDemoData } from "@/lib/demo/initDemoData";
-import { UserProfile } from "@/types/user";
-import { Event } from "@/types/event";
-import { EventRegistration } from "@/types/registration";
+import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { useSession } from "@/lib/auth/useSession";
+import { useDemoStore } from "@/lib/demo/demoStore";
+import { getMatchesForUser } from "@/lib/matching/questionnaireMatch";
+import { QUESTIONS } from "@/lib/questionnaire/questions";
+import { MatchUser } from "@/types/questionnaire";
+import { getCurrentUser } from "@/lib/auth/googleClientAuth";
 
 export default function AdminPage() {
-  const [users, setUsers] = useState<UserProfile[]>([]);
-  const [events, setEvents] = useState<Event[]>([]);
-  const [activeTab, setActiveTab] = useState<"users" | "events" | "city-changes">("users");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { user, isLoggedIn } = useSession();
+  const {
+    listEvents,
+    getRegistrationsForEvent,
+    getAnswers,
+    hasAllAnswers,
+    setMatches,
+    getMatches,
+  } = useDemoStore();
+
+  const [events, setEvents] = useState(useDemoStore.getState().listEvents());
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const [isRunning, setIsRunning] = useState(false);
+  const [isAdminMode, setIsAdminMode] = useState(false);
+  const { isLoading } = useSession();
 
   useEffect(() => {
-    loadData();
-  }, []);
+    // Wait for session to load before checking
+    if (isLoading) return;
 
-  const loadData = () => {
-    setUsers(listUsers());
-    setEvents(listEvents());
-  };
+    const adminMode = searchParams.get("demo_admin") === "1";
+    setIsAdminMode(adminMode);
 
-  const handleApproveUser = (userId: string) => {
-    setUserStatus(userId, "approved");
-    notifyUserApproved(userId);
-    // Mark notification as sent for test
-    const marker = document.createElement('div');
-    marker.setAttribute('data-testid', `admin-notification-sent-${userId}`);
-    marker.style.display = 'none';
-    document.body.appendChild(marker);
-    loadData();
-  };
-
-  const handleRejectUser = (userId: string) => {
-    setUserStatus(userId, "rejected");
-    notifyUserRejected(userId);
-    loadData();
-  };
-
-  const handleApproveCityChange = (userId: string) => {
-    approveCityChange(userId);
-    const user = getUserById(userId);
-    if (user) {
-      notifyCityChangeApproved(userId, user.city);
-    }
-    loadData();
-  };
-
-  const handleRejectCityChange = (userId: string) => {
-    rejectCityChange(userId);
-    notifyCityChangeRejected(userId);
-    loadData();
-  };
-
-  const handleCheckIn = (eventId: string, userId: string) => {
-    checkInUser(eventId, userId);
-    loadData();
-  };
-
-  const handleRunMatching = (eventId: string) => {
-    const registrations = getRegistrationsForEvent(eventId);
-    // Only include users who: confirmed payment, checked in, and completed questionnaire
-    const eligibleRegs = registrations.filter((r) => 
-      r.rsvpStatus === "confirmed" && 
-      r.attendanceStatus === "checked_in" &&
-      r.questionnaireCompleted === true
-    );
-    const eligibleUserIds = eligibleRegs.map((r) => r.userId);
-    
-    if (eligibleUserIds.length < 2) {
-      alert("Need at least 2 eligible attendees (confirmed, checked in, questionnaire completed) to run matching.");
+    if (!adminMode) {
+      router.replace("/events");
       return;
     }
 
-    // Get event questionnaires for eligible users
-    const eventQuestionnaires = new Map();
-    eligibleUserIds.forEach((userId) => {
-      const q = getEventQuestionnaire(eventId, userId);
-      if (q && q.completed) {
-        eventQuestionnaires.set(userId, q);
-      }
-    });
-
-    if (eventQuestionnaires.size < 2) {
-      alert("Need at least 2 users with completed questionnaires to run matching.");
+    if (!isLoggedIn) {
+      router.replace("/login");
       return;
     }
 
+    setEvents(useDemoStore.getState().listEvents());
+    if (events.length > 0 && !selectedEventId) {
+      setSelectedEventId(events[0].id);
+    }
+  }, [isLoggedIn, isLoading, router, searchParams, events.length, selectedEventId]);
+
+  const handleRunMatching = async () => {
+    if (!selectedEventId) return;
+
+    setIsRunning(true);
     try {
-      const run = runMatchingForEvent(eventId, eligibleUserIds, eventQuestionnaires);
-      const matches = getMatchesForEvent(eventId);
-      
-      // Notify all users
-      eligibleUserIds.forEach((userId) => {
-        const userMatches = matches.filter(
-          (m) => m.userId1 === userId || m.userId2 === userId
-        );
-        if (userMatches.length > 0) {
-          const event = getEventById(eventId);
-          notifyMatchRevealed(userId, event?.title || "Event", userMatches.length);
+      const event = useDemoStore.getState().getEvent(selectedEventId);
+      if (!event) return;
+
+      // Get all users who joined and have all answers
+      const registrations = getRegistrationsForEvent(selectedEventId);
+      const usersWithAnswers: Array<{ email: string; answers: Record<string, number> }> = [];
+
+      for (const reg of registrations) {
+        if (hasAllAnswers(selectedEventId, reg.userEmail)) {
+          const answers = getAnswers(selectedEventId, reg.userEmail);
+          usersWithAnswers.push({
+            email: reg.userEmail,
+            answers,
+          });
         }
-      });
-
-      // Mark notifications as sent for test
-      const notificationElement = document.querySelector(`[data-testid="admin-notify-sent-${eventId}"]`);
-      if (!notificationElement) {
-        // Create a hidden element to mark notifications sent
-        const marker = document.createElement('div');
-        marker.setAttribute('data-testid', `admin-notify-sent-${eventId}`);
-        marker.style.display = 'none';
-        document.body.appendChild(marker);
       }
 
-      // Mark matching run button as clicked for test
-      const runButton = document.querySelector(`[data-testid="admin-run-matching-now-${eventId}"]`);
-      if (!runButton) {
-        const marker = document.createElement('div');
-        marker.setAttribute('data-testid', `admin-run-matching-now-${eventId}`);
-        marker.style.display = 'none';
-        document.body.appendChild(marker);
+      // Get session users for names
+      const session = getCurrentUser();
+      const sessionUsers: Record<string, { name: string; picture?: string }> = {};
+      // We'll need to get user info from session storage
+      try {
+        const sessionData = localStorage.getItem("ns_session_v1");
+        if (sessionData) {
+          const parsed = JSON.parse(sessionData);
+          sessionUsers[parsed.currentEmail] = parsed.users[parsed.currentEmail] || {};
+          Object.keys(parsed.users || {}).forEach((email) => {
+            sessionUsers[email] = parsed.users[email];
+          });
+        }
+      } catch {}
+
+      // Get question definitions for this event
+      const eventQuestions = event.questions
+        .map((qId) => QUESTIONS.find((q) => q.id === qId))
+        .filter((q): q is NonNullable<typeof q> => q !== undefined);
+
+      // Compute matches for each user
+      for (const userA of usersWithAnswers) {
+        const matchUserA: MatchUser = {
+          id: userA.email,
+          name: sessionUsers[userA.email]?.name || userA.email,
+          city: "",
+          answers: userA.answers as any,
+        };
+
+        const candidates: MatchUser[] = usersWithAnswers
+          .filter((u) => u.email !== userA.email)
+          .map((u) => ({
+            id: u.email,
+            name: sessionUsers[u.email]?.name || u.email,
+            city: "",
+            answers: u.answers as any,
+          }));
+
+        const matchResults = getMatchesForUser(matchUserA, candidates, eventQuestions);
+
+        // Store matches
+        const matches = matchResults.map((result) => ({
+          otherEmail: result.user.id,
+          score: result.score,
+        }));
+
+        setMatches(selectedEventId, userA.email, matches);
       }
 
-      alert(`Matching completed! ${run.totalMatches} matches created.`);
-      loadData();
-    } catch (err: any) {
-      alert(err.message || "Failed to run matching");
+      alert(`Matching completed for ${usersWithAnswers.length} users!`);
+      setEvents([...useDemoStore.getState().listEvents()]);
+    } catch (error: any) {
+      alert(`Error running matching: ${error.message}`);
+    } finally {
+      setIsRunning(false);
     }
   };
 
-  const pendingUsers = users.filter((u) => u.status === "pending_approval");
-  const approvedUsers = users.filter((u) => u.status === "approved");
-  const rejectedUsers = users.filter((u) => u.status === "rejected");
-  const cityChangeRequests = users.filter((u) => u.cityChangeRequested);
+  const handleSeedDemoParticipants = () => {
+    if (!selectedEventId) return;
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
+    const event = useDemoStore.getState().getEvent(selectedEventId);
+    if (!event) return;
+
+    const demoEmails = Array.from({ length: 30 }, (_, i) => `demo+${String(i + 1).padStart(2, "0")}@gmail.com`);
+
+    // Add registrations
+    for (const email of demoEmails) {
+      useDemoStore.getState().joinEvent(selectedEventId, email);
+    }
+
+    // Add random answers for each
+    for (const email of demoEmails) {
+      for (const questionId of event.questions) {
+        const randomAnswer = (Math.floor(Math.random() * 4) + 1) as 1 | 2 | 3 | 4;
+        useDemoStore.getState().setAnswer(selectedEventId, email, questionId, randomAnswer);
+      }
+    }
+
+    alert(`Seeded 30 demo participants with random answers!`);
+    setEvents([...useDemoStore.getState().listEvents()]);
   };
+
+  // Show loading state while checking session
+  if (isLoading) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-16">
+        <p className="text-gray-medium">Loading...</p>
+      </div>
+    );
+  }
+
+  if (!isAdminMode || !isLoggedIn) {
+    return null; // Will redirect
+  }
+
+  const selectedEvent = selectedEventId
+    ? useDemoStore.getState().getEvent(selectedEventId)
+    : null;
+  const registrations = selectedEventId
+    ? getRegistrationsForEvent(selectedEventId)
+    : [];
+  const usersWithAnswers = registrations.filter((r) =>
+    hasAllAnswers(selectedEventId!, r.userEmail)
+  );
 
   return (
-    <AdminShell>
-      <div className="flex justify-between items-center mb-8">
-        <h1
-          data-testid="admin-title"
-          className="text-4xl font-light text-gray-dark"
-        >
-          Admin Dashboard
+    <div className="max-w-4xl mx-auto px-4 py-16">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-dark mb-2">
+          Admin Dashboard (Demo Mode)
         </h1>
-        <div className="flex gap-2">
-          <button
-            onClick={() => {
-              // Force seed matches
-              if (typeof window !== "undefined") {
-                const { getMatchesForEvent } = require("@/lib/demo/matchingStore");
-                getMatchesForEvent("event_coffee"); // Trigger seed
-                alert("Demo data refreshed! Check match page.");
-                window.location.reload();
-              }
-            }}
-            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700 transition-colors"
-          >
-            Refresh Demo Data
-          </button>
-          <button
-            onClick={() => {
-              if (confirm("Reset all demo data and re-seed? This will clear all current data.")) {
-                resetDemoData();
-                // Re-initialize
-                const { initializeDemoData } = require("@/lib/demo/initDemoData");
-                initializeDemoData();
-                window.location.reload();
-              }
-            }}
-            className="px-4 py-2 bg-gray-600 text-white text-sm font-medium rounded hover:bg-gray-700 transition-colors"
-          >
-            Reset & Re-seed
-          </button>
-        </div>
+        <p className="text-gray-medium">
+          Manage events, run matching, and seed demo data.
+        </p>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-4 mb-6 border-b border-beige-frame">
-        <button
-          data-testid="admin-tab-users"
-          onClick={() => setActiveTab("users")}
-          className={`pb-2 px-4 text-sm font-medium transition-colors ${
-            activeTab === "users"
-              ? "text-gray-dark border-b-2 border-red-accent"
-              : "text-gray-medium hover:text-gray-dark"
-          }`}
-        >
-          User Approvals ({pendingUsers.length} pending)
-        </button>
-        <button
-          onClick={() => setActiveTab("city-changes")}
-          className={`pb-2 px-4 text-sm font-medium transition-colors ${
-            activeTab === "city-changes"
-              ? "text-gray-dark border-b-2 border-red-accent"
-              : "text-gray-medium hover:text-gray-dark"
-          }`}
-        >
-          City Changes ({cityChangeRequests.length})
-        </button>
-        <button
-          data-testid="admin-tab-events"
-          onClick={() => setActiveTab("events")}
-          className={`pb-2 px-4 text-sm font-medium transition-colors ${
-            activeTab === "events"
-              ? "text-gray-dark border-b-2 border-red-accent"
-              : "text-gray-medium hover:text-gray-dark"
-          }`}
-        >
-          Events
-        </button>
-      </div>
-
-      {activeTab === "users" && (
-        <div className="space-y-6">
-          {/* Pending Approvals */}
-          <Card>
-            <h2 className="text-lg font-medium text-gray-dark mb-4">
-              Pending User Approvals ({pendingUsers.length})
-            </h2>
-            {pendingUsers.length === 0 ? (
-              <p className="text-sm text-gray-medium py-4">
-                No pending user approvals
-              </p>
-            ) : (
-              <div className="space-y-0">
-                {pendingUsers.map((user) => {
-                  const cooldown = canReapply(user.email);
-                  return (
-                    <div
-                      key={user.id}
-                      data-testid={`admin-user-row-${user.id}`}
-                      className="flex justify-between items-center py-3 border-b border-beige-frame last:border-0"
-                    >
-                      <div className="flex-1">
-                        <div className="text-sm font-medium text-gray-dark">
-                          {user.name}
-                        </div>
-                        <div className="text-xs text-gray-medium">
-                          {user.email} • {user.city}
-                          {user.cityLocked && (
-                            <span data-testid={`admin-city-locked-${user.id}`} className="ml-2">🔒</span>
-                          )}
-                        </div>
-                        <div className="text-xs text-gray-medium mt-1">
-                          Registered: {formatDate(user.createdAt)}
-                        </div>
-                        {!cooldown.can && cooldown.hoursRemaining && (
-                          <div className="text-xs text-orange-600 mt-1">
-                            Cooldown: {cooldown.hoursRemaining}h remaining
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex gap-2 ml-4">
-                        <button
-                          onClick={() => {
-                            handleApproveUser(user.id);
-                            // Create notification
-                            const notificationId = `notif_${user.id}_approved`;
-                            // Notification is created in handleApproveUser via notifyUserApproved
-                          }}
-                          className="px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded hover:bg-green-700 transition-colors"
-                          data-testid={`admin-approve-user-${user.id}`}
-                        >
-                          Approve
-                        </button>
-                        <button
-                          onClick={() => handleRejectUser(user.id)}
-                          className="px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded hover:bg-red-700 transition-colors"
-                          data-testid={`reject-user-${user.id}`}
-                        >
-                          Reject
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </Card>
-
-          {/* Approved Users */}
-          <Card>
-            <h2 className="text-lg font-medium text-gray-dark mb-4">
-              Approved Users ({approvedUsers.length})
-            </h2>
-            {approvedUsers.length === 0 ? (
-              <p className="text-sm text-gray-medium py-4">
-                No approved users yet
-              </p>
-            ) : (
-              <div className="space-y-0">
-                {approvedUsers.map((user) => (
-                  <div
-                    key={user.id}
-                    className="flex justify-between items-center py-3 border-b border-beige-frame last:border-0"
-                  >
-                    <div className="flex-1">
-                      <div className="text-sm font-medium text-gray-dark">
-                        {user.name}
-                      </div>
-                      <div className="text-xs text-gray-medium">
-                        {user.email} • {user.city}
-                        {user.cityLocked && " 🔒"}
-                      </div>
-                      {user.approvedAt && (
-                        <div className="text-xs text-gray-medium mt-1">
-                          Approved: {formatDate(user.approvedAt)}
-                        </div>
-                      )}
-                    </div>
-                    <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
-                      Approved
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </Card>
+      {events.length === 0 ? (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <p className="text-yellow-800">No events available.</p>
         </div>
-      )}
+      ) : (
+        <>
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-dark mb-2">
+              Select Event
+            </label>
+            <select
+              value={selectedEventId || ""}
+              onChange={(e) => setSelectedEventId(e.target.value)}
+              className="w-full px-4 py-2 border border-beige-frame rounded-lg bg-white"
+            >
+              {events.map((event) => (
+                <option key={event.id} value={event.id}>
+                  {event.title} ({event.city})
+                </option>
+              ))}
+            </select>
+          </div>
 
-      {activeTab === "city-changes" && (
-        <div className="space-y-6">
-          <Card>
-            <h2 className="text-lg font-medium text-gray-dark mb-4">
-              City Change Requests ({cityChangeRequests.length})
-            </h2>
-            {cityChangeRequests.length === 0 ? (
-              <p className="text-sm text-gray-medium py-4">
-                No city change requests
-              </p>
-            ) : (
-              <div className="space-y-0">
-                {cityChangeRequests.map((user) => (
-                  <div
-                    key={user.id}
-                    className="flex justify-between items-center py-3 border-b border-beige-frame last:border-0"
-                  >
-                    <div className="flex-1">
-                      <div className="text-sm font-medium text-gray-dark">
-                        {user.name}
-                      </div>
-                      <div className="text-xs text-gray-medium">
-                        {user.email}
-                      </div>
-                      <div className="text-xs text-gray-medium mt-1">
-                        Current: {user.city} → Requested: {user.cityChangeRequested}
-                      </div>
-                    </div>
-                    <div className="flex gap-2 ml-4">
-                      <button
-                        onClick={() => handleApproveCityChange(user.id)}
-                        className="px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded hover:bg-green-700 transition-colors"
-                      >
-                        Approve
-                      </button>
-                      <button
-                        onClick={() => handleRejectCityChange(user.id)}
-                        className="px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded hover:bg-red-700 transition-colors"
-                      >
-                        Reject
-                      </button>
-                    </div>
+          {selectedEvent && (
+            <div className="space-y-6">
+              <div className="bg-white border border-beige-frame rounded-lg p-6">
+                <h2 className="text-lg font-semibold text-gray-dark mb-4">
+                  Event: {selectedEvent.title}
+                </h2>
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <p className="text-sm text-gray-medium">Total Joined</p>
+                    <p className="text-2xl font-bold text-gray-dark">
+                      {registrations.length}
+                    </p>
                   </div>
-                ))}
-              </div>
-            )}
-          </Card>
-        </div>
-      )}
-
-      {activeTab === "events" && (
-        <div className="space-y-6">
-          {events.map((event) => {
-            const registrations = getRegistrationsForEvent(event.id);
-            const confirmedRegs = registrations.filter((r) => r.rsvpStatus === "confirmed");
-            const confirmedUserIds = confirmedRegs.map((r) => r.userId);
-            const checkedIn = getCheckedInUsers(event.id);
-            const allCheckedIn = areAllAttendeesCheckedIn(event.id, confirmedUserIds);
-            const matches = getMatchesForEvent(event.id);
-            const hasRunMatching = hasMatchingRun(event.id);
-
-            return (
-              <Card key={event.id}>
-                <div 
-                  data-testid={`admin-event-row-${event.id}`}
-                  className="mb-4"
-                >
-                  <h2 className="text-lg font-medium text-gray-dark mb-1">
-                    {event.title}
-                  </h2>
-                  <p className="text-sm text-gray-medium">
-                    {event.city} • {formatDate(event.datetime)}
-                  </p>
-                  <div className="text-xs text-gray-medium mt-1">
-                    {confirmedRegs.length} confirmed • {checkedIn.length} checked in
+                  <div>
+                    <p className="text-sm text-gray-medium">With All Answers</p>
+                    <p className="text-2xl font-bold text-gray-dark">
+                      {usersWithAnswers.length}
+                    </p>
                   </div>
                 </div>
 
-                {/* Pending RSVPs (Hold/Waitlist) */}
-                {registrations.filter((r) => r.rsvpStatus === "hold" || r.rsvpStatus === "waitlisted").length > 0 && (
-                  <div className="mb-4">
-                    <h3 className="text-sm font-medium text-gray-dark mb-2">
-                      Pending RSVPs
-                    </h3>
-                    <div className="space-y-2">
-                      {registrations
-                        .filter((r) => r.rsvpStatus === "hold" || r.rsvpStatus === "waitlisted")
-                        .map((reg) => {
-                          const user = getUserById(reg.userId);
-                          const isHold = reg.rsvpStatus === "hold";
-                          return (
-                            <div
-                              key={reg.id}
-                              className="flex justify-between items-center py-2 px-3 bg-yellow-50 rounded border border-yellow-200"
-                            >
-                              <div className="flex-1">
-                                <div className="text-sm text-gray-dark">
-                                  {user?.name || reg.userId}
-                                  {user?.status !== "approved" && (
-                                    <span className="ml-2 text-xs text-orange-600">
-                                      (Needs approval)
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="text-xs text-gray-medium">
-                                  {isHold
-                                    ? "⏱ Hold - Waiting for payment"
-                                    : "📋 Waitlisted"}
-                                </div>
-                              </div>
-                              {isHold && user?.status === "approved" && (
-                                <span className="text-xs text-gray-medium">
-                                  User can pay in Events page
-                                </span>
-                              )}
-                            </div>
-                          );
-                        })}
-                    </div>
-                  </div>
-                )}
+                <div className="flex gap-4">
+                  <button
+                    onClick={handleRunMatching}
+                    disabled={isRunning || usersWithAnswers.length < 2}
+                    className="bg-red-accent text-white px-6 py-3 rounded-lg font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isRunning ? "Running..." : "Run Matching"}
+                  </button>
+                  <button
+                    onClick={handleSeedDemoParticipants}
+                    className="bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:opacity-90 transition-opacity"
+                  >
+                    Seed 30 Demo Participants
+                  </button>
+                </div>
 
-                {/* Check-in Section */}
-                {confirmedRegs.length > 0 && (
-                  <div className="mb-4">
-                    <div className="flex justify-between items-center mb-2">
-                      <h3 className="text-sm font-medium text-gray-dark">
-                        Check-in ({checkedIn.length}/{confirmedUserIds.length})
-                      </h3>
-                      {/* Before any check-ins, only show Run Matching Now - no other statuses */}
-                      {checkedIn.length === 0 && !hasRunMatching && (
-                        <button
-                          data-testid={`admin-run-matching-now-${event.id}`}
-                          onClick={() => handleRunMatching(event.id)}
-                          className="px-3 py-1 bg-purple-600 text-white text-xs font-medium rounded hover:bg-purple-700 transition-colors"
-                        >
-                          Run Matching Now
-                        </button>
-                      )}
-                      {/* After check-ins start but not all checked in - show check-in controls and Run Matching Now */}
-                      {checkedIn.length > 0 && !allCheckedIn && !hasRunMatching && (
-                        <>
-                          <button
-                            data-testid={`admin-checkin-all-${event.id}`}
-                            onClick={() => {
-                              // Check in all confirmed attendees
-                              confirmedUserIds.forEach((userId) => {
-                                if (!checkedIn.includes(userId)) {
-                                  handleCheckIn(event.id, userId);
-                                }
-                              });
-                            }}
-                            className="px-3 py-1 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700 transition-colors"
-                          >
-                            Check In All
-                          </button>
-                          <button
-                            data-testid={`admin-run-matching-visible-${event.id}`}
-                            onClick={() => handleRunMatching(event.id)}
-                            className="px-3 py-1 bg-purple-600 text-white text-xs font-medium rounded hover:bg-purple-700 transition-colors"
-                          >
-                            Run Matching Now
-                          </button>
-                        </>
-                      )}
-                      {/* All checked in, matching not run yet */}
-                      {allCheckedIn && !hasRunMatching && (
-                        <button
-                          data-testid={`admin-run-matching-visible-${event.id}`}
-                          onClick={() => handleRunMatching(event.id)}
-                          className="px-3 py-1 bg-purple-600 text-white text-xs font-medium rounded hover:bg-purple-700 transition-colors"
-                        >
-                          Run Matching Now
-                        </button>
-                      )}
-                      {/* Matching complete - only show after matching has run */}
-                      {hasRunMatching && (
-                        <span 
-                          data-testid={`admin-matches-created-${event.id}`}
-                          className="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded"
-                        >
-                          Matching Complete ({matches.length} matches)
-                        </span>
-                      )}
-                    </div>
-                    <div className="space-y-2">
-                      {confirmedRegs.map((reg) => {
-                        const user = getUserById(reg.userId);
-                        const isCheckedIn = checkedIn.includes(reg.userId);
-                        return (
-                          <div
-                            key={reg.id}
-                            className="flex justify-between items-center py-2 px-3 bg-white rounded border border-beige-frame"
-                          >
-                            <div className="flex-1">
-                              <div className="text-sm text-gray-dark">
-                                {user?.name || reg.userId}
-                              </div>
-                              <div className="text-xs text-gray-medium">
-                                {isCheckedIn ? "✓ Checked in" : "Not checked in"}
-                              </div>
-                            </div>
-                            {!isCheckedIn && (
-                              <button
-                                data-testid={`admin-checkin-user-${reg.userId}-${event.id}`}
-                                onClick={() => handleCheckIn(event.id, reg.userId)}
-                                className="px-3 py-1 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700 transition-colors"
-                              >
-                                Check In
-                              </button>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {confirmedRegs.length === 0 && (
-                  <p className="text-sm text-gray-medium py-4">
-                    No confirmed RSVPs for this event
+                {usersWithAnswers.length < 2 && (
+                  <p className="text-sm text-orange-600 mt-2">
+                    Need at least 2 users with all answers to run matching.
                   </p>
                 )}
-              </Card>
-            );
-          })}
-        </div>
+              </div>
+
+              <div className="bg-white border border-beige-frame rounded-lg p-6">
+                <h3 className="text-md font-semibold text-gray-dark mb-4">
+                  Participants ({registrations.length})
+                </h3>
+                <div className="space-y-2 max-h-96 overflow-y-auto">
+                  {registrations.length === 0 ? (
+                    <p className="text-gray-medium text-sm">No participants yet.</p>
+                  ) : (
+                    registrations.map((reg) => {
+                      const hasAnswers = hasAllAnswers(selectedEventId!, reg.userEmail);
+                      const answerCount = useDemoStore
+                        .getState()
+                        .getAnswerCount(selectedEventId!, reg.userEmail);
+                      const hasMatches = useDemoStore
+                        .getState()
+                        .hasMatches(selectedEventId!, reg.userEmail);
+
+                      return (
+                        <div
+                          key={reg.userEmail}
+                          className="flex justify-between items-center p-3 border border-beige-frame rounded-lg"
+                        >
+                          <div>
+                            <p className="text-sm font-medium text-gray-dark">
+                              {reg.userEmail}
+                            </p>
+                            <p className="text-xs text-gray-medium">
+                              Joined: {new Date(reg.joinedAt).toLocaleDateString()}
+                            </p>
+                          </div>
+                          <div className="flex gap-2">
+                            {hasAnswers ? (
+                              <span className="text-xs px-2 py-1 rounded bg-green-100 text-green-800">
+                                ✓ All Answers
+                              </span>
+                            ) : (
+                              <span className="text-xs px-2 py-1 rounded bg-orange-100 text-orange-800">
+                                {answerCount}/10
+                              </span>
+                            )}
+                            {hasMatches && (
+                              <span className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-800">
+                                Matched
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </>
       )}
-    </AdminShell>
+
+      <div className="mt-8">
+        <Link
+          href="/events"
+          className="text-gray-medium hover:text-gray-dark text-sm"
+        >
+          ← Back to Events
+        </Link>
+      </div>
+    </div>
   );
 }

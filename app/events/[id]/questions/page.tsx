@@ -3,99 +3,77 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { getEventById } from "@/lib/demo/eventStore";
-import { getCurrentUserId } from "@/lib/demo/authStore";
-import { getUserById } from "@/lib/demo/userStore";
-import {
-  getEventQuestionnaire,
-  setEventQuestionnaire,
-  isQuestionnaireComplete,
-} from "@/lib/demo/questionnaireEventStore";
-import { getRegistration } from "@/lib/demo/registrationStore";
+import { useSession } from "@/lib/auth/useSession";
+import { useDemoStore } from "@/lib/demo/demoStore";
 import { QUESTIONS } from "@/lib/questionnaire/questions";
-import { QuestionnaireAnswers, AnswerValue } from "@/types/questionnaire";
-import { Event } from "@/types/event";
+import { AnswerValue } from "@/types/questionnaire";
 
 export default function EventQuestionsPage() {
   const params = useParams();
   const router = useRouter();
   const eventId = params.id as string;
-  const [event, setEvent] = useState<Event | null>(null);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [questionnaireAnswers, setQuestionnaireAnswersState] = useState<
-    QuestionnaireAnswers
-  >({});
+  const { user, isLoggedIn, isLoading } = useSession();
+  const {
+    getEvent,
+    getAnswers,
+    setAnswer,
+    hasAllAnswers,
+    getAnswerCount,
+  } = useDemoStore();
+
+  const [event, setEvent] = useState(useDemoStore.getState().getEvent(eventId));
+  const [answers, setAnswers] = useState<Record<string, AnswerValue>>({});
   const [saved, setSaved] = useState(false);
+  const [initialized, setInitialized] = useState(false);
 
   useEffect(() => {
-    const userId = getCurrentUserId();
-    setCurrentUserId(userId);
+    // Wait for session to load before checking
+    if (isLoading) return;
 
-    const eventData = getEventById(eventId);
+    if (!isLoggedIn || !user) {
+      router.replace("/login");
+      return;
+    }
+
+    const eventData = getEvent(eventId);
     if (!eventData) {
-      router.push("/events");
+      router.replace("/events");
       return;
     }
     setEvent(eventData);
 
-    if (userId) {
-      // Check if payment is confirmed
-      const registration = getRegistration(eventId, userId);
-      const paymentConfirmed = registration?.paymentStatus === "paid" || registration?.rsvpStatus === "confirmed";
-      
-      if (!paymentConfirmed) {
-        alert("Please complete payment before answering the questionnaire.");
-        router.push("/events");
-        return;
-      }
-
-      // Load existing answers for this event
-      const existing = getEventQuestionnaire(eventId, userId);
-      if (existing) {
-        setQuestionnaireAnswersState(existing.answers);
-        setSaved(existing.locked || registration?.questionnaireCompleted || false);
-      } else {
-        // Get the 10 questions that will be shown
-        const eventQuestionIds = eventData.questionnaireTemplate.questionIds;
-        const templateQuestions = QUESTIONS.filter((q) => eventQuestionIds.includes(q.id));
-        const otherQuestions = QUESTIONS.filter((q) => !eventQuestionIds.includes(q.id));
-        const selectedQuestions = [...templateQuestions, ...otherQuestions].slice(0, 10);
-        const selectedQuestionIds = selectedQuestions.map((q) => q.id);
-
-        // Prefill all 10 questions with default value 3 (Agree)
-        const defaultAnswers: QuestionnaireAnswers = {};
-        selectedQuestionIds.forEach((qId) => {
-          // Always default to 3 (Agree) for demo
-          defaultAnswers[qId] = 3;
-        });
-        
-        setQuestionnaireAnswersState(defaultAnswers);
-      }
+    // Load existing answers
+    let existingAnswers = getAnswers(eventId, user.email);
+    
+    // If no answers exist, prefill all 10 questions with default value 3 (Agree)
+    if (Object.keys(existingAnswers).length === 0 && eventData.questions.length > 0) {
+      const defaultAnswers: Record<string, AnswerValue> = {};
+      eventData.questions.slice(0, 10).forEach((qId) => {
+        defaultAnswers[qId] = 3; // Default to "Agree"
+        // Save to store
+        setAnswer(eventId, user.email, qId, 3);
+      });
+      // Reload from store to ensure consistency
+      existingAnswers = getAnswers(eventId, user.email);
     }
-  }, [eventId, router]);
+    
+    setAnswers(existingAnswers);
+    setInitialized(true);
+
+    // Check if already completed
+    if (hasAllAnswers(eventId, user.email)) {
+      setSaved(true);
+    }
+  }, [eventId, isLoggedIn, isLoading, user, router, getEvent, getAnswers, hasAllAnswers, setAnswer]);
 
   const handleAnswerChange = (questionId: string, value: AnswerValue) => {
-    if (saved) return; // Don't allow changes if locked
-    setQuestionnaireAnswersState((prev) => ({
-      ...prev,
-      [questionId]: value,
-    }));
+    if (saved || !user?.email) return;
+    setAnswer(eventId, user.email, questionId, value);
+    setAnswers({ ...getAnswers(eventId, user.email) });
   };
 
-  const handleSave = () => {
-    if (!currentUserId || !event) return;
-
-    try {
-      setEventQuestionnaire(eventId, currentUserId, questionnaireAnswers);
-      setSaved(true);
-      alert("Questions saved! You are now eligible for matching.");
-      router.push("/events");
-    } catch (err: any) {
-      alert(err.message || "Failed to save questions");
-    }
-  };
-
-  if (!event || !currentUserId) {
+  // Show loading state while checking session
+  if (isLoading || !initialized) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-16">
         <p className="text-gray-medium">Loading...</p>
@@ -103,22 +81,18 @@ export default function EventQuestionsPage() {
     );
   }
 
-  // Get exactly 10 questions for this event
-  // Show template questions first, then fill with others to reach 10
-  const eventQuestionIds = event.questionnaireTemplate.questionIds;
-  const templateQuestions = QUESTIONS.filter((q) => eventQuestionIds.includes(q.id));
-  const otherQuestions = QUESTIONS.filter((q) => !eventQuestionIds.includes(q.id));
-  
-  // Take template questions first, then fill with others to reach exactly 10
-  const eventQuestions = [
-    ...templateQuestions,
-    ...otherQuestions.slice(0, Math.max(0, 10 - templateQuestions.length))
-  ].slice(0, 10); // Ensure exactly 10 questions
+  if (!isLoggedIn || !user || !event) {
+    return null; // Will redirect
+  }
 
-  const answeredCount = Object.keys(questionnaireAnswers).filter(
-    (key) => questionnaireAnswers[key] !== undefined
-  ).length;
-  const isComplete = answeredCount >= 10;
+  // Get the 10 questions for this event
+  const eventQuestions = event.questions
+    .map((qId) => QUESTIONS.find((q) => q.id === qId))
+    .filter((q): q is NonNullable<typeof q> => q !== undefined)
+    .slice(0, 10);
+
+  const answeredCount = getAnswerCount(eventId, user.email);
+  const isComplete = hasAllAnswers(eventId, user.email);
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-16">
@@ -133,17 +107,14 @@ export default function EventQuestionsPage() {
           Answer Questions for {event.title}
         </h1>
         <p className="text-gray-medium">
-          Answer at least 10 questions to RSVP to this event.
+          Answer all 10 questions to be eligible for matching.
         </p>
       </div>
 
       {saved && (
-        <div 
-          data-testid="questionnaire-completed-badge"
-          className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6"
-        >
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
           <p className="text-green-800 text-sm">
-            ✓ Questions saved! You can now RSVP to this event.
+            ✓ Questions completed! You are now eligible for matching.
           </p>
         </div>
       )}
@@ -188,8 +159,7 @@ export default function EventQuestionsPage() {
                       type="radio"
                       name={question.id}
                       value={value}
-                      data-testid={`question-${question.id}-${value}`}
-                      checked={questionnaireAnswers[question.id] === value}
+                      checked={answers[question.id] === value}
                       onChange={() =>
                         handleAnswerChange(question.id, value as AnswerValue)
                       }
@@ -212,21 +182,29 @@ export default function EventQuestionsPage() {
           ))}
         </div>
 
-        <div className="mt-6 pt-6 border-t border-beige-frame">
-          <button
-            data-testid="questionnaire-save"
-            onClick={handleSave}
-            disabled={!isComplete || saved}
-            className="w-full bg-red-accent text-white px-6 py-3 rounded-lg font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {saved ? "Questions Saved ✓" : "Save Answers"}
-          </button>
-          {!isComplete && (
-            <p className="text-sm text-orange-600 mt-2 text-center">
-              Please answer at least 10 questions to continue.
+        {isComplete && !saved && (
+          <div className="mt-6 pt-6 border-t border-beige-frame">
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <p className="text-sm text-green-800 mb-2">
+                All questions answered! Your answers are automatically saved.
+              </p>
+              <Link
+                href="/events"
+                className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity inline-block"
+              >
+                Return to Events
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {!isComplete && (
+          <div className="mt-6 pt-6 border-t border-beige-frame">
+            <p className="text-sm text-orange-600 text-center">
+              Please answer all 10 questions to continue.
             </p>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -2,314 +2,132 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { getRole, setRole, isAdmin, isHost, isUser, isGuest, getCurrentUserId, setCurrentUserId } from "@/lib/demo/authStore";
-import { listUsers, getUserById } from "@/lib/demo/userStore";
-import { DEMO_USERS } from "@/lib/matching/demoUsers";
-import { getUnreadCount } from "@/lib/demo/notificationStore";
-import { Role } from "@/types/roles";
-import { UserProfile } from "@/types/user";
+import { useSession } from "@/lib/auth/useSession";
+import { useRouter } from "next/navigation";
 
 export default function NavBar() {
-  const isChatEnabled = process.env.NEXT_PUBLIC_ENABLE_CHAT !== "false";
-  const [currentRole, setCurrentRole] = useState<Role>("guest");
-  const [currentUserId, setCurrentUserIdState] = useState<string | null>(null);
-  const [currentUserName, setCurrentUserName] = useState<string>("Select User");
-  const [showRoleSwitcher, setShowRoleSwitcher] = useState(false);
-  const [showUserSwitcher, setShowUserSwitcher] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const roleDropdownRef = useRef<HTMLDivElement>(null);
-  const userDropdownRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    setCurrentRole(getRole());
-    const userId = getCurrentUserId();
-    setCurrentUserIdState(userId);
-    if (userId) {
-      const user = getUserById(userId);
-      if (user) {
-        setCurrentUserName(user.name);
-      } else {
-        // Check DEMO_USERS as fallback
-        const demoUser = DEMO_USERS.find((u) => u.id === userId);
-        if (demoUser) {
-          setCurrentUserName(demoUser.name);
-        }
-      }
-      // Load unread count
-      setUnreadCount(getUnreadCount(userId));
-    }
-  }, []);
-
-  // Refresh unread count periodically
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const userId = getCurrentUserId();
-      if (userId) {
-        setUnreadCount(getUnreadCount(userId));
-      }
-    }, 2000);
-    return () => clearInterval(interval);
-  }, []);
+  const router = useRouter();
+  const { user, isLoggedIn, logout } = useSession();
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
-        roleDropdownRef.current &&
-        !roleDropdownRef.current.contains(event.target as Node) &&
-        userDropdownRef.current &&
-        !userDropdownRef.current.contains(event.target as Node)
+        userMenuRef.current &&
+        !userMenuRef.current.contains(event.target as Node)
       ) {
-        setShowRoleSwitcher(false);
-        setShowUserSwitcher(false);
+        setShowUserMenu(false);
       }
     };
 
-    if (showRoleSwitcher || showUserSwitcher) {
+    if (showUserMenu) {
       document.addEventListener("mousedown", handleClickOutside);
     }
 
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [showRoleSwitcher, showUserSwitcher]);
+  }, [showUserMenu]);
 
-  const handleRoleChange = (role: Role) => {
-    setRole(role);
-    setCurrentRole(role);
-    setShowRoleSwitcher(false);
-    // Refresh page to apply role changes
-    window.location.reload();
+  const handleLogout = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setShowUserMenu(false);
+    // Clear session first
+    logout();
+    // Force a full page reload to ensure all React state is cleared
+    // This is the most reliable way to prevent redirect loops
+    setTimeout(() => {
+      window.location.href = "/login";
+    }, 100);
   };
-
-  const handleUserChange = (userId: string, userName: string) => {
-    setCurrentUserId(userId);
-    setCurrentUserIdState(userId);
-    setCurrentUserName(userName);
-    setShowUserSwitcher(false);
-    // Refresh page to apply user changes
-    window.location.reload();
-  };
-
-  // Get all available users
-  const getAllUsers = (): Array<{ id: string; name: string; city?: string; status?: string }> => {
-    const userStoreUsers = listUsers();
-    const demoUsers = DEMO_USERS;
-    
-    // Combine users, prioritizing userStore users
-    const userMap = new Map<string, { id: string; name: string; city?: string; status?: string }>();
-    
-    // Add userStore users first
-    userStoreUsers.forEach((user) => {
-      userMap.set(user.id, {
-        id: user.id,
-        name: user.name,
-        city: user.city,
-        status: user.status,
-      });
-    });
-    
-    // Add demo users that aren't in userStore
-    demoUsers.forEach((user) => {
-      if (!userMap.has(user.id)) {
-        userMap.set(user.id, {
-          id: user.id,
-          name: user.name,
-          city: user.city,
-        });
-      }
-    });
-    
-    return Array.from(userMap.values()).sort((a, b) => a.name.localeCompare(b.name));
-  };
-
-  const allUsers = getAllUsers();
-
-  // Show tabs based on role
-  const showRegister = isGuest();
-  const showEvents = isUser() || isHost() || isAdmin();
-  const showMatch = isUser() || isAdmin();
-  const showMessages = (isUser() || isAdmin()) && isChatEnabled;
-  const showHost = isHost() || isAdmin();
-  const showAdmin = isAdmin();
 
   return (
     <nav className="flex items-center justify-between w-full">
       <div className="flex space-x-6">
-        {showRegister && (
-          <Link
-            href="/register"
-            data-testid="nav-register"
-            className="text-gray-medium hover:text-gray-dark text-sm font-medium transition-colors"
-          >
-            Register
-          </Link>
-        )}
-        {showEvents && (
-          <Link
-            href="/events"
-            data-testid="nav-events"
-            className="text-gray-medium hover:text-gray-dark text-sm font-medium transition-colors"
-          >
-            Events
-          </Link>
-        )}
-        {showMatch && (
-          <Link
-            href="/match"
-            data-testid="nav-match"
-            className="text-gray-medium hover:text-gray-dark text-sm font-medium transition-colors"
-          >
-            Match
-          </Link>
-        )}
-        {showMessages && (
-          <Link
-            href="/messages"
-            data-testid="nav-messages"
-            className="text-gray-medium hover:text-gray-dark text-sm font-medium transition-colors"
-          >
-            Messages
-          </Link>
-        )}
-        {showHost && (
-          <Link
-            href="/host"
-            data-testid="nav-host"
-            className="text-gray-medium hover:text-gray-dark text-sm font-medium transition-colors"
-          >
-            Host Dashboard
-          </Link>
-        )}
-        {showAdmin && (
-          <Link
-            href="/admin"
-            data-testid="nav-admin"
-            className="text-gray-medium hover:text-gray-dark text-sm font-medium transition-colors"
-          >
-            Admin Dashboard
-          </Link>
+        {isLoggedIn && (
+          <>
+            <Link
+              href="/events"
+              className="text-gray-medium hover:text-gray-dark text-sm font-medium transition-colors"
+            >
+              Events
+            </Link>
+            <Link
+              href="/match"
+              className="text-gray-medium hover:text-gray-dark text-sm font-medium transition-colors"
+            >
+              Match
+            </Link>
+            <Link
+              href="/messages"
+              className="text-gray-medium hover:text-gray-dark text-sm font-medium transition-colors"
+            >
+              Messages
+            </Link>
+            <Link
+              href="/admin?demo_admin=1"
+              className="text-gray-medium hover:text-gray-dark text-sm font-medium transition-colors"
+            >
+              Admin
+            </Link>
+          </>
         )}
       </div>
-      
-      {/* Demo Switchers */}
-      <div className="flex items-center gap-2">
-        {/* User Switcher */}
-        <div className="relative" ref={userDropdownRef}>
-          <button
-            onClick={() => {
-              setShowUserSwitcher(!showUserSwitcher);
-              setShowRoleSwitcher(false);
-            }}
-            className="text-xs text-gray-medium hover:text-gray-dark px-3 py-1 border border-beige-frame rounded-lg bg-white transition-colors whitespace-nowrap"
-            data-testid="user-switcher-toggle"
-          >
-            User: {currentUserName}
-          </button>
-          {showUserSwitcher && (
-            <div className="absolute right-0 mt-2 w-64 bg-white border border-beige-frame rounded-lg shadow-lg z-50 max-h-96 overflow-y-auto">
-              {allUsers.length === 0 ? (
-                <div className="px-4 py-2 text-sm text-gray-medium">
-                  No users available
-                </div>
-              ) : (
-                allUsers.map((user) => (
-                  <button
-                    key={user.id}
-                    onClick={() => handleUserChange(user.id, user.name)}
-                    className={`w-full text-left px-4 py-2 text-sm hover:bg-beige-frame transition-colors border-b border-beige-frame last:border-0 ${
-                      currentUserId === user.id ? "bg-beige-frame font-medium" : ""
-                    }`}
-                    data-testid={`user-switch-${user.id}`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span>{user.name}</span>
-                      <div className="flex items-center gap-2">
-                        {user.city && (
-                          <span className="text-xs text-gray-medium">
-                            {user.city}
-                          </span>
-                        )}
-                        {user.status && (
-                          <span
-                            className={`text-xs px-1.5 py-0.5 rounded ${
-                              user.status === "approved"
-                                ? "bg-green-100 text-green-800"
-                                : user.status === "pending_approval"
-                                ? "bg-yellow-100 text-yellow-800"
-                                : "bg-gray-100 text-gray-800"
-                            }`}
-                          >
-                            {user.status === "approved"
-                              ? "✓"
-                              : user.status === "pending_approval"
-                              ? "⏳"
-                              : "✗"}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </button>
-                ))
-              )}
-            </div>
-          )}
-        </div>
 
-        {/* Role Switcher */}
-        <div className="relative" ref={roleDropdownRef}>
+      {/* User Menu */}
+      {isLoggedIn && user ? (
+        <div className="relative" ref={userMenuRef}>
           <button
-            onClick={() => {
-              setShowRoleSwitcher(!showRoleSwitcher);
-              setShowUserSwitcher(false);
-            }}
-            className="text-xs text-gray-medium hover:text-gray-dark px-3 py-1 border border-beige-frame rounded-lg bg-white transition-colors whitespace-nowrap"
-            data-testid="role-switcher-toggle"
+            onClick={() => setShowUserMenu(!showUserMenu)}
+            className="flex items-center gap-2 text-sm text-gray-medium hover:text-gray-dark transition-colors"
           >
-            Role: {currentRole === "admin" ? "👑 Admin" : currentRole === "host" ? "🏠 Host" : currentRole === "user" ? "👤 User" : "👋 Guest"}
+            {user.picture && (
+              <img
+                src={user.picture}
+                alt={user.name}
+                className="w-8 h-8 rounded-full"
+              />
+            )}
+            <span className="hidden sm:inline">{user.name}</span>
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 9l-7 7-7-7"
+              />
+            </svg>
           </button>
-          {showRoleSwitcher && (
-            <div className="absolute right-0 mt-2 w-40 bg-white border border-beige-frame rounded-lg shadow-lg z-50">
+          {showUserMenu && (
+            <div className="absolute right-0 mt-2 w-48 bg-white border border-beige-frame rounded-lg shadow-lg z-50">
+              <div className="px-4 py-3 border-b border-beige-frame">
+                <p className="text-sm font-medium text-gray-dark">{user.name}</p>
+                <p className="text-xs text-gray-medium truncate">{user.email}</p>
+              </div>
               <button
-                onClick={() => handleRoleChange("guest")}
-                className={`w-full text-left px-4 py-2 text-sm hover:bg-beige-frame transition-colors ${
-                  currentRole === "guest" ? "bg-beige-frame font-medium" : ""
-                }`}
-                data-testid="role-switch-guest"
+                onClick={handleLogout}
+                className="w-full text-left px-4 py-2 text-sm text-gray-medium hover:bg-beige-frame transition-colors"
               >
-                👋 Guest
-              </button>
-              <button
-                onClick={() => handleRoleChange("user")}
-                className={`w-full text-left px-4 py-2 text-sm hover:bg-beige-frame transition-colors ${
-                  currentRole === "user" ? "bg-beige-frame font-medium" : ""
-                }`}
-                data-testid="role-switch-user"
-              >
-                👤 User
-              </button>
-              <button
-                onClick={() => handleRoleChange("host")}
-                className={`w-full text-left px-4 py-2 text-sm hover:bg-beige-frame transition-colors ${
-                  currentRole === "host" ? "bg-beige-frame font-medium" : ""
-                }`}
-                data-testid="role-switch-host"
-              >
-                🏠 Host
-              </button>
-              <button
-                onClick={() => handleRoleChange("admin")}
-                className={`w-full text-left px-4 py-2 text-sm hover:bg-beige-frame transition-colors ${
-                  currentRole === "admin" ? "bg-beige-frame font-medium" : ""
-                }`}
-                data-testid="role-switch-admin"
-              >
-                👑 Admin
+                Switch User / Logout
               </button>
             </div>
           )}
         </div>
-      </div>
+      ) : (
+        <Link
+          href="/login"
+          className="text-gray-medium hover:text-gray-dark text-sm font-medium transition-colors"
+        >
+          Login
+        </Link>
+      )}
     </nav>
   );
 }
-

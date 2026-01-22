@@ -2,58 +2,46 @@
 
 import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { getRole, getCurrentUserId } from "@/lib/demo/authStore";
-import { Role } from "@/types/roles";
+import { getCurrentUser } from "@/lib/auth/googleClientAuth";
 
 interface RouteGuardProps {
   children: React.ReactNode;
 }
 
 /**
- * Route guard that redirects users based on their role
+ * Route guard that redirects unauthenticated users to login
+ * Public routes: /, /login, /pilot
  */
 export default function RouteGuard({ children }: RouteGuardProps) {
   const pathname = usePathname();
   const router = useRouter();
 
   useEffect(() => {
-    const role = getRole();
-    const userId = getCurrentUserId();
     const isPilotPreseedEnabled = process.env.NEXT_PUBLIC_PILOT_PRESEED === "true";
 
-    // Public routes that everyone can access
-    const publicRoutes = isPilotPreseedEnabled
-      ? ["/", "/register", "/pilot", "/match"]
-      : ["/", "/register"];
-    
-    // Guest can only access register and home
-    if (role === "guest") {
-      if (!publicRoutes.includes(pathname)) {
-        router.push("/register");
-        return;
-      }
+    // Public routes that don't require authentication
+    const publicRoutes = ["/", "/login"];
+    if (isPilotPreseedEnabled) {
+      publicRoutes.push("/pilot");
     }
 
-    // User can access: /events, /match, /messages (if enabled)
-    if (role === "user") {
-      const allowedRoutes = ["/events", "/match", "/pilot", "/messages", "/notifications"];
-      if (!publicRoutes.includes(pathname) && !allowedRoutes.includes(pathname) && !pathname.startsWith("/events/")) {
-        router.push("/events");
-        return;
-      }
+    // Allow public routes - don't redirect away from login
+    if (publicRoutes.includes(pathname)) {
+      return;
     }
 
-    // Host can access: /host/*, /events (read-only)
-    if (role === "host") {
-      const allowedRoutes = ["/events", "/pilot", "/notifications"];
-      if (!publicRoutes.includes(pathname) && !pathname.startsWith("/host") && !allowedRoutes.includes(pathname) && !pathname.startsWith("/events/")) {
-        router.push("/host");
+    // Small delay to ensure session state is updated after logout
+    const timer = setTimeout(() => {
+      // Check if user is logged in
+      const user = getCurrentUser();
+      if (!user) {
+        // Use replace to avoid adding to history stack
+        router.replace("/login");
         return;
       }
-    }
+    }, 100);
 
-    // Admin can access everything
-    // No restrictions for admin
+    return () => clearTimeout(timer);
   }, [pathname, router]);
 
   return <>{children}</>;
