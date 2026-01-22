@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "@/lib/auth/useSession";
@@ -10,7 +10,7 @@ import { QUESTIONS } from "@/lib/questionnaire/questions";
 import { MatchUser } from "@/types/questionnaire";
 import { getCurrentUser } from "@/lib/auth/googleClientAuth";
 
-export default function AdminPage() {
+function AdminPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, isLoggedIn } = useSession();
@@ -324,5 +324,17 @@ export default function AdminPage() {
         </Link>
       </div>
     </div>
+  );
+}
+
+export default function AdminPage() {
+  return (
+    <Suspense fallback={
+      <div className="max-w-4xl mx-auto px-4 py-16">
+        <p className="text-gray-medium">Loading...</p>
+      </div>
+    }>
+      <AdminPageContent />
+    </Suspense>
   );
 }

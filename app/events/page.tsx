@@ -1,14 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "@/lib/auth/useSession";
 import { useDemoStore } from "@/lib/demo/demoStore";
-import { useSearchParams } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/googleClientAuth";
 
-export default function EventsPage() {
+function EventsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, isLoggedIn } = useSession();
@@ -170,5 +169,17 @@ export default function EventsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function EventsPage() {
+  return (
+    <Suspense fallback={
+      <div className="max-w-2xl mx-auto px-4 py-16">
+        <p className="text-gray-medium">Loading...</p>
+      </div>
+    }>
+      <EventsPageContent />
+    </Suspense>
   );
 }

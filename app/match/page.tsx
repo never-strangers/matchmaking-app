@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "@/lib/auth/useSession";
 import { useDemoStore } from "@/lib/demo/demoStore";
 import { getCurrentUser } from "@/lib/auth/googleClientAuth";
 
-export default function MatchPage() {
+function MatchPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, isLoggedIn, isLoading } = useSession();
@@ -248,5 +248,17 @@ export default function MatchPage() {
         </Link>
       </div>
     </div>
+  );
+}
+
+export default function MatchPage() {
+  return (
+    <Suspense fallback={
+      <div className="max-w-2xl mx-auto px-4 py-16">
+        <p className="text-gray-medium">Loading...</p>
+      </div>
+    }>
+      <MatchPageContent />
+    </Suspense>
   );
 }
