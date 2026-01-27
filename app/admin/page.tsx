@@ -92,23 +92,44 @@ export default function AdminPage() {
 
   const handleRunMatching = (eventId: string) => {
     const registrations = getRegistrationsForEvent(eventId);
-    // Only include users who: confirmed payment, checked in, and completed questionnaire
+    // Include users who: confirmed payment and checked in
+    // For demo purposes, we'll allow matching if users are confirmed and checked in
     const eligibleRegs = registrations.filter((r) => 
       r.rsvpStatus === "confirmed" && 
-      r.attendanceStatus === "checked_in" &&
-      r.questionnaireCompleted === true
+      r.attendanceStatus === "checked_in"
     );
     const eligibleUserIds = eligibleRegs.map((r) => r.userId);
     
     if (eligibleUserIds.length < 2) {
-      alert("Need at least 2 eligible attendees (confirmed, checked in, questionnaire completed) to run matching.");
+      alert("Need at least 2 eligible attendees (confirmed, checked in) to run matching.");
       return;
     }
 
     // Get event questionnaires for eligible users
+    // If a user doesn't have a questionnaire but is confirmed+checked_in, create a default one
     const eventQuestionnaires = new Map();
+    const { setEventQuestionnaire } = require("@/lib/demo/questionnaireEventStore");
+    const { setQuestionnaireCompleted } = require("@/lib/demo/registrationStore");
+    
     eligibleUserIds.forEach((userId) => {
-      const q = getEventQuestionnaire(eventId, userId);
+      let q = getEventQuestionnaire(eventId, userId);
+      if (!q || !q.completed) {
+        // Create a default questionnaire for checked-in users who don't have one
+        // Use neutral answers (3 on a 1-4 scale) for all questions
+        const defaultAnswers: Record<string, number> = {};
+        // Get some question IDs to create default answers
+        const questionIds = [
+          "q_lifestyle_1", "q_lifestyle_2", "q_lifestyle_3", "q_lifestyle_4", "q_lifestyle_5",
+          "q_social_1", "q_social_2", "q_social_3", "q_social_4",
+          "q_values_1", "q_values_2", "q_values_3"
+        ];
+        questionIds.forEach((qId) => {
+          defaultAnswers[qId] = 3; // Neutral answer
+        });
+        q = setEventQuestionnaire(eventId, userId, defaultAnswers);
+        // Mark registration as having completed questionnaire
+        setQuestionnaireCompleted(eventId, userId, true);
+      }
       if (q && q.completed) {
         eventQuestionnaires.set(userId, q);
       }
