@@ -10,7 +10,7 @@ import { getCurrentUser } from "@/lib/auth/googleClientAuth";
 function MatchPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, isLoggedIn, isLoading } = useSession();
+  const { user, isLoggedIn, isLoading, isAdmin } = useSession();
   const {
     listEvents,
     getMatches,
@@ -62,7 +62,8 @@ function MatchPageContent() {
   useEffect(() => {
     if (!selectedEventId || !user?.email) return;
     const eventMatches = getMatches(selectedEventId, user.email);
-    setMatches(eventMatches);
+    // Only show top 3 matches
+    setMatches(eventMatches.slice(0, 3));
   }, [selectedEventId, user, getMatches]);
 
   const handleLike = (otherEmail: string) => {
@@ -76,9 +77,9 @@ function MatchPageContent() {
       alert(`You and ${sessionUsers[otherEmail]?.name || otherEmail} liked each other! You can now message.`);
     }
 
-    // Refresh matches to update UI
+    // Refresh matches to update UI (only top 3)
     const eventMatches = getMatches(selectedEventId, user.email);
-    setMatches(eventMatches);
+    setMatches(eventMatches.slice(0, 3));
   };
 
   const getUserName = (email: string) => {
@@ -145,12 +146,14 @@ function MatchPageContent() {
                   <p className="text-blue-800">
                     No matches yet. Admin needs to run matching for this event.
                   </p>
-                  <Link
-                    href={`/admin?demo_admin=1`}
-                    className="text-blue-600 underline text-sm mt-2 inline-block"
-                  >
-                    Go to Admin Dashboard
-                  </Link>
+                  {isAdmin && (
+                    <Link
+                      href={`/admin?demo_admin=1`}
+                      className="text-blue-600 underline text-sm mt-2 inline-block"
+                    >
+                      Go to Admin Dashboard
+                    </Link>
+                  )}
                 </div>
               ) : (
                 <div className="space-y-4">

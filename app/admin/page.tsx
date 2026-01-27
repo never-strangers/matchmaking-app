@@ -9,6 +9,7 @@ import { getMatchesForUser } from "@/lib/matching/questionnaireMatch";
 import { QUESTIONS } from "@/lib/questionnaire/questions";
 import { MatchUser } from "@/types/questionnaire";
 import { getCurrentUser } from "@/lib/auth/googleClientAuth";
+import { ADMIN_EMAIL } from "@/lib/auth/demoUsers";
 
 function AdminPageContent() {
   const router = useRouter();
@@ -33,18 +34,26 @@ function AdminPageContent() {
     // Wait for session to load before checking
     if (isLoading) return;
 
-    const adminMode = searchParams.get("demo_admin") === "1";
-    setIsAdminMode(adminMode);
+    if (!isLoggedIn || !user) {
+      router.replace("/login");
+      return;
+    }
 
-    if (!adminMode) {
+    // Check if user is admin (only alice@demo.com is admin)
+    const isAdmin = user.email === ADMIN_EMAIL;
+    
+    // demo_admin query param: "1" enables admin mode, "0" or missing = disabled
+    // Even with demo_admin=1, only the admin user can access
+    const adminParam = searchParams.get("demo_admin");
+    const adminModeEnabled = adminParam === "1";
+    
+    if (!isAdmin || !adminModeEnabled) {
+      // Not admin user or admin mode not enabled - redirect to events
       router.replace("/events");
       return;
     }
 
-    if (!isLoggedIn) {
-      router.replace("/login");
-      return;
-    }
+    setIsAdminMode(true);
 
     setEvents(useDemoStore.getState().listEvents());
     if (events.length > 0 && !selectedEventId) {
@@ -115,10 +124,13 @@ function AdminPageContent() {
         const matchResults = getMatchesForUser(matchUserA, candidates, eventQuestions);
 
         // Store matches
-        const matches = matchResults.map((result) => ({
-          otherEmail: result.user.id,
-          score: result.score,
-        }));
+        // Only store top 3 matches per user
+        const matches = matchResults
+          .slice(0, 3)
+          .map((result) => ({
+            otherEmail: result.user.id,
+            score: result.score,
+          }));
 
         setMatches(selectedEventId, userA.email, matches);
       }

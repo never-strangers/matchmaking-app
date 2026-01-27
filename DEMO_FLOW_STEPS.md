@@ -1,6 +1,6 @@
-# Demo Flow Guide
+# Demo Flow Steps - Never Strangers
 
-This guide explains how to use the Never Strangers demo flow. Everything runs client-side with localStorage - no backend required.
+Complete step-by-step guide for the UI-only demo flow.
 
 ## 🚀 Quick Start
 
@@ -8,7 +8,9 @@ This guide explains how to use the Never Strangers demo flow. Everything runs cl
 2. **Open**: `http://localhost:3000`
 3. **Login**: Click "Login" → Select a demo user
 
-## 📋 Complete Demo Flow Steps
+---
+
+## 📋 Complete Demo Flow
 
 ### Step 1: Login
 - Navigate to `/login` (or click "Login" in nav)
@@ -45,22 +47,19 @@ This guide explains how to use the Never Strangers demo flow. Everything runs cl
 - Click "Return to Events" or navigate back
 
 ### Step 4: Admin - Run Matching
-- **Admin Access**: Only **Alice Johnson (alice@demo.com)** can access admin features
-- Navigate to `/admin?demo_admin=1` (must be logged in as Alice)
-- **About `demo_admin` flag**:
-  - `demo_admin=1`: Enables admin mode (only works for admin user)
-  - `demo_admin=0` or missing: Admin mode disabled, redirects to events
-  - Even with `demo_admin=1`, non-admin users are redirected
+- Navigate to `/admin?demo_admin=1`
 - Select an event from the dropdown
 - **Optional**: Click **"Seed 30 Demo Participants"** to add fake users with random answers (helpful for testing)
 - Click **"Run Matching"** button
-- Matching algorithm computes scores and stores **top 3 matches per user**
+- Matching algorithm computes scores for all users who:
+  - Have joined the event
+  - Have answered all 10 questions
 - You'll see an alert: "Matching completed for X users!"
 
 ### Step 5: View Matches
 - Navigate to `/match` (or click "Match" in nav)
 - Select an event from the dropdown
-- You'll see **top 3 matches** (highest scores) with:
+- You'll see a list of matches with:
   - User name and email
   - Match percentage (0-100%)
   - "Like" button for each match
@@ -87,6 +86,7 @@ This guide explains how to use the Never Strangers demo flow. Everything runs cl
   - Your own likes and messages
 - Switch back to the original user to see their data again
 
+---
 
 ## 🎯 Key Features
 
@@ -104,17 +104,90 @@ This guide explains how to use the Never Strangers demo flow. Everything runs cl
 - **Demo Data**: `ns_demo_v1` - Events, registrations, answers, matches, likes, conversations, messages
 
 ### 🔧 Admin Features
-- **Admin User**: Only `alice@demo.com` (Alice Johnson) can access admin
-- **Access**: `/admin?demo_admin=1` (must be logged in as admin)
-- **`demo_admin` Query Parameter**:
-  - `demo_admin=1`: Enables admin mode (only for admin user)
-  - `demo_admin=0` or missing: Disables admin mode, redirects to events
-  - Non-admin users are always redirected, even with `demo_admin=1`
-- Run matching for any event (stores top 3 matches per user)
+- Access at `/admin?demo_admin=1`
+- Run matching for any event
 - Seed demo participants for testing
 - View participant status and answer counts
 
-## 🧪 Quick Demo Script (5 minutes)
+---
+
+## 🧪 Testing Scenarios
+
+### Scenario 1: Single User Flow
+1. Login as Alice
+2. Join Singapore event
+3. Answer questions (or use prefilled)
+4. Go to admin, run matching
+5. Go to match page, see results
+6. Like a user (if seeded participants exist)
+
+### Scenario 2: Mutual Like Flow
+1. Login as Alice
+2. Join event, answer questions
+3. Go to admin, seed 30 participants, run matching
+4. Go to match, like Bob
+5. Logout, login as Bob
+6. Go to match, like Alice back
+7. Login as Alice again
+8. Go to messages, see conversation, send message
+
+### Scenario 3: Multiple Accounts
+1. Login as Alice → Join event → Answer questions
+2. Logout, login as Bob → Join same event → Answer questions
+3. Logout, login as Alice → See only Alice's data
+4. Logout, login as Bob → See only Bob's data
+5. All data persists independently
+
+---
+
+## 🐛 Troubleshooting
+
+### No matches showing?
+- Make sure admin has run matching for the event
+- Verify you've answered all 10 questions
+- Check that at least 2 users have completed the questionnaire
+
+### Can't message?
+- Both users must like each other (mutual like)
+- Check that matching has been run
+- Verify you're logged in with the correct account
+
+### Redirect loops?
+- Clear localStorage: `localStorage.clear()`
+- Refresh the page
+- Try logging in again
+
+### Questions not prefilled?
+- Refresh the page
+- Questions auto-prefill on first visit to the questions page
+
+---
+
+## 📁 File Structure
+
+```
+lib/auth/
+  ├── demoUsers.ts          # Predefined demo users
+  ├── googleClientAuth.ts   # Session management (localStorage)
+  └── useSession.ts         # React hook for session
+
+lib/demo/
+  └── demoStore.ts          # Zustand store with localStorage persistence
+
+app/
+  ├── login/                # Login page with user selection
+  ├── events/               # Events listing and joining
+  ├── events/[id]/questions/ # Answer 10 questions
+  ├── admin/                # Admin dashboard with matching
+  ├── match/                # View matches and like users
+  └── messages/             # Conversations and messaging
+```
+
+---
+
+## 🎬 Quick Demo Script
+
+**For a 5-minute demo:**
 
 1. **Login** → Select "Alice Johnson"
 2. **Join Event** → Click "Join" on Singapore event
@@ -125,48 +198,3 @@ This guide explains how to use the Never Strangers demo flow. Everything runs cl
 7. **Message** → Login as Alice → Go to `/messages` → Open conversation → Send message
 
 **Done!** 🎉
-
-## Troubleshooting
-
-### No matches showing
-
-- Make sure admin has run matching for the event
-- Check that you've answered all 10 questions
-- Verify at least 2 users have completed the questionnaire
-
-### Can't message
-
-- Both users must like each other (mutual like)
-- Check that matching has been run
-- Verify you're logged in with the correct account
-
-### Data not persisting
-
-- Check browser localStorage is enabled
-- Clear localStorage and start fresh if needed:
-  ```javascript
-  localStorage.removeItem('ns_demo_v1');
-  localStorage.removeItem('ns_session_v1');
-  ```
-
-## Testing Multiple Accounts
-
-1. Login with Google account A
-2. Join event, answer questions
-3. Logout
-4. Login with Google account B
-5. Join same event, answer questions
-6. Login as account A again
-7. Go to admin, run matching
-8. Both accounts can now see matches and message each other
-
-## File Structure
-
-- `lib/auth/`: Google client-side authentication
-- `lib/demo/demoStore.ts`: Zustand store with localStorage persistence
-- `app/login/`: Login page
-- `app/events/`: Events listing and joining
-- `app/events/[id]/questions/`: Question answering
-- `app/admin/`: Admin dashboard with matching
-- `app/match/`: Match viewing and liking
-- `app/messages/`: Conversations and messaging

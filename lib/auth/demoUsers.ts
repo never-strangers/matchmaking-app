@@ -8,6 +8,11 @@ export type DemoUser = {
   picture?: string;
 };
 
+/**
+ * Admin user email - only this user can access admin features
+ */
+export const ADMIN_EMAIL = "alice@demo.com";
+
 export const DEMO_USERS: DemoUser[] = [
   {
     email: "alice@demo.com",

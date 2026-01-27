@@ -10,7 +10,7 @@ import { getCurrentUser } from "@/lib/auth/googleClientAuth";
 function EventsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, isLoggedIn } = useSession();
+  const { user, isLoggedIn, isAdmin, isLoading } = useSession();
   const {
     listEvents,
     seedDefaultEvents,
@@ -22,8 +22,6 @@ function EventsPageContent() {
   } = useDemoStore();
 
   const [events, setEvents] = useState(useDemoStore.getState().listEvents());
-  const [isAdmin, setIsAdmin] = useState(false);
-  const { isLoading } = useSession();
 
   useEffect(() => {
     // Wait for session to load before checking
@@ -35,10 +33,6 @@ function EventsPageContent() {
       router.replace("/login");
       return;
     }
-
-    // Check admin mode
-    const adminMode = searchParams.get("demo_admin") === "1";
-    setIsAdmin(adminMode);
 
     // Seed default events if none exist
     seedDefaultEvents();

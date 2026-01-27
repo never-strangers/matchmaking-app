@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 
 export default function NavBar() {
   const router = useRouter();
-  const { user, isLoggedIn, logout } = useSession();
+  const { user, isLoggedIn, isAdmin, logout } = useSession();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
@@ -66,12 +66,14 @@ export default function NavBar() {
             >
               Messages
             </Link>
-            <Link
-              href="/admin?demo_admin=1"
-              className="text-gray-medium hover:text-gray-dark text-sm font-medium transition-colors"
-            >
-              Admin
-            </Link>
+            {isAdmin && (
+              <Link
+                href="/admin?demo_admin=1"
+                className="text-gray-medium hover:text-gray-dark text-sm font-medium transition-colors"
+              >
+                Admin
+              </Link>
+            )}
           </>
         )}
       </div>

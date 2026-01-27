@@ -8,7 +8,7 @@ import {
   clearSession,
   SessionUser,
 } from "./googleClientAuth";
-import { DemoUser } from "./demoUsers";
+import { DemoUser, ADMIN_EMAIL } from "./demoUsers";
 
 export function useSession() {
   const [user, setUserState] = useState<SessionUser | null>(null);
@@ -49,10 +49,13 @@ export function useSession() {
     setIsLoggedIn(!!currentUser);
   }, []);
 
+  const isAdmin = user?.email === ADMIN_EMAIL;
+
   return {
     user,
     isLoggedIn,
     isLoading,
+    isAdmin,
     loginAsUser,
     logout,
     switchUser,
