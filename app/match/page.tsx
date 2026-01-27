@@ -25,7 +25,7 @@ function MatchPageContent() {
     searchParams.get("eventId") || null
   );
   const [matches, setMatches] = useState<
-    Array<{ otherEmail: string; score: number }>
+    Array<{ otherEmail: string; score: number; aligned?: string[]; mismatched?: string[] }>
   >([]);
   const [sessionUsers, setSessionUsers] = useState<
     Record<string, { name: string; picture?: string }>
@@ -197,6 +197,32 @@ function MatchPageContent() {
                                 Match
                               </span>
                             </div>
+                            {(match.aligned && match.aligned.length > 0) || (match.mismatched && match.mismatched.length > 0) ? (
+                              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                  <div className="text-xs font-semibold text-gray-dark mb-1">
+                                    Top aligned
+                                  </div>
+                                  <ul className="list-disc list-inside space-y-1">
+                                    {(match.aligned || []).map((reason, idx) => (
+                                      <li key={idx} className="text-xs text-gray-medium">
+                                        {reason}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                                <div>
+                                  <div className="text-xs font-semibold text-gray-dark mb-1">
+                                    Top mismatch
+                                  </div>
+                                  <div className="text-xs text-gray-medium">
+                                    {match.mismatched && match.mismatched[0]
+                                      ? match.mismatched[0]
+                                      : "No notable mismatches"}
+                                  </div>
+                                </div>
+                              </div>
+                            ) : null}
                             <div className="flex gap-2 mt-3">
                               {liked && (
                                 <span className="text-xs px-2 py-1 rounded bg-green-100 text-green-800">

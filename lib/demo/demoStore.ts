@@ -32,11 +32,18 @@ export type AnswersByEvent = Record<
   >
 >;
 
+export type MatchSummary = {
+  otherEmail: string;
+  score: number;
+  aligned?: string[];
+  mismatched?: string[];
+};
+
 export type MatchesByEvent = Record<
   string, // eventId
   Record<
     string, // userEmail (viewer)
-    Array<{ otherEmail: string; score: number }>
+    MatchSummary[]
   >
 >;
 
@@ -102,9 +109,9 @@ type DemoStore = DemoState & {
   setMatches: (
     eventId: string,
     userEmail: string,
-    matches: Array<{ otherEmail: string; score: number }>
+    matches: MatchSummary[]
   ) => void;
-  getMatches: (eventId: string, userEmail: string) => Array<{ otherEmail: string; score: number }>;
+  getMatches: (eventId: string, userEmail: string) => MatchSummary[];
   hasMatches: (eventId: string, userEmail: string) => boolean;
 
   // Likes

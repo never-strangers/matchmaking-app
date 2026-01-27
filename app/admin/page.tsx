@@ -121,16 +121,20 @@ function AdminPageContent() {
             answers: u.answers as any,
           }));
 
-        const matchResults = getMatchesForUser(matchUserA, candidates, eventQuestions);
+        const matchResults = getMatchesForUser(
+          matchUserA,
+          candidates,
+          eventQuestions
+        );
 
         // Store matches
-        // Only store top 3 matches per user
-        const matches = matchResults
-          .slice(0, 3)
-          .map((result) => ({
-            otherEmail: result.user.id,
-            score: result.score,
-          }));
+        // Only store top 3 matches per user, including brief alignment/mismatch explanations
+        const matches = matchResults.slice(0, 3).map((result) => ({
+          otherEmail: result.user.id,
+          score: result.score,
+          aligned: result.aligned.slice(0, 3),
+          mismatched: result.mismatched.slice(0, 1),
+        }));
 
         setMatches(selectedEventId, userA.email, matches);
       }

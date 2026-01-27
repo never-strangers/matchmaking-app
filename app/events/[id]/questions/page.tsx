@@ -42,11 +42,12 @@ export default function EventQuestionsPage() {
     }
     setEvent(eventData);
 
-    // Load existing answers
+    // Load existing answers (before any auto-prefill)
     let existingAnswers = getAnswers(eventId, user.email);
-    
-    // If no answers exist, prefill all 10 questions with default value 3 (Agree)
-    if (Object.keys(existingAnswers).length === 0 && eventData.questions.length > 0) {
+    const hadExistingAnswers = Object.keys(existingAnswers).length > 0;
+
+    // If no answers exist yet, prefill all 10 questions with default value 3 (Agree)
+    if (!hadExistingAnswers && eventData.questions.length > 0) {
       const defaultAnswers: Record<string, AnswerValue> = {};
       eventData.questions.slice(0, 10).forEach((qId) => {
         defaultAnswers[qId] = 3; // Default to "Agree"
@@ -56,15 +57,24 @@ export default function EventQuestionsPage() {
       // Reload from store to ensure consistency
       existingAnswers = getAnswers(eventId, user.email);
     }
-    
+
     setAnswers(existingAnswers);
     setInitialized(true);
 
-    // Check if already completed
-    if (hasAllAnswers(eventId, user.email)) {
+    // Check if already completed from a prior session.
+    // We only auto-mark as "saved" if the user had answers *before* any auto-prefill,
+    // so that new visitors can freely customise prefilled defaults before submitting.
+    if (hadExistingAnswers && hasAllAnswers(eventId, user.email)) {
       setSaved(true);
     }
   }, [eventId, isLoggedIn, isLoading, user, router, getEvent, getAnswers, hasAllAnswers, setAnswer]);
+
+  const handleConfirmAnswers = () => {
+    if (!user?.email) return;
+    if (!hasAllAnswers(eventId, user.email)) return;
+    setSaved(true);
+    router.replace("/events");
+  };
 
   const handleAnswerChange = (questionId: string, value: AnswerValue) => {
     if (saved || !user?.email) return;
@@ -184,16 +194,16 @@ export default function EventQuestionsPage() {
 
         {isComplete && !saved && (
           <div className="mt-6 pt-6 border-t border-beige-frame">
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <p className="text-sm text-green-800 mb-2">
-                All questions answered! Your answers are automatically saved.
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <p className="text-sm text-green-800">
+                All questions answered. Review your answers, then confirm to lock them in for matching.
               </p>
-              <Link
-                href="/events"
-                className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity inline-block"
+              <button
+                onClick={handleConfirmAnswers}
+                className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity"
               >
-                Return to Events
-              </Link>
+                Confirm answers
+              </button>
             </div>
           </div>
         )}
