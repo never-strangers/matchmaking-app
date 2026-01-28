@@ -4,6 +4,13 @@ import { clearNsLocalStorage, isChatEnabled } from './utils';
 test.describe('Feature Flags', () => {
   test.beforeEach(async ({ page }) => {
     await clearNsLocalStorage(page);
+    // Seed a minimal demo session so route guard allows /messages.
+    await page.addInitScript(() => {
+      const session = { userId: 'mikhail', phone: '+6580000000', name: 'Mikhail', role: 'user' };
+      localStorage.setItem('ns_session', JSON.stringify(session));
+      localStorage.setItem('ns_role', 'user');
+      localStorage.setItem('ns_current_user_id', 'mikhail');
+    });
   });
 
   test('Chat disabled behavior', async ({ page }) => {

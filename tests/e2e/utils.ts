@@ -76,6 +76,27 @@ export async function isChatEnabled(page: Page): Promise<boolean> {
 }
 
 /**
+ * Login via the demo phone register page.
+ */
+export async function loginViaRegister(
+  page: Page,
+  opts: { name?: string; phoneDigits?: string } = {}
+): Promise<void> {
+  const name = opts.name ?? 'Demo User';
+  const phoneDigits = opts.phoneDigits ?? '81234567';
+
+  await page.goto('/register');
+  await page.fill('[data-testid="register-name"]', name);
+  await page.fill('[data-testid="register-phone"]', phoneDigits);
+  await page.click('[data-testid="register-submit"]');
+
+  await expect(page).toHaveURL('/events');
+  await expect(page.locator('[data-testid="events-title"]')).toBeVisible({
+    timeout: 5000,
+  });
+}
+
+/**
  * Wait for message to appear in chat (with polling for realtime)
  */
 export async function waitForMessage(

@@ -91,14 +91,26 @@ This repo hosts the new **Matching Core** — a lightweight, AI-powered system r
 The following features are currently using mock data or localStorage and need database integration:
 
 #### 📝 User Registration & Authentication
-- **Registration Form** (`/register`)
-  - Form submissions stored in `localStorage`
-  - Profile photo upload (not persisted)
-  - Email verification flow (mocked)
-- **User Authentication**
-  - No login/logout functionality
-  - No session management
-  - No password hashing/validation
+- **Phone Login (Demo)** (`/register`)
+  - Name + Singapore phone only (`+65xxxxxxxx`)
+  - Creates a local demo user profile in `localStorage` (`ns_users`)
+  - Creates a local demo session in `localStorage` (`ns_session`)
+  - No OTP verification (intentionally skipped for internal demos)
+
+## Phone Login (Current) and Future Infra
+
+**Current (internal demo):** Auth is client-only and stored in browser `localStorage`.
+- **Session**: `ns_session` (current userId/phone/name/role)
+- **Users**: `ns_users` (demo user profiles)
+- **Security note**: This is not secure and is for demos only.
+
+**Next steps (production-ready):**
+1) Supabase Auth (Phone OTP) **or** Twilio/MessageBird/WhatsApp OTP  
+2) Store users in Supabase Postgres (`profiles` table)  
+3) Rate limiting + bot protection  
+4) Normalize phone numbers (E.164) + expand beyond SG  
+5) Session cookies (httpOnly) instead of `localStorage`  
+6) Audit logs for host/admin actions  
 
 #### 👤 User Profiles & Onboarding
 - **Basic Onboarding** (`/onboarding`)

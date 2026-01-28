@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "@/lib/auth/useSession";
 import { useDemoStore } from "@/lib/demo/demoStore";
-import { getCurrentUser } from "@/lib/auth/googleClientAuth";
+import { listUsers } from "@/lib/demo/userStore";
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -27,21 +27,16 @@ export default function MessagesPage() {
     if (isLoading) return;
 
     if (!isLoggedIn) {
-      router.replace("/login");
+      router.replace("/register");
       return;
     }
 
-    try {
-      const sessionData = localStorage.getItem("ns_session_v1");
-      if (sessionData) {
-        const parsed = JSON.parse(sessionData);
-        const users: Record<string, { name: string; picture?: string }> = {};
-        Object.keys(parsed.users || {}).forEach((email) => {
-          users[email] = parsed.users[email];
-        });
-        setSessionUsers(users);
-      }
-    } catch {}
+    const users: Record<string, { name: string; picture?: string }> = {};
+    listUsers().forEach((u) => {
+      if (!u.email) return;
+      users[u.email] = { name: u.name, picture: u.profilePhotoUrl };
+    });
+    setSessionUsers(users);
 
     if (user?.email) {
       const userConversations = getConversationsForUser(user.email);

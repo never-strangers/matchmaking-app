@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { clearNsLocalStorage, safeExpectVisible } from './utils';
+import { clearNsLocalStorage, safeExpectVisible, loginViaRegister } from './utils';
 
 test.describe('Smoke Tests', () => {
   test.beforeEach(async ({ page }) => {
@@ -19,23 +19,30 @@ test.describe('Smoke Tests', () => {
   });
 
   test('All main pages load without crash', async ({ page }) => {
-    const routes = [
-      { path: '/', testId: 'home-title' },
-      { path: '/onboarding', testId: 'onboarding-name' },
-      { path: '/events', testId: 'events-title' },
-      { path: '/match', testId: 'match-title' },
-      { path: '/admin', testId: 'admin-title' },
-    ];
+    await test.step('Public pages load', async () => {
+      await page.goto('/');
+      await safeExpectVisible(page, 'home-title');
 
-    for (const route of routes) {
-      await test.step(`Load ${route.path}`, async () => {
-        await page.goto(route.path);
-        await safeExpectVisible(page, route.testId);
-      });
-    }
+      await page.goto('/register');
+      await expect(page.locator('[data-testid="register-submit"]')).toBeVisible();
+    });
+
+    await test.step('Protected pages load after login', async () => {
+      await loginViaRegister(page);
+
+      await page.goto('/onboarding');
+      await safeExpectVisible(page, 'onboarding-name');
+
+      await page.goto('/events');
+      await safeExpectVisible(page, 'events-title');
+
+      await page.goto('/match');
+      await safeExpectVisible(page, 'match-title');
+    });
   });
 
   test('Messages page loads if chat enabled', async ({ page }) => {
+    await loginViaRegister(page);
     await page.goto('/messages');
     
     // Check if chat is enabled by looking for messages title or disabled message

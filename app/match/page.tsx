@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "@/lib/auth/useSession";
 import { useDemoStore } from "@/lib/demo/demoStore";
-import { getCurrentUser } from "@/lib/auth/googleClientAuth";
+import { listUsers, getUserById } from "@/lib/demo/userStore";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
@@ -39,14 +39,14 @@ function MatchPageContent() {
     }>
   >([]);
   const [sessionUsers, setSessionUsers] = useState<
-    Record<string, { name: string; picture?: string }>
+    Record<string, { name: string; picture?: string; phone?: string }>
   >({});
 
   useEffect(() => {
     if (isLoading) return;
 
     if (!isLoggedIn) {
-      router.replace("/login");
+      router.replace("/register");
       return;
     }
 
@@ -55,17 +55,12 @@ function MatchPageContent() {
       setSelectedEventId(events[0].id);
     }
 
-    try {
-      const sessionData = localStorage.getItem("ns_session_v1");
-      if (sessionData) {
-        const parsed = JSON.parse(sessionData);
-        const users: Record<string, { name: string; picture?: string }> = {};
-        Object.keys(parsed.users || {}).forEach((email) => {
-          users[email] = parsed.users[email];
-        });
-        setSessionUsers(users);
-      }
-    } catch {}
+    const users: Record<string, { name: string; picture?: string; phone?: string }> = {};
+    listUsers().forEach((u) => {
+      if (!u.email) return;
+      users[u.email] = { name: u.name, picture: u.profilePhotoUrl, phone: u.phone };
+    });
+    setSessionUsers(users);
   }, [isLoggedIn, isLoading, router, events.length, selectedEventId]);
 
   useEffect(() => {
@@ -95,6 +90,10 @@ function MatchPageContent() {
 
   const getUserPicture = (email: string) => {
     return sessionUsers[email]?.picture;
+  };
+
+  const getUserPhone = (email: string) => {
+    return sessionUsers[email]?.phone;
   };
 
   if (isLoading) {
@@ -234,7 +233,19 @@ function MatchPageContent() {
                             <div className="flex flex-wrap gap-2 mt-4">
                               {liked && <Badge variant="success">✓ Liked</Badge>}
                               {mutual && (
-                                <Badge variant="info">💬 Mutual Interest - Can Message</Badge>
+                                <>
+                                  <Badge variant="info">💬 Mutual Interest - Can Message</Badge>
+                                  {getUserPhone(match.otherEmail) && (
+                                    <div className="mt-2 p-3 rounded-lg" style={{ backgroundColor: "var(--bg-muted)", border: "1px solid var(--border)" }}>
+                                      <p className="text-xs font-semibold mb-1" style={{ color: "var(--text-muted)" }}>
+                                        Phone Number:
+                                      </p>
+                                      <p className="text-sm font-mono" style={{ color: "var(--text)" }}>
+                                        {getUserPhone(match.otherEmail)}
+                                      </p>
+                                    </div>
+                                  )}
+                                </>
                               )}
                             </div>
                           </div>

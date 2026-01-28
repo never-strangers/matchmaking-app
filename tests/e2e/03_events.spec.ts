@@ -1,9 +1,10 @@
 import { test, expect } from '@playwright/test';
-import { clearNsLocalStorage, safeExpectVisible } from './utils';
+import { clearNsLocalStorage, safeExpectVisible, loginViaRegister } from './utils';
 
 test.describe('Events', () => {
   test.beforeEach(async ({ page }) => {
     await clearNsLocalStorage(page);
+    await loginViaRegister(page);
   });
 
   test('Events list displays and join functionality works', async ({ page }) => {

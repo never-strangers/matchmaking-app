@@ -4,6 +4,13 @@ import { clearNsLocalStorage, isChatEnabled, setChatUser, waitForMessage } from 
 test.describe('Chat Realtime', () => {
   test.beforeEach(async ({ page }) => {
     await clearNsLocalStorage(page);
+    // Seed a minimal demo session so route guard allows /messages.
+    await page.addInitScript(() => {
+      const session = { userId: 'mikhail', phone: '+6580000000', name: 'Mikhail', role: 'user' };
+      localStorage.setItem('ns_session', JSON.stringify(session));
+      localStorage.setItem('ns_role', 'user');
+      localStorage.setItem('ns_current_user_id', 'mikhail');
+    });
   });
 
   test('Two-tab realtime chat', async ({ browser }) => {
@@ -20,6 +27,12 @@ test.describe('Chat Realtime', () => {
 
     // Create two tabs in same browser context
     const context = await browser.newContext();
+    await context.addInitScript(() => {
+      const session = { userId: 'mikhail', phone: '+6580000000', name: 'Mikhail', role: 'user' };
+      localStorage.setItem('ns_session', JSON.stringify(session));
+      localStorage.setItem('ns_role', 'user');
+      localStorage.setItem('ns_current_user_id', 'mikhail');
+    });
     const page1Tab = await context.newPage();
     const page2Tab = await context.newPage();
 

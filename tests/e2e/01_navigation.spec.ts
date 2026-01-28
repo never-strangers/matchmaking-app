@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { clearNsLocalStorage, gotoAndAssertTitle, isChatEnabled } from './utils';
+import { clearNsLocalStorage, gotoAndAssertTitle, isChatEnabled, loginViaRegister } from './utils';
 
 test.describe('Navigation', () => {
   test.beforeEach(async ({ page }) => {
@@ -12,34 +12,27 @@ test.describe('Navigation', () => {
       await expect(page.locator('[data-testid="home-title"]')).toBeVisible();
     });
 
-    await test.step('Navigate to Onboarding', async () => {
-      await page.click('[data-testid="nav-onboarding"]');
-      await gotoAndAssertTitle(page, '/onboarding', 'onboarding-name');
+    await test.step('Guest sees Register only', async () => {
+      await expect(page.locator('[data-testid="nav-register"]')).toBeVisible();
+      await expect(page.locator('[data-testid="nav-events"]')).not.toBeVisible();
+      await expect(page.locator('[data-testid="nav-match"]')).not.toBeVisible();
     });
 
-    await test.step('Navigate to Match', async () => {
+    await test.step('Login and navigate to Events/Match', async () => {
+      await page.click('[data-testid="nav-register"]');
+      await expect(page).toHaveURL('/register');
+      await loginViaRegister(page);
+
       await page.click('[data-testid="nav-match"]');
       await gotoAndAssertTitle(page, '/match', 'match-title');
-    });
 
-    await test.step('Navigate to Events', async () => {
       await page.click('[data-testid="nav-events"]');
       await gotoAndAssertTitle(page, '/events', 'events-title');
-    });
-
-    await test.step('Navigate to Admin', async () => {
-      await page.click('[data-testid="nav-admin"]');
-      await gotoAndAssertTitle(page, '/admin', 'admin-title');
-    });
-
-    await test.step('Navigate to Home', async () => {
-      await page.click('[data-testid="nav-home"]');
-      await gotoAndAssertTitle(page, '/', 'home-title');
     });
   });
 
   test('Messages link visibility based on feature flag', async ({ page }) => {
-    await page.goto('/');
+    await loginViaRegister(page);
     
     const messagesLink = page.locator('[data-testid="nav-messages"]');
     const chatEnabled = await isChatEnabled(page);

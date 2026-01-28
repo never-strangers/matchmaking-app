@@ -1,9 +1,10 @@
 import { test, expect } from '@playwright/test';
-import { clearNsLocalStorage, safeExpectVisible } from './utils';
+import { clearNsLocalStorage, safeExpectVisible, loginViaRegister } from './utils';
 
 test.describe('Onboarding', () => {
   test.beforeEach(async ({ page }) => {
     await clearNsLocalStorage(page);
+    await loginViaRegister(page);
   });
 
   test('Complete onboarding form and submit', async ({ page }) => {

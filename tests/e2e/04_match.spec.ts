@@ -1,9 +1,10 @@
 import { test, expect } from '@playwright/test';
-import { clearNsLocalStorage, safeExpectVisible } from './utils';
+import { clearNsLocalStorage, safeExpectVisible, loginViaRegister } from './utils';
 
 test.describe('Match', () => {
   test.beforeEach(async ({ page }) => {
     await clearNsLocalStorage(page);
+    await loginViaRegister(page);
   });
 
   test('Match feed displays candidates', async ({ page }) => {

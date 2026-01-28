@@ -10,6 +10,7 @@ export default function NavBar() {
   const { user, isLoggedIn, isAdmin, logout } = useSession();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const chatEnabled = Boolean(process.env.NEXT_PUBLIC_CHAT_MODE);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -39,49 +40,78 @@ export default function NavBar() {
     // Force a full page reload to ensure all React state is cleared
     // This is the most reliable way to prevent redirect loops
     setTimeout(() => {
-      window.location.href = "/login";
+      window.location.href = "/register";
     }, 100);
   };
 
   return (
     <nav className="flex items-center justify-between w-full">
       <div className="flex space-x-6">
-        {isLoggedIn && (
+        {!isLoggedIn ? (
+          <Link
+            href="/register"
+            data-testid="nav-register"
+            className="text-sm font-medium transition-colors"
+            style={{ color: "var(--text-muted)" }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text)")}
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.color = "var(--text-muted)")
+            }
+          >
+            Login
+          </Link>
+        ) : (
           <>
             <Link
               href="/events"
+              data-testid="nav-events"
               className="text-sm font-medium transition-colors"
               style={{ color: "var(--text-muted)" }}
               onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text)")}
-              onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-muted)")}
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.color = "var(--text-muted)")
+              }
             >
               Events
             </Link>
             <Link
               href="/match"
+              data-testid="nav-match"
               className="text-sm font-medium transition-colors"
               style={{ color: "var(--text-muted)" }}
               onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text)")}
-              onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-muted)")}
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.color = "var(--text-muted)")
+              }
             >
-              Introductions
+              Match
             </Link>
-            <Link
-              href="/messages"
-              className="text-sm font-medium transition-colors"
-              style={{ color: "var(--text-muted)" }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text)")}
-              onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-muted)")}
-            >
-              Messages
-            </Link>
+            {chatEnabled && (
+              <Link
+                href="/messages"
+                data-testid="nav-messages"
+                className="text-sm font-medium transition-colors"
+                style={{ color: "var(--text-muted)" }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.color = "var(--text)")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.color = "var(--text-muted)")
+                }
+              >
+                Messages
+              </Link>
+            )}
             {isAdmin && (
               <Link
-                href="/admin?demo_admin=1"
+                href="/admin"
+                data-testid="nav-admin"
                 className="text-sm font-medium transition-colors"
                 style={{ color: "var(--text-muted)" }}
                 onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text)")}
-                onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-muted)")}
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.color = "var(--text-muted)")
+                }
               >
                 Admin
               </Link>
@@ -95,19 +125,15 @@ export default function NavBar() {
         <div className="relative" ref={userMenuRef}>
           <button
             onClick={() => setShowUserMenu(!showUserMenu)}
+            data-testid="user-pill"
             className="flex items-center gap-2 text-sm transition-colors"
             style={{ color: "var(--text-muted)" }}
             onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text)")}
             onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-muted)")}
           >
-            {user.picture && (
-              <img
-                src={user.picture}
-                alt={user.name}
-                className="w-8 h-8 rounded-full"
-              />
-            )}
-            <span className="hidden sm:inline">{user.name}</span>
+            <span>
+              {user.name} · {user.phone}
+            </span>
             <svg
               className="w-4 h-4"
               fill="none"
@@ -141,11 +167,12 @@ export default function NavBar() {
                   className="text-xs truncate"
                   style={{ color: "var(--text-muted)" }}
                 >
-                  {user.email}
+                  {user.phone}
                 </p>
               </div>
               <button
                 onClick={handleLogout}
+                data-testid="logout-button"
                 className="w-full text-left px-4 py-2 text-sm transition-colors rounded-b-xl"
                 style={{ color: "var(--text-muted)" }}
                 onMouseEnter={(e) => {
@@ -157,21 +184,13 @@ export default function NavBar() {
                   e.currentTarget.style.backgroundColor = "transparent";
                 }}
               >
-                Switch User / Logout
+                Logout
               </button>
             </div>
           )}
         </div>
       ) : (
-        <Link
-          href="/login"
-          className="text-sm font-medium transition-colors"
-          style={{ color: "var(--text-muted)" }}
-          onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text)")}
-          onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-muted)")}
-        >
-          Login
-        </Link>
+        <div />
       )}
     </nav>
   );

@@ -1,15 +1,14 @@
 "use client";
 
 import { useState, useEffect, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "@/lib/auth/useSession";
 import { useDemoStore } from "@/lib/demo/demoStore";
 import { getMatchesForUser } from "@/lib/matching/questionnaireMatch";
 import { QUESTIONS } from "@/lib/questionnaire/questions";
 import { MatchUser } from "@/types/questionnaire";
-import { getCurrentUser } from "@/lib/auth/googleClientAuth";
-import { ADMIN_EMAIL } from "@/lib/auth/demoUsers";
+import { listUsers } from "@/lib/demo/userStore";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
@@ -18,8 +17,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 
 function AdminPageContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const { user, isLoggedIn } = useSession();
+  const { user, isLoggedIn, isAdmin } = useSession();
   const {
     listEvents,
     getRegistrationsForEvent,
@@ -39,15 +37,12 @@ function AdminPageContent() {
     if (isLoading) return;
 
     if (!isLoggedIn || !user) {
-      router.replace("/login");
+      router.replace("/register");
       return;
     }
 
-    const isAdmin = user.email === ADMIN_EMAIL;
-    const adminParam = searchParams.get("demo_admin");
-    const adminModeEnabled = adminParam === "1";
-
-    if (!isAdmin || !adminModeEnabled) {
+    // Only admin can access admin page
+    if (!isAdmin) {
       router.replace("/events");
       return;
     }
@@ -57,7 +52,7 @@ function AdminPageContent() {
     if (events.length > 0 && !selectedEventId) {
       setSelectedEventId(events[0].id);
     }
-  }, [isLoggedIn, isLoading, router, searchParams, events.length, selectedEventId]);
+  }, [isLoggedIn, isLoading, router, isAdmin, user, events.length, selectedEventId]);
 
   const handleRunMatching = async () => {
     if (!selectedEventId) return;
@@ -83,20 +78,11 @@ function AdminPageContent() {
         }
       }
 
-      const session = getCurrentUser();
-      const sessionUsers: Record<string, { name: string; picture?: string }> =
-        {};
-      try {
-        const sessionData = localStorage.getItem("ns_session_v1");
-        if (sessionData) {
-          const parsed = JSON.parse(sessionData);
-          sessionUsers[parsed.currentEmail] =
-            parsed.users[parsed.currentEmail] || {};
-          Object.keys(parsed.users || {}).forEach((email) => {
-            sessionUsers[email] = parsed.users[email];
-          });
-        }
-      } catch {}
+      const sessionUsers: Record<string, { name: string; picture?: string }> = {};
+      listUsers().forEach((u) => {
+        if (!u.email) return;
+        sessionUsers[u.email] = { name: u.name, picture: u.profilePhotoUrl };
+      });
 
       const eventQuestions = event.questions
         .map((qId) => QUESTIONS.find((q) => q.id === qId))

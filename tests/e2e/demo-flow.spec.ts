@@ -10,6 +10,14 @@ test.describe('Never Strangers Demo Flow', () => {
         }
       });
     });
+
+    // Seed a minimal demo session so route guard allows the demo pages.
+    await page.addInitScript(() => {
+      const session = { userId: 'mikhail', phone: '+6580000000', name: 'Mikhail', role: 'user' };
+      localStorage.setItem('ns_session', JSON.stringify(session));
+      localStorage.setItem('ns_role', 'user');
+      localStorage.setItem('ns_current_user_id', 'mikhail');
+    });
   });
 
   test('Complete demo flow: onboarding → events → match → chat', async ({ page }) => {
@@ -90,7 +98,7 @@ test.describe('Never Strangers Demo Flow', () => {
 
     await test.step('Open messages and send a message (if chat enabled)', async () => {
       // Check if chat is enabled by looking for Messages link
-      const messagesLink = page.locator('a[href="/messages"]');
+      const messagesLink = page.locator('[data-testid="nav-messages"]');
       
       if (await messagesLink.isVisible()) {
         await messagesLink.click();

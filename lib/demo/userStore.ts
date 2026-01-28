@@ -2,6 +2,8 @@
 
 import { UserProfile, UserStatus, Gender, OrientationPreferences } from "@/types/user";
 import { QuestionnaireAnswers } from "@/types/questionnaire";
+import type { Role } from "@/types/roles";
+import { userService } from "@/lib/supabase/userService";
 
 const USERS_KEY = "ns_users";
 const OTP_STORAGE_KEY = "ns_otp_"; // Prefix for OTP storage per email
@@ -12,11 +14,29 @@ export const DEMO_OTP_CODE = "123456";
 // 24 hours in milliseconds
 const REJECTION_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 
+// Cache for Supabase users (to avoid repeated fetches)
+let supabaseUsersCache: UserProfile[] | null = null;
+let cacheTimestamp = 0;
+const CACHE_TTL_MS = 30000; // 30 seconds
+
 /**
- * Get all users
+ * Check if we should use Supabase
+ */
+function useSupabase(): boolean {
+  return typeof window !== "undefined" && userService.isAvailable();
+}
+
+/**
+ * Get all users (sync - localStorage with Supabase cache)
  */
 export function listUsers(): UserProfile[] {
   if (typeof window === "undefined") return [];
+  
+  // Return cached Supabase data if fresh
+  if (supabaseUsersCache && Date.now() - cacheTimestamp < CACHE_TTL_MS) {
+    return supabaseUsersCache;
+  }
+  
   const stored = localStorage.getItem(USERS_KEY);
   if (!stored) {
     // Try to initialize from central init
@@ -42,6 +62,111 @@ export function listUsers(): UserProfile[] {
   } catch {
     return [];
   }
+}
+
+/**
+ * Get all users (async - Supabase with localStorage fallback)
+ */
+export async function listUsersAsync(): Promise<UserProfile[]> {
+  if (useSupabase()) {
+    try {
+      const users = await userService.listUsers();
+      if (users.length > 0) {
+        // Update cache
+        supabaseUsersCache = users;
+        cacheTimestamp = Date.now();
+        // Also sync to localStorage for offline access
+        saveUsers(users);
+        return users;
+      }
+    } catch (err) {
+      console.warn("Failed to fetch users from Supabase, using localStorage:", err);
+    }
+  }
+  return listUsers();
+}
+
+/**
+ * Refresh user cache from Supabase
+ */
+export async function refreshUsersFromSupabase(): Promise<UserProfile[]> {
+  if (!useSupabase()) return listUsers();
+  
+  try {
+    const users = await userService.listUsers();
+    supabaseUsersCache = users;
+    cacheTimestamp = Date.now();
+    saveUsers(users);
+    return users;
+  } catch (err) {
+    console.warn("Failed to refresh from Supabase:", err);
+    return listUsers();
+  }
+}
+
+/**
+ * MVP phone-login API (required)
+ *
+ * These helpers provide a clean upgrade path while staying compatible
+ * with the existing demo `UserProfile` shape used elsewhere.
+ */
+export function upsertUser(input: {
+  id: string;
+  name: string;
+  phone: string; // +65xxxxxxxx
+  city?: string;
+  role?: Role;
+}): UserProfile {
+  const users = listUsers();
+  const now = new Date().toISOString();
+
+  const existing = users.find((u) => u.id === input.id);
+  const role = (input.role || "user") as Role;
+  const city = input.city || "Singapore";
+
+  // Keep compatibility with code expecting `email` / `status`.
+  const syntheticEmail = `phone_${input.phone.replace(/\D/g, "")}@demo.local`;
+
+  if (existing) {
+    const updates: Partial<UserProfile> = {
+      name: input.name,
+      phone: input.phone,
+      city,
+      role: role as any,
+      // If an older record exists, don't clobber email unless missing.
+      email: existing.email || syntheticEmail,
+      updatedAt: now,
+      // Ensure deterministic "demo works" status
+      status: (existing.status || "approved") as UserStatus,
+      emailVerified: existing.emailVerified ?? true,
+    };
+
+    const updated = updateUser(existing.id, updates);
+    return updated || existing;
+  }
+
+  const userProfile: UserProfile = {
+    id: input.id,
+    name: input.name,
+    email: syntheticEmail,
+    phone: input.phone,
+    city,
+    cityLocked: true,
+    questionnaireAnswers: {},
+    status: "approved",
+    emailVerified: true,
+    role: role as any,
+    createdAt: now,
+    approvedAt: now,
+  };
+
+  users.push(userProfile);
+  saveUsers(users);
+  return userProfile;
+}
+
+export function getUser(id: string): UserProfile | null {
+  return getUserById(id);
 }
 
 /**
@@ -330,6 +455,122 @@ export function isApproved(userId: string): boolean {
 function saveUsers(users: UserProfile[]): void {
   if (typeof window === "undefined") return;
   localStorage.setItem(USERS_KEY, JSON.stringify(users));
+}
+
+// ============================================
+// ASYNC SUPABASE METHODS
+// ============================================
+
+/**
+ * Get user by ID (async - Supabase with localStorage fallback)
+ */
+export async function getUserByIdAsync(id: string): Promise<UserProfile | null> {
+  if (useSupabase()) {
+    try {
+      const user = await userService.getUserById(id);
+      if (user) return user;
+    } catch (err) {
+      console.warn("Failed to get user from Supabase:", err);
+    }
+  }
+  return getUserById(id);
+}
+
+/**
+ * Create user (async - Supabase with localStorage fallback)
+ */
+export async function createUserAsync(profile: {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  age?: number;
+  gender?: Gender;
+  city: string;
+  orientation?: OrientationPreferences;
+  profilePhotoUrl?: string;
+  questionnaireAnswers: QuestionnaireAnswers;
+}): Promise<UserProfile> {
+  if (useSupabase()) {
+    try {
+      const user = await userService.createUser(profile);
+      if (user) {
+        // Invalidate cache
+        supabaseUsersCache = null;
+        return user;
+      }
+    } catch (err) {
+      console.warn("Failed to create user in Supabase, using localStorage:", err);
+    }
+  }
+  return createUser(profile);
+}
+
+/**
+ * Update user (async - Supabase with localStorage fallback)
+ */
+export async function updateUserAsync(
+  userId: string,
+  updates: Partial<UserProfile>
+): Promise<UserProfile | null> {
+  if (useSupabase()) {
+    try {
+      const user = await userService.updateUser(userId, updates);
+      if (user) {
+        // Invalidate cache
+        supabaseUsersCache = null;
+        return user;
+      }
+    } catch (err) {
+      console.warn("Failed to update user in Supabase, using localStorage:", err);
+    }
+  }
+  return updateUser(userId, updates);
+}
+
+/**
+ * Set user status (async - Supabase with localStorage fallback)
+ */
+export async function setUserStatusAsync(
+  userId: string,
+  status: UserStatus,
+  notes?: string
+): Promise<UserProfile | null> {
+  if (useSupabase()) {
+    try {
+      const user = await userService.setUserStatus(userId, status, notes);
+      if (user) {
+        // Invalidate cache
+        supabaseUsersCache = null;
+        return user;
+      }
+    } catch (err) {
+      console.warn("Failed to set user status in Supabase, using localStorage:", err);
+    }
+  }
+  return setUserStatus(userId, status, notes);
+}
+
+/**
+ * Verify email OTP (async - Supabase with localStorage fallback)
+ */
+export async function verifyEmailOTPAsync(email: string, otp: string): Promise<boolean> {
+  if (otp !== DEMO_OTP_CODE) {
+    return false;
+  }
+
+  if (useSupabase()) {
+    try {
+      const success = await userService.verifyEmail(email);
+      if (success) {
+        supabaseUsersCache = null;
+        return true;
+      }
+    } catch (err) {
+      console.warn("Failed to verify email in Supabase, using localStorage:", err);
+    }
+  }
+  return verifyEmailOTP(email, otp);
 }
 
 /**
