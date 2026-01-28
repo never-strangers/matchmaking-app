@@ -1,66 +1,116 @@
 import Link from "next/link";
+import Image from "next/image";
 import { SOCIAL_LINKS } from "./content";
 
 export default function Footer() {
   return (
-    <footer className="bg-beige-frame border-t border-beige-frame mt-16 md:mt-24">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-16">
-        <div className="flex flex-col items-center gap-8 md:gap-12">
-          {/* Join a Mixer Link */}
-          <Link
-            href="/booking"
-            className="text-lg md:text-xl font-semibold text-gray-dark hover:text-red-accent transition-colors"
-          >
-            Join a Mixer
-          </Link>
-
-          {/* Social Links */}
-          <div className="flex flex-wrap justify-center gap-4 md:gap-6">
-            <a
-              href={SOCIAL_LINKS.tiktok}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-gray-medium hover:text-red-accent transition-colors px-4 py-2"
-            >
-              TikTok
-            </a>
-            <a
-              href={SOCIAL_LINKS.instagram}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-gray-medium hover:text-red-accent transition-colors px-4 py-2"
-            >
-              Instagram
-            </a>
-            <a
-              href={SOCIAL_LINKS.facebook}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-gray-medium hover:text-red-accent transition-colors px-4 py-2"
-            >
-              Facebook
-            </a>
-            <a
-              href={SOCIAL_LINKS.contact}
-              className="text-gray-medium hover:text-red-accent transition-colors px-4 py-2"
-            >
-              Contact
-            </a>
+    <footer
+      className="px-6 py-16 lg:px-20 lg:py-20"
+      style={{ backgroundColor: "var(--text)", color: "var(--primary-foreground)" }}
+    >
+      <div className="max-w-7xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
+          <div>
+            <div className="relative mb-6" style={{ width: "180px", height: "85px" }}>
+              <Image
+                src="/logo.png"
+                alt="Never Strangers"
+                fill
+                className="object-contain"
+                style={{ filter: "brightness(0) invert(1)" }}
+              />
+            </div>
           </div>
-
-          {/* Copyright and Tagline */}
-          <div className="flex flex-col items-center gap-4 text-center">
-            <p className="text-sm text-gray-medium">©2026. All rights reserved.</p>
-            <p className="text-base md:text-lg font-normal text-gray-dark">
-              We all start as strangers.
-            </p>
-            <Link
-              href="/privacy-policy"
-              className="text-sm text-gray-medium hover:text-red-accent transition-colors"
-            >
-              Privacy Policy
-            </Link>
+          <div>
+            <h3 className="font-semibold mb-4">About</h3>
+            <ul className="space-y-2">
+              <li>
+                <Link
+                  href="/"
+                  className="hover:opacity-80 transition-opacity"
+                  style={{ color: "var(--primary-foreground)" }}
+                >
+                  How It Works
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/"
+                  className="hover:opacity-80 transition-opacity"
+                  style={{ color: "var(--primary-foreground)" }}
+                >
+                  Cities
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/"
+                  className="hover:opacity-80 transition-opacity"
+                  style={{ color: "var(--primary-foreground)" }}
+                >
+                  Contact
+                </Link>
+              </li>
+            </ul>
           </div>
+          <div>
+            <h3 className="font-semibold mb-4">Connect</h3>
+            <ul className="space-y-2">
+              <li>
+                <a
+                  href={SOCIAL_LINKS.instagram}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:opacity-80 transition-opacity"
+                  style={{ color: "var(--primary-foreground)" }}
+                >
+                  Instagram
+                </a>
+              </li>
+              <li>
+                <a
+                  href={SOCIAL_LINKS.facebook}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:opacity-80 transition-opacity"
+                  style={{ color: "var(--primary-foreground)" }}
+                >
+                  Facebook
+                </a>
+              </li>
+            </ul>
+          </div>
+          <div>
+            <h3 className="font-semibold mb-4">Legal</h3>
+            <ul className="space-y-2">
+              <li>
+                <Link
+                  href="/privacy-policy"
+                  className="hover:opacity-80 transition-opacity"
+                  style={{ color: "var(--primary-foreground)" }}
+                >
+                  Privacy Policy
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/terms"
+                  className="hover:opacity-80 transition-opacity"
+                  style={{ color: "var(--primary-foreground)" }}
+                >
+                  Terms of Service
+                </Link>
+              </li>
+            </ul>
+          </div>
+        </div>
+        <div
+          className="pt-8 border-t text-center text-sm"
+          style={{ borderColor: "rgba(255, 255, 255, 0.2)" }}
+        >
+          <p style={{ color: "var(--text-subtle)" }}>
+            © 2026 Never Strangers. All rights reserved.
+          </p>
         </div>
       </div>
     </footer>

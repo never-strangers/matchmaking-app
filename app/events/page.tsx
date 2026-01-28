@@ -6,6 +6,11 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "@/lib/auth/useSession";
 import { useDemoStore } from "@/lib/demo/demoStore";
 import { getCurrentUser } from "@/lib/auth/googleClientAuth";
+import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 function EventsPageContent() {
   const router = useRouter();
@@ -24,17 +29,14 @@ function EventsPageContent() {
   const [events, setEvents] = useState(useDemoStore.getState().listEvents());
 
   useEffect(() => {
-    // Wait for session to load before checking
     if (isLoading) return;
-    
-    // Check localStorage directly to avoid hook state delays
+
     const currentUser = getCurrentUser();
     if (!currentUser) {
       router.replace("/login");
       return;
     }
 
-    // Seed default events if none exist
     seedDefaultEvents();
     setEvents(useDemoStore.getState().listEvents());
   }, [isLoggedIn, isLoading, router, searchParams]);
@@ -55,35 +57,39 @@ function EventsPageContent() {
     });
   };
 
-  // Show loading state while checking session
   if (isLoading) {
     return (
-      <div className="max-w-2xl mx-auto px-4 py-16">
-        <p className="text-gray-medium">Loading...</p>
+      <div className="max-w-5xl mx-auto px-4 py-16">
+        <p style={{ color: "var(--text-muted)" }}>Loading...</p>
       </div>
     );
   }
 
   if (!isLoggedIn || !user) {
-    return null; // Will redirect
+    return null;
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-16">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-dark">Events</h1>
-        {isAdmin && (
-          <Link
-            href="/admin?demo_admin=1"
-            className="bg-red-accent text-white px-6 py-3 rounded-lg font-medium hover:opacity-90 transition-opacity"
-          >
-            Admin Dashboard
-          </Link>
-        )}
-      </div>
+    <div className="max-w-5xl mx-auto px-4 py-8 sm:py-12">
+      <PageHeader
+        title="Upcoming Events"
+        subtitle="Join curated gatherings in your city"
+        action={
+          isAdmin ? (
+            <Link href="/admin?demo_admin=1">
+              <Button variant="secondary" size="md">
+                Admin Dashboard
+              </Button>
+            </Link>
+          ) : undefined
+        }
+      />
 
       {events.length === 0 ? (
-        <p className="text-gray-medium">No events available.</p>
+        <EmptyState
+          title="No events available"
+          description="Check back soon for upcoming gatherings in your city."
+        />
       ) : (
         <div className="space-y-4">
           {events.map((event) => {
@@ -92,72 +98,62 @@ function EventsPageContent() {
             const allAnswered = hasAllAnswers(event.id, user.email);
 
             return (
-              <div
-                key={event.id}
-                className="border border-beige-frame rounded-lg p-4 bg-white hover:shadow-md transition-shadow"
-              >
-                <div className="flex justify-between items-start">
+              <Card key={event.id} variant="elevated" padding="md">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
                   <div className="flex-1">
-                    <h2 className="text-lg font-semibold text-gray-dark mb-2">
+                    <h2 className="text-xl font-semibold mb-2" style={{ color: "var(--text)" }}>
                       {event.title}
                     </h2>
-                    <p className="text-sm text-gray-medium mb-1">
+                    <p className="text-sm mb-3" style={{ color: "var(--text-muted)" }}>
                       {event.city} • {formatDate(event.startsAt)}
                     </p>
-                    <div className="flex flex-wrap gap-2 mt-2">
+                    <div className="flex flex-wrap gap-2 mt-3">
                       {joined && (
-                        <span className="text-xs px-2 py-1 rounded bg-green-100 text-green-800">
-                          ✓ Joined
-                        </span>
+                        <Badge variant="success">Joined</Badge>
                       )}
                       {allAnswered && (
-                        <span className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-800">
-                          ✓ Questionnaire Completed
-                        </span>
+                        <Badge variant="info">Questionnaire Complete</Badge>
                       )}
                       {joined && !allAnswered && (
-                        <span className="text-xs px-2 py-1 rounded bg-orange-100 text-orange-800">
+                        <Badge variant="warning">
                           {answerCount}/10 answered
-                        </span>
+                        </Badge>
                       )}
                     </div>
                     {joined && !allAnswered && (
                       <div className="mt-4">
-                        <Link
-                          href={`/events/${event.id}/questions`}
-                          className="bg-orange-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity inline-block"
-                        >
-                          Answer Questions ({answerCount}/10)
+                        <Link href={`/events/${event.id}/questions`}>
+                          <Button variant="outline" size="sm">
+                            Complete Questions ({answerCount}/10)
+                          </Button>
                         </Link>
                       </div>
                     )}
                   </div>
-                  <div className="ml-4">
+                  <div className="flex flex-col sm:flex-row gap-2 sm:ml-4">
                     {!joined ? (
-                      <button
+                      <Button
                         onClick={() => handleJoin(event.id)}
-                        className="bg-red-accent text-white px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity whitespace-nowrap"
+                        size="md"
                       >
-                        Join
-                      </button>
+                        Join Event
+                      </Button>
                     ) : allAnswered ? (
-                      <Link
-                        href={`/match?eventId=${event.id}`}
-                        className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity whitespace-nowrap inline-block"
-                      >
-                        View Matches
+                      <Link href={`/match?eventId=${event.id}`}>
+                        <Button variant="secondary" size="md">
+                          View Introductions
+                        </Button>
                       </Link>
                     ) : (
-                      <Link
-                        href={`/events/${event.id}/questions`}
-                        className="bg-orange-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity whitespace-nowrap inline-block"
-                      >
-                        Answer Questions
+                      <Link href={`/events/${event.id}/questions`}>
+                        <Button variant="outline" size="md">
+                          Answer Questions
+                        </Button>
                       </Link>
                     )}
                   </div>
                 </div>
-              </div>
+              </Card>
             );
           })}
         </div>
@@ -168,11 +164,13 @@ function EventsPageContent() {
 
 export default function EventsPage() {
   return (
-    <Suspense fallback={
-      <div className="max-w-2xl mx-auto px-4 py-16">
-        <p className="text-gray-medium">Loading...</p>
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="max-w-5xl mx-auto px-4 py-16">
+          <p style={{ color: "var(--text-muted)" }}>Loading...</p>
+        </div>
+      }
+    >
       <EventsPageContent />
     </Suspense>
   );

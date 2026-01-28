@@ -22,10 +22,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="min-h-screen bg-beige-light">
+      <body className="min-h-screen" style={{ backgroundColor: "var(--bg)" }}>
         <RouteGuard>
-          <header className="bg-beige-light border-b border-beige-frame">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <header className="border-b" style={{ backgroundColor: "var(--bg)", borderColor: "var(--border)" }}>
+            <div className="max-w-7xl mx-auto px-6 lg:px-20">
               <div className="flex justify-between items-center h-20">
                 <div className="flex items-center">
                   <Link 

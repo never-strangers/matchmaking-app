@@ -50,26 +50,38 @@ export default function NavBar() {
           <>
             <Link
               href="/events"
-              className="text-gray-medium hover:text-gray-dark text-sm font-medium transition-colors"
+              className="text-sm font-medium transition-colors"
+              style={{ color: "var(--text-muted)" }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text)")}
+              onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-muted)")}
             >
               Events
             </Link>
             <Link
               href="/match"
-              className="text-gray-medium hover:text-gray-dark text-sm font-medium transition-colors"
+              className="text-sm font-medium transition-colors"
+              style={{ color: "var(--text-muted)" }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text)")}
+              onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-muted)")}
             >
-              Match
+              Introductions
             </Link>
             <Link
               href="/messages"
-              className="text-gray-medium hover:text-gray-dark text-sm font-medium transition-colors"
+              className="text-sm font-medium transition-colors"
+              style={{ color: "var(--text-muted)" }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text)")}
+              onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-muted)")}
             >
               Messages
             </Link>
             {isAdmin && (
               <Link
                 href="/admin?demo_admin=1"
-                className="text-gray-medium hover:text-gray-dark text-sm font-medium transition-colors"
+                className="text-sm font-medium transition-colors"
+                style={{ color: "var(--text-muted)" }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text)")}
+                onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-muted)")}
               >
                 Admin
               </Link>
@@ -83,7 +95,10 @@ export default function NavBar() {
         <div className="relative" ref={userMenuRef}>
           <button
             onClick={() => setShowUserMenu(!showUserMenu)}
-            className="flex items-center gap-2 text-sm text-gray-medium hover:text-gray-dark transition-colors"
+            className="flex items-center gap-2 text-sm transition-colors"
+            style={{ color: "var(--text-muted)" }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text)")}
+            onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-muted)")}
           >
             {user.picture && (
               <img
@@ -108,14 +123,39 @@ export default function NavBar() {
             </svg>
           </button>
           {showUserMenu && (
-            <div className="absolute right-0 mt-2 w-48 bg-white border border-beige-frame rounded-lg shadow-lg z-50">
-              <div className="px-4 py-3 border-b border-beige-frame">
-                <p className="text-sm font-medium text-gray-dark">{user.name}</p>
-                <p className="text-xs text-gray-medium truncate">{user.email}</p>
+            <div
+              className="absolute right-0 mt-2 w-48 rounded-xl shadow-lg z-50"
+              style={{
+                backgroundColor: "var(--bg-panel)",
+                border: "1px solid var(--border)",
+              }}
+            >
+              <div
+                className="px-4 py-3 border-b"
+                style={{ borderColor: "var(--border)" }}
+              >
+                <p className="text-sm font-medium" style={{ color: "var(--text)" }}>
+                  {user.name}
+                </p>
+                <p
+                  className="text-xs truncate"
+                  style={{ color: "var(--text-muted)" }}
+                >
+                  {user.email}
+                </p>
               </div>
               <button
                 onClick={handleLogout}
-                className="w-full text-left px-4 py-2 text-sm text-gray-medium hover:bg-beige-frame transition-colors"
+                className="w-full text-left px-4 py-2 text-sm transition-colors rounded-b-xl"
+                style={{ color: "var(--text-muted)" }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = "var(--text)";
+                  e.currentTarget.style.backgroundColor = "var(--bg-muted)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = "var(--text-muted)";
+                  e.currentTarget.style.backgroundColor = "transparent";
+                }}
               >
                 Switch User / Logout
               </button>
@@ -125,7 +165,10 @@ export default function NavBar() {
       ) : (
         <Link
           href="/login"
-          className="text-gray-medium hover:text-gray-dark text-sm font-medium transition-colors"
+          className="text-sm font-medium transition-colors"
+          style={{ color: "var(--text-muted)" }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text)")}
+          onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-muted)")}
         >
           Login
         </Link>

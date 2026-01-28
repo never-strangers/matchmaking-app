@@ -6,6 +6,12 @@ import Link from "next/link";
 import { useSession } from "@/lib/auth/useSession";
 import { useDemoStore } from "@/lib/demo/demoStore";
 import { getCurrentUser } from "@/lib/auth/googleClientAuth";
+import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
+import { Select } from "@/components/ui/Select";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 function MatchPageContent() {
   const router = useRouter();
@@ -25,14 +31,18 @@ function MatchPageContent() {
     searchParams.get("eventId") || null
   );
   const [matches, setMatches] = useState<
-    Array<{ otherEmail: string; score: number; aligned?: string[]; mismatched?: string[] }>
+    Array<{
+      otherEmail: string;
+      score: number;
+      aligned?: string[];
+      mismatched?: string[];
+    }>
   >([]);
   const [sessionUsers, setSessionUsers] = useState<
     Record<string, { name: string; picture?: string }>
   >({});
 
   useEffect(() => {
-    // Wait for session to load before checking
     if (isLoading) return;
 
     if (!isLoggedIn) {
@@ -45,7 +55,6 @@ function MatchPageContent() {
       setSelectedEventId(events[0].id);
     }
 
-    // Load session users for names
     try {
       const sessionData = localStorage.getItem("ns_session_v1");
       if (sessionData) {
@@ -62,7 +71,6 @@ function MatchPageContent() {
   useEffect(() => {
     if (!selectedEventId || !user?.email) return;
     const eventMatches = getMatches(selectedEventId, user.email);
-    // Only show top 3 matches
     setMatches(eventMatches.slice(0, 3));
   }, [selectedEventId, user, getMatches]);
 
@@ -70,14 +78,13 @@ function MatchPageContent() {
     if (!selectedEventId || !user?.email) return;
     likeUser(selectedEventId, user.email, otherEmail);
 
-    // Check if mutual like
     if (hasMutualLike(selectedEventId, user.email, otherEmail)) {
-      // Create conversation
       getOrCreateConversation(selectedEventId, user.email, otherEmail);
-      alert(`You and ${sessionUsers[otherEmail]?.name || otherEmail} liked each other! You can now message.`);
+      alert(
+        `You and ${sessionUsers[otherEmail]?.name || otherEmail} liked each other! You can now message.`
+      );
     }
 
-    // Refresh matches to update UI (only top 3)
     const eventMatches = getMatches(selectedEventId, user.email);
     setMatches(eventMatches.slice(0, 3));
   };
@@ -90,17 +97,16 @@ function MatchPageContent() {
     return sessionUsers[email]?.picture;
   };
 
-  // Show loading state while checking session
   if (isLoading) {
     return (
-      <div className="max-w-2xl mx-auto px-4 py-16">
-        <p className="text-gray-medium">Loading...</p>
+      <div className="max-w-5xl mx-auto px-4 py-16">
+        <p style={{ color: "var(--text-muted)" }}>Loading...</p>
       </div>
     );
   }
 
   if (!isLoggedIn || !user) {
-    return null; // Will redirect
+    return null;
   }
 
   const selectedEvent = selectedEventId
@@ -108,53 +114,49 @@ function MatchPageContent() {
     : null;
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-16">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-dark mb-2">Your Matches</h1>
-        <p className="text-gray-medium">
-          View your match percentages and like users to unlock messaging.
-        </p>
-      </div>
+    <div className="max-w-5xl mx-auto px-4 py-8 sm:py-12">
+      <PageHeader
+        title="Your Introductions"
+        subtitle="View your compatibility scores and express interest to unlock messaging"
+      />
 
       {events.length === 0 ? (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <p className="text-yellow-800">No events available. Join an event first.</p>
-        </div>
+        <EmptyState
+          title="No events available"
+          description="Join an event first to see your potential introductions."
+        />
       ) : (
         <>
           <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-dark mb-2">
-              Select Event
-            </label>
-            <select
+            <Select
+              label="Select Event"
               value={selectedEventId || ""}
               onChange={(e) => setSelectedEventId(e.target.value)}
-              className="w-full px-4 py-2 border border-beige-frame rounded-lg bg-white"
-            >
-              {events.map((event) => (
-                <option key={event.id} value={event.id}>
-                  {event.title} ({event.city})
-                </option>
-              ))}
-            </select>
+              options={events.map((event) => ({
+                value: event.id,
+                label: `${event.title} (${event.city})`,
+              }))}
+            />
           </div>
 
           {selectedEvent && (
             <>
               {matches.length === 0 ? (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <p className="text-blue-800">
-                    No matches yet. Admin needs to run matching for this event.
-                  </p>
-                  {isAdmin && (
-                    <Link
-                      href={`/admin?demo_admin=1`}
-                      className="text-blue-600 underline text-sm mt-2 inline-block"
-                    >
-                      Go to Admin Dashboard
-                    </Link>
-                  )}
-                </div>
+                <Card padding="lg">
+                  <EmptyState
+                    title="No introductions yet"
+                    description="Admin needs to run matching for this event."
+                    action={
+                      isAdmin ? (
+                        <Link href={`/admin?demo_admin=1`}>
+                          <Button variant="outline" size="md">
+                            Go to Admin Dashboard
+                          </Button>
+                        </Link>
+                      ) : undefined
+                    }
+                  />
+                </Card>
               ) : (
                 <div className="space-y-4">
                   {matches.map((match) => {
@@ -162,60 +164,66 @@ function MatchPageContent() {
                       ? isLiked(selectedEventId, user.email, match.otherEmail)
                       : false;
                     const mutual = selectedEventId
-                      ? hasMutualLike(selectedEventId, user.email, match.otherEmail)
+                      ? hasMutualLike(
+                          selectedEventId,
+                          user.email,
+                          match.otherEmail
+                        )
                       : false;
 
                     return (
-                      <div
-                        key={match.otherEmail}
-                        className="border border-beige-frame rounded-lg p-4 bg-white hover:shadow-md transition-shadow"
-                      >
-                        <div className="flex justify-between items-start">
+                      <Card key={match.otherEmail} variant="elevated" padding="md">
+                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
                           <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-2">
+                            <div className="flex items-center gap-3 mb-3">
                               {getUserPicture(match.otherEmail) && (
                                 <img
                                   src={getUserPicture(match.otherEmail)}
                                   alt={getUserName(match.otherEmail)}
-                                  className="w-12 h-12 rounded-full"
+                                  className="w-12 h-12 rounded-full object-cover"
                                 />
                               )}
                               <div>
-                                <h3 className="text-lg font-semibold text-gray-dark">
+                                <h3 className="text-lg font-semibold" style={{ color: "var(--text)" }}>
                                   {getUserName(match.otherEmail)}
                                 </h3>
-                                <p className="text-sm text-gray-medium">
+                                <p className="text-sm" style={{ color: "var(--text-muted)" }}>
                                   {match.otherEmail}
                                 </p>
                               </div>
                             </div>
-                            <div className="mt-2">
-                              <span className="text-2xl font-bold text-red-accent">
+                            <div className="mb-4">
+                              <span className="text-3xl font-bold" style={{ color: "var(--primary)" }}>
                                 {match.score}%
                               </span>
-                              <span className="text-sm text-gray-medium ml-2">
-                                Match
+                              <span className="text-sm ml-2" style={{ color: "var(--text-muted)" }}>
+                                Compatibility
                               </span>
                             </div>
-                            {(match.aligned && match.aligned.length > 0) || (match.mismatched && match.mismatched.length > 0) ? (
+                            {(match.aligned && match.aligned.length > 0) ||
+                            (match.mismatched && match.mismatched.length > 0) ? (
                               <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                  <div className="text-xs font-semibold text-gray-dark mb-1">
-                                    Top aligned
+                                  <div className="text-xs font-semibold mb-2" style={{ color: "var(--text)" }}>
+                                    Top Aligned
                                   </div>
                                   <ul className="list-disc list-inside space-y-1">
                                     {(match.aligned || []).map((reason, idx) => (
-                                      <li key={idx} className="text-xs text-gray-medium">
+                                      <li
+                                        key={idx}
+                                        className="text-xs"
+                                        style={{ color: "var(--text-muted)" }}
+                                      >
                                         {reason}
                                       </li>
                                     ))}
                                   </ul>
                                 </div>
                                 <div>
-                                  <div className="text-xs font-semibold text-gray-dark mb-1">
-                                    Top mismatch
+                                  <div className="text-xs font-semibold mb-2" style={{ color: "var(--text)" }}>
+                                    Top Mismatch
                                   </div>
-                                  <div className="text-xs text-gray-medium">
+                                  <div className="text-xs" style={{ color: "var(--text-muted)" }}>
                                     {match.mismatched && match.mismatched[0]
                                       ? match.mismatched[0]
                                       : "No notable mismatches"}
@@ -223,42 +231,37 @@ function MatchPageContent() {
                                 </div>
                               </div>
                             ) : null}
-                            <div className="flex gap-2 mt-3">
-                              {liked && (
-                                <span className="text-xs px-2 py-1 rounded bg-green-100 text-green-800">
-                                  ✓ Liked
-                                </span>
-                              )}
+                            <div className="flex flex-wrap gap-2 mt-4">
+                              {liked && <Badge variant="success">✓ Liked</Badge>}
                               {mutual && (
-                                <span className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-800">
-                                  💬 Mutual Like - Can Message
-                                </span>
+                                <Badge variant="info">💬 Mutual Interest - Can Message</Badge>
                               )}
                             </div>
                           </div>
-                          <div className="ml-4 flex flex-col gap-2">
+                          <div className="flex flex-col gap-2 sm:ml-4">
                             {!liked ? (
-                              <button
+                              <Button
                                 onClick={() => handleLike(match.otherEmail)}
-                                className="bg-red-accent text-white px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity whitespace-nowrap"
+                                size="md"
                               >
-                                Like
-                              </button>
+                                Express Interest
+                              </Button>
                             ) : mutual ? (
                               <Link
                                 href={`/messages/${selectedEventId}:${[user.email, match.otherEmail].sort().join(":")}`}
-                                className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity whitespace-nowrap text-center"
                               >
-                                Message
+                                <Button variant="secondary" size="md" fullWidth>
+                                  Message
+                                </Button>
                               </Link>
                             ) : (
-                              <span className="text-sm text-gray-medium text-center">
-                                Waiting for like
+                              <span className="text-sm text-center" style={{ color: "var(--text-muted)" }}>
+                                Waiting for mutual interest
                               </span>
                             )}
                           </div>
                         </div>
-                      </div>
+                      </Card>
                     );
                   })}
                 </div>
@@ -271,7 +274,8 @@ function MatchPageContent() {
       <div className="mt-8">
         <Link
           href="/events"
-          className="text-gray-medium hover:text-gray-dark text-sm"
+          className="text-sm hover:underline"
+          style={{ color: "var(--text-muted)" }}
         >
           ← Back to Events
         </Link>
@@ -282,11 +286,13 @@ function MatchPageContent() {
 
 export default function MatchPage() {
   return (
-    <Suspense fallback={
-      <div className="max-w-2xl mx-auto px-4 py-16">
-        <p className="text-gray-medium">Loading...</p>
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="max-w-5xl mx-auto px-4 py-16">
+          <p style={{ color: "var(--text-muted)" }}>Loading...</p>
+        </div>
+      }
+    >
       <MatchPageContent />
     </Suspense>
   );

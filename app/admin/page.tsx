@@ -10,6 +10,11 @@ import { QUESTIONS } from "@/lib/questionnaire/questions";
 import { MatchUser } from "@/types/questionnaire";
 import { getCurrentUser } from "@/lib/auth/googleClientAuth";
 import { ADMIN_EMAIL } from "@/lib/auth/demoUsers";
+import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
+import { Select } from "@/components/ui/Select";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 function AdminPageContent() {
   const router = useRouter();
@@ -31,7 +36,6 @@ function AdminPageContent() {
   const { isLoading } = useSession();
 
   useEffect(() => {
-    // Wait for session to load before checking
     if (isLoading) return;
 
     if (!isLoggedIn || !user) {
@@ -39,22 +43,16 @@ function AdminPageContent() {
       return;
     }
 
-    // Check if user is admin (only alice@demo.com is admin)
     const isAdmin = user.email === ADMIN_EMAIL;
-    
-    // demo_admin query param: "1" enables admin mode, "0" or missing = disabled
-    // Even with demo_admin=1, only the admin user can access
     const adminParam = searchParams.get("demo_admin");
     const adminModeEnabled = adminParam === "1";
-    
+
     if (!isAdmin || !adminModeEnabled) {
-      // Not admin user or admin mode not enabled - redirect to events
       router.replace("/events");
       return;
     }
 
     setIsAdminMode(true);
-
     setEvents(useDemoStore.getState().listEvents());
     if (events.length > 0 && !selectedEventId) {
       setSelectedEventId(events[0].id);
@@ -69,9 +67,11 @@ function AdminPageContent() {
       const event = useDemoStore.getState().getEvent(selectedEventId);
       if (!event) return;
 
-      // Get all users who joined and have all answers
       const registrations = getRegistrationsForEvent(selectedEventId);
-      const usersWithAnswers: Array<{ email: string; answers: Record<string, number> }> = [];
+      const usersWithAnswers: Array<{
+        email: string;
+        answers: Record<string, number>;
+      }> = [];
 
       for (const reg of registrations) {
         if (hasAllAnswers(selectedEventId, reg.userEmail)) {
@@ -83,27 +83,25 @@ function AdminPageContent() {
         }
       }
 
-      // Get session users for names
       const session = getCurrentUser();
-      const sessionUsers: Record<string, { name: string; picture?: string }> = {};
-      // We'll need to get user info from session storage
+      const sessionUsers: Record<string, { name: string; picture?: string }> =
+        {};
       try {
         const sessionData = localStorage.getItem("ns_session_v1");
         if (sessionData) {
           const parsed = JSON.parse(sessionData);
-          sessionUsers[parsed.currentEmail] = parsed.users[parsed.currentEmail] || {};
+          sessionUsers[parsed.currentEmail] =
+            parsed.users[parsed.currentEmail] || {};
           Object.keys(parsed.users || {}).forEach((email) => {
             sessionUsers[email] = parsed.users[email];
           });
         }
       } catch {}
 
-      // Get question definitions for this event
       const eventQuestions = event.questions
         .map((qId) => QUESTIONS.find((q) => q.id === qId))
         .filter((q): q is NonNullable<typeof q> => q !== undefined);
 
-      // Compute matches for each user
       for (const userA of usersWithAnswers) {
         const matchUserA: MatchUser = {
           id: userA.email,
@@ -127,8 +125,6 @@ function AdminPageContent() {
           eventQuestions
         );
 
-        // Store matches
-        // Only store top 3 matches per user, including brief alignment/mismatch explanations
         const matches = matchResults.slice(0, 3).map((result) => ({
           otherEmail: result.user.id,
           score: result.score,
@@ -154,18 +150,25 @@ function AdminPageContent() {
     const event = useDemoStore.getState().getEvent(selectedEventId);
     if (!event) return;
 
-    const demoEmails = Array.from({ length: 30 }, (_, i) => `demo+${String(i + 1).padStart(2, "0")}@gmail.com`);
+    const demoEmails = Array.from(
+      { length: 30 },
+      (_, i) => `demo+${String(i + 1).padStart(2, "0")}@gmail.com`
+    );
 
-    // Add registrations
     for (const email of demoEmails) {
       useDemoStore.getState().joinEvent(selectedEventId, email);
     }
 
-    // Add random answers for each
     for (const email of demoEmails) {
       for (const questionId of event.questions) {
-        const randomAnswer = (Math.floor(Math.random() * 4) + 1) as 1 | 2 | 3 | 4;
-        useDemoStore.getState().setAnswer(selectedEventId, email, questionId, randomAnswer);
+        const randomAnswer = (Math.floor(Math.random() * 4) + 1) as
+          | 1
+          | 2
+          | 3
+          | 4;
+        useDemoStore
+          .getState()
+          .setAnswer(selectedEventId, email, questionId, randomAnswer);
       }
     }
 
@@ -173,17 +176,16 @@ function AdminPageContent() {
     setEvents([...useDemoStore.getState().listEvents()]);
   };
 
-  // Show loading state while checking session
   if (isLoading) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-16">
-        <p className="text-gray-medium">Loading...</p>
+      <div className="max-w-5xl mx-auto px-4 py-16">
+        <p style={{ color: "var(--text-muted)" }}>Loading...</p>
       </div>
     );
   }
 
   if (!isAdminMode || !isLoggedIn) {
-    return null; // Will redirect
+    return null;
   }
 
   const selectedEvent = selectedEventId
@@ -197,93 +199,94 @@ function AdminPageContent() {
   );
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-16">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-dark mb-2">
-          Admin Dashboard (Demo Mode)
-        </h1>
-        <p className="text-gray-medium">
-          Manage events, run matching, and seed demo data.
-        </p>
-      </div>
+    <div className="max-w-5xl mx-auto px-4 py-8 sm:py-12">
+      <PageHeader
+        title="Admin Dashboard"
+        subtitle="Manage events, run matching, and seed demo data"
+      />
 
       {events.length === 0 ? (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <p className="text-yellow-800">No events available.</p>
-        </div>
+        <Card padding="lg">
+          <p style={{ color: "var(--text-muted)" }}>No events available.</p>
+        </Card>
       ) : (
         <>
           <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-dark mb-2">
-              Select Event
-            </label>
-            <select
+            <Select
+              label="Select Event"
               value={selectedEventId || ""}
               onChange={(e) => setSelectedEventId(e.target.value)}
-              className="w-full px-4 py-2 border border-beige-frame rounded-lg bg-white"
-            >
-              {events.map((event) => (
-                <option key={event.id} value={event.id}>
-                  {event.title} ({event.city})
-                </option>
-              ))}
-            </select>
+              options={events.map((event) => ({
+                value: event.id,
+                label: `${event.title} (${event.city})`,
+              }))}
+            />
           </div>
 
           {selectedEvent && (
             <div className="space-y-6">
-              <div className="bg-white border border-beige-frame rounded-lg p-6">
-                <h2 className="text-lg font-semibold text-gray-dark mb-4">
+              <Card padding="lg">
+                <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--text)" }}>
                   Event: {selectedEvent.title}
                 </h2>
-                <div className="grid grid-cols-2 gap-4 mb-4">
+                <div className="grid grid-cols-2 gap-4 mb-6">
                   <div>
-                    <p className="text-sm text-gray-medium">Total Joined</p>
-                    <p className="text-2xl font-bold text-gray-dark">
+                    <p className="text-sm mb-1" style={{ color: "var(--text-muted)" }}>
+                      Total Joined
+                    </p>
+                    <p className="text-2xl font-bold" style={{ color: "var(--text)" }}>
                       {registrations.length}
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-medium">With All Answers</p>
-                    <p className="text-2xl font-bold text-gray-dark">
+                    <p className="text-sm mb-1" style={{ color: "var(--text-muted)" }}>
+                      With All Answers
+                    </p>
+                    <p className="text-2xl font-bold" style={{ color: "var(--text)" }}>
                       {usersWithAnswers.length}
                     </p>
                   </div>
                 </div>
 
-                <div className="flex gap-4">
-                  <button
+                <div className="flex flex-wrap gap-4">
+                  <Button
                     onClick={handleRunMatching}
                     disabled={isRunning || usersWithAnswers.length < 2}
-                    className="bg-red-accent text-white px-6 py-3 rounded-lg font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+                    size="md"
                   >
                     {isRunning ? "Running..." : "Run Matching"}
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     onClick={handleSeedDemoParticipants}
-                    className="bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:opacity-90 transition-opacity"
+                    variant="secondary"
+                    size="md"
                   >
                     Seed 30 Demo Participants
-                  </button>
+                  </Button>
                 </div>
 
                 {usersWithAnswers.length < 2 && (
-                  <p className="text-sm text-orange-600 mt-2">
+                  <p className="text-sm mt-4" style={{ color: "var(--warning)" }}>
                     Need at least 2 users with all answers to run matching.
                   </p>
                 )}
-              </div>
+              </Card>
 
-              <div className="bg-white border border-beige-frame rounded-lg p-6">
-                <h3 className="text-md font-semibold text-gray-dark mb-4">
+              <Card padding="lg">
+                <h3 className="text-md font-semibold mb-4" style={{ color: "var(--text)" }}>
                   Participants ({registrations.length})
                 </h3>
                 <div className="space-y-2 max-h-96 overflow-y-auto">
                   {registrations.length === 0 ? (
-                    <p className="text-gray-medium text-sm">No participants yet.</p>
+                    <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+                      No participants yet.
+                    </p>
                   ) : (
                     registrations.map((reg) => {
-                      const hasAnswers = hasAllAnswers(selectedEventId!, reg.userEmail);
+                      const hasAnswers = hasAllAnswers(
+                        selectedEventId!,
+                        reg.userEmail
+                      );
                       const answerCount = useDemoStore
                         .getState()
                         .getAnswerCount(selectedEventId!, reg.userEmail);
@@ -294,38 +297,31 @@ function AdminPageContent() {
                       return (
                         <div
                           key={reg.userEmail}
-                          className="flex justify-between items-center p-3 border border-beige-frame rounded-lg"
+                          className="flex justify-between items-center p-3 border rounded-xl"
+                          style={{ borderColor: "var(--border)" }}
                         >
                           <div>
-                            <p className="text-sm font-medium text-gray-dark">
+                            <p className="text-sm font-medium" style={{ color: "var(--text)" }}>
                               {reg.userEmail}
                             </p>
-                            <p className="text-xs text-gray-medium">
+                            <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
                               Joined: {new Date(reg.joinedAt).toLocaleDateString()}
                             </p>
                           </div>
                           <div className="flex gap-2">
                             {hasAnswers ? (
-                              <span className="text-xs px-2 py-1 rounded bg-green-100 text-green-800">
-                                ✓ All Answers
-                              </span>
+                              <Badge variant="success">✓ All Answers</Badge>
                             ) : (
-                              <span className="text-xs px-2 py-1 rounded bg-orange-100 text-orange-800">
-                                {answerCount}/10
-                              </span>
+                              <Badge variant="warning">{answerCount}/10</Badge>
                             )}
-                            {hasMatches && (
-                              <span className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-800">
-                                Matched
-                              </span>
-                            )}
+                            {hasMatches && <Badge variant="info">Matched</Badge>}
                           </div>
                         </div>
                       );
                     })
                   )}
                 </div>
-              </div>
+              </Card>
             </div>
           )}
         </>
@@ -334,7 +330,8 @@ function AdminPageContent() {
       <div className="mt-8">
         <Link
           href="/events"
-          className="text-gray-medium hover:text-gray-dark text-sm"
+          className="text-sm hover:underline"
+          style={{ color: "var(--text-muted)" }}
         >
           ← Back to Events
         </Link>
@@ -345,11 +342,13 @@ function AdminPageContent() {
 
 export default function AdminPage() {
   return (
-    <Suspense fallback={
-      <div className="max-w-4xl mx-auto px-4 py-16">
-        <p className="text-gray-medium">Loading...</p>
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="max-w-5xl mx-auto px-4 py-16">
+          <p style={{ color: "var(--text-muted)" }}>Loading...</p>
+        </div>
+      }
+    >
       <AdminPageContent />
     </Suspense>
   );

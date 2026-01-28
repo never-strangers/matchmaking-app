@@ -1,23 +1,22 @@
 import type { Metadata } from "next";
 import Hero from "@/components/landing/Hero";
-import ImageCarousel from "@/components/landing/ImageCarousel";
-import WhySection from "@/components/landing/WhySection";
-import FeaturedIn from "@/components/landing/FeaturedIn";
+import ValueProp from "@/components/landing/ValueProp";
 import HowItWorks from "@/components/landing/HowItWorks";
-import Faq from "@/components/landing/Faq";
+import SocialProof from "@/components/landing/SocialProof";
+import FinalCTA from "@/components/landing/FinalCTA";
 import Footer from "@/components/landing/Footer";
 
 export const metadata: Metadata = {
-  title: "Never Strangers - A New Way to Meet People",
+  title: "Never Strangers - Meet Your New Connection",
   description:
-    "Using an algorithm to find your idea partner at the party itself. We are bringing back the joys of connecting with people organically. Say goodbye to dating apps!",
+    "Curated social events where real people meet — no apps, no algorithms, just you. Invite-only mixers designed for meaningful conversation.",
   alternates: {
     canonical: "https://thisisneverstrangers.com/",
   },
   openGraph: {
-    title: "Never Strangers - A New Way to Meet People",
+    title: "Never Strangers - Meet Your New Connection",
     description:
-      "Using an algorithm to find your idea partner at the party itself. We are bringing back the joys of connecting with people organically. Say goodbye to dating apps!",
+      "Curated social events where real people meet — no apps, no algorithms, just you.",
     url: "https://thisisneverstrangers.com/",
     siteName: "Never Strangers",
     images: [
@@ -33,9 +32,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Never Strangers - A New Way to Meet People",
+    title: "Never Strangers - Meet Your New Connection",
     description:
-      "Using an algorithm to find your idea partner at the party itself. We are bringing back the joys of connecting with people organically. Say goodbye to dating apps!",
+      "Curated social events where real people meet — no apps, no algorithms, just you.",
     images: ["https://thisisneverstrangers.com/wp-content/uploads/2026/01/1-2.webp"],
   },
 };
@@ -44,14 +43,11 @@ export default function Home() {
   return (
     <>
       <Hero />
-      <ImageCarousel />
-      <WhySection />
-      <FeaturedIn />
+      <ValueProp />
       <HowItWorks />
-      <Faq />
+      <SocialProof />
+      <FinalCTA />
       <Footer />
     </>
   );
 }
-
-

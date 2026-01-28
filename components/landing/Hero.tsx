@@ -1,71 +1,66 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
+import { useState } from "react";
 import { CITIES } from "./content";
 
-const ROTATING_WORDS = ["date", "friend"];
-const ROTATION_DELAY = 1500; // 1500ms
-
 export default function Hero() {
-  const [currentWordIndex, setCurrentWordIndex] = useState(0);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentWordIndex((prev) => (prev + 1) % ROTATING_WORDS.length);
-    }, ROTATION_DELAY);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  const citiesText = `Now in ${CITIES.join(", ")}.`;
+  const citiesText = `Now in ${CITIES.slice(0, 3).join(", ")}`;
 
   return (
-    <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24 text-center">
-      <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-gray-dark mb-8 md:mb-12">
-        <span className="inline-block">Meet your new</span>{" "}
-        <span className="text-red-accent inline-block min-w-[120px] md:min-w-[150px] text-left relative">
-          <span
-            key={currentWordIndex}
-            className="inline-block animate-fade-in"
+    <section
+      className="px-6 py-20 lg:px-20 lg:py-32"
+      style={{ backgroundColor: "var(--bg)" }}
+    >
+      <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-12 items-center">
+        <div>
+          <h1
+            className="text-5xl lg:text-7xl font-bold mb-6 leading-tight tracking-tight"
+            style={{ color: "var(--text)", fontFamily: "'Cabinet Grotesk', system-ui, sans-serif" }}
           >
-            {ROTATING_WORDS[currentWordIndex]}.
-          </span>
-        </span>
-      </h1>
-
-      <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-8 md:mb-12">
-        <Link
-          href="/booking"
-          className="bg-red-accent text-white px-8 py-3 rounded-lg font-medium hover:opacity-90 transition-opacity w-full sm:w-auto text-center"
-        >
-          Book Your Slot
-        </Link>
-        <Link
-          href="/register"
-          className="bg-gray-dark text-white px-8 py-3 rounded-lg font-medium hover:opacity-90 transition-opacity w-full sm:w-auto text-center"
-        >
-          Sign Up
-        </Link>
+            Meet your new{" "}
+            <span style={{ color: "var(--primary)" }}>connection</span>.
+          </h1>
+          <p
+            className="text-lg lg:text-xl mb-8 max-w-lg leading-relaxed"
+            style={{ color: "var(--text-muted)" }}
+          >
+            Curated social events where real people meet — no apps, no algorithms, just you.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 mb-6">
+            <Link
+              href="/register"
+              className="inline-flex items-center justify-center px-8 py-4 rounded-xl font-semibold text-base transition-all duration-200 hover:-translate-y-0.5 hover:opacity-90"
+              style={{
+                backgroundColor: "var(--primary)",
+                color: "var(--primary-foreground)",
+                boxShadow: "var(--shadow-terra)",
+              }}
+            >
+              Get Your Invite
+            </Link>
+          </div>
+          <p className="text-sm" style={{ color: "var(--text-subtle)" }}>
+            {citiesText}
+          </p>
+        </div>
+        <div className="mt-8 lg:mt-0">
+          <div
+            className="rounded-2xl overflow-hidden"
+            style={{ boxShadow: "var(--shadow-lg)" }}
+          >
+            <Image
+              src="/landing/carousel-1.webp"
+              alt="People connecting at a Never Strangers event"
+              width={600}
+              height={800}
+              className="w-full h-auto object-cover"
+              priority
+            />
+          </div>
+        </div>
       </div>
-
-      <p className="text-sm md:text-base text-gray-medium">{citiesText}</p>
-
-      <style jsx>{`
-        @keyframes fade-in {
-          from {
-            opacity: 0;
-            transform: translateY(10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        .animate-fade-in {
-          animation: fade-in 0.5s ease-out;
-        }
-      `}</style>
     </section>
   );
 }

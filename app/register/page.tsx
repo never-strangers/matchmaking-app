@@ -5,16 +5,21 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { setRegistrationData } from "@/lib/demoStore";
+import { Input } from "@/components/ui/Input";
+import { Select } from "@/components/ui/Select";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 const cities = [
-  "Choose a City",
-  "Singapore",
-  "Kuala Lumpur",
-  "Manila",
-  "Bangkok",
-  "Hong Kong",
-  "Tokyo",
-  "Seoul",
+  { value: "", label: "Choose a City" },
+  { value: "Singapore", label: "Singapore" },
+  { value: "Kuala Lumpur", label: "Kuala Lumpur" },
+  { value: "Manila", label: "Manila" },
+  { value: "Bangkok", label: "Bangkok" },
+  { value: "Hong Kong", label: "Hong Kong" },
+  { value: "Tokyo", label: "Tokyo" },
+  { value: "Seoul", label: "Seoul" },
 ];
 
 export default function RegisterPage() {
@@ -67,24 +72,21 @@ export default function RegisterPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Save registration data (mocked)
     setRegistrationData(formData);
-    // Navigate to verification page
     router.push("/register/verification");
   };
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-12">
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Email */}
-        <div>
-          <label
-            htmlFor="email"
-            className="block text-sm font-medium text-gray-dark mb-2"
-          >
-            E-mail Address
-          </label>
-          <input
+    <div className="max-w-2xl mx-auto px-4 py-8 sm:py-12">
+      <PageHeader
+        title="Request Access"
+        subtitle="Join our curated community of thoughtful connections"
+      />
+      
+      <Card>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <Input
+            label="E-mail Address"
             type="email"
             id="email"
             name="email"
@@ -92,330 +94,264 @@ export default function RegisterPage() {
             value={formData.email}
             onChange={handleInputChange}
             required
-            className="w-full px-4 py-2 border border-beige-frame rounded-lg bg-white focus:ring-2 focus:ring-red-accent focus:border-red-accent"
           />
-        </div>
 
-        {/* First Name */}
-        <div>
-          <label
-            htmlFor="firstName"
-            className="block text-sm font-medium text-gray-dark mb-2"
-          >
-            First Name
-          </label>
-          <input
-            type="text"
-            id="firstName"
-            name="firstName"
-            data-testid="register-name"
-            value={formData.firstName}
-            onChange={handleInputChange}
-            required
-            className="w-full px-4 py-2 border border-beige-frame rounded-lg bg-white focus:ring-2 focus:ring-red-accent focus:border-red-accent"
-          />
-        </div>
-
-        {/* Last Name */}
-        <div>
-          <label
-            htmlFor="lastName"
-            className="block text-sm font-medium text-gray-dark mb-2"
-          >
-            Last Name
-          </label>
-          <input
-            type="text"
-            id="lastName"
-            name="lastName"
-            value={formData.lastName}
-            onChange={handleInputChange}
-            required
-            className="w-full px-4 py-2 border border-beige-frame rounded-lg bg-white focus:ring-2 focus:ring-red-accent focus:border-red-accent"
-          />
-        </div>
-
-        {/* Password */}
-        <div>
-          <div className="flex items-center gap-2 mb-2">
-            <label
-              htmlFor="password"
-              className="block text-sm font-medium text-gray-dark"
-            >
-              Create Password
-            </label>
-            <button
-              type="button"
-              className="text-gray-medium hover:text-gray-dark"
-              aria-label="Password help"
-            >
-              ?
-            </button>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input
+              label="First Name"
+              type="text"
+              id="firstName"
+              name="firstName"
+              data-testid="register-name"
+              value={formData.firstName}
+              onChange={handleInputChange}
+              required
+            />
+            <Input
+              label="Last Name"
+              type="text"
+              id="lastName"
+              name="lastName"
+              value={formData.lastName}
+              onChange={handleInputChange}
+              required
+            />
           </div>
-          <input
+
+          <Input
+            label="Create Password"
             type="password"
             id="password"
             name="password"
             value={formData.password}
             onChange={handleInputChange}
             required
-            className="w-full px-4 py-2 border border-beige-frame rounded-lg bg-white focus:ring-2 focus:ring-red-accent focus:border-red-accent"
+            helperText="Use a strong password with at least 8 characters"
           />
-        </div>
 
-        {/* City */}
-        <div>
-          <label
-            htmlFor="city"
-            className="block text-sm font-medium text-gray-dark mb-2"
-          >
-            Which city are you in?
-          </label>
-          <select
+          <Select
+            label="Which city are you in?"
             id="city"
             name="city"
             data-testid="register-city"
             value={formData.city}
             onChange={handleInputChange}
             required
-            className="w-full px-4 py-2 border border-beige-frame rounded-lg bg-white focus:ring-2 focus:ring-red-accent focus:border-red-accent"
-          >
-            {cities.map((city) => (
-              <option key={city} value={city === "Choose a City" ? "" : city}>
-                {city}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Birth Date */}
-        <div>
-          <label
-            htmlFor="birthDate"
-            className="block text-sm font-medium text-gray-dark mb-2"
-          >
-            Birth Date
-          </label>
-          <div className="relative">
-            <input
-              type="date"
-              id="birthDate"
-              name="birthDate"
-              value={formData.birthDate}
-              onChange={handleInputChange}
-              required
-              className="w-full px-4 py-2 border border-beige-frame rounded-lg bg-white focus:ring-2 focus:ring-red-accent focus:border-red-accent"
-            />
-          </div>
-        </div>
-
-        {/* Gender */}
-        <div>
-          <label className="block text-sm font-medium text-gray-dark mb-3">
-            Gender
-          </label>
-          <div className="space-y-2">
-            {["Male", "Female", "Others"].map((gender) => (
-              <label
-                key={gender}
-                className="flex items-center space-x-2 cursor-pointer"
-              >
-                <input
-                  type="radio"
-                  name="gender"
-                  value={gender}
-                  checked={formData.gender === gender}
-                  onChange={() => handleRadioChange(gender)}
-                  className="w-4 h-4 text-red-accent border-beige-frame focus:ring-red-accent"
-                />
-                <span className="text-gray-dark">{gender}</span>
-              </label>
-            ))}
-          </div>
-        </div>
-
-        {/* Attracted To */}
-        <div>
-          <label className="block text-sm font-medium text-gray-dark mb-3">
-            Which gender are you attracted to?
-          </label>
-          <div className="space-y-2">
-            {["Men", "Women"].map((option) => (
-              <label
-                key={option}
-                className="flex items-center space-x-2 cursor-pointer"
-              >
-                <input
-                  type="checkbox"
-                  checked={formData.attractedTo.includes(option)}
-                  onChange={() => handleCheckboxChange("attractedTo", option)}
-                  className="w-4 h-4 text-red-accent border-beige-frame rounded focus:ring-red-accent"
-                />
-                <span className="text-gray-dark">{option}</span>
-              </label>
-            ))}
-          </div>
-        </div>
-
-        {/* Looking For */}
-        <div>
-          <label className="block text-sm font-medium text-gray-dark mb-3">
-            What are you looking for?
-          </label>
-          <div className="space-y-2">
-            {["Friends", "A Date"].map((option) => (
-              <label
-                key={option}
-                className="flex items-center space-x-2 cursor-pointer"
-              >
-                <input
-                  type="checkbox"
-                  checked={formData.lookingFor.includes(option)}
-                  onChange={() => handleCheckboxChange("lookingFor", option)}
-                  className="w-4 h-4 text-red-accent border-beige-frame rounded focus:ring-red-accent"
-                />
-                <span className="text-gray-dark">{option}</span>
-              </label>
-            ))}
-          </div>
-        </div>
-
-        {/* Why Never Strangers */}
-        <div>
-          <label
-            htmlFor="whyNeverStrangers"
-            className="block text-sm font-medium text-gray-dark mb-2"
-          >
-            Let&apos;s know more about you. Tell us why Never Strangers is for
-            you!
-          </label>
-          <textarea
-            id="whyNeverStrangers"
-            name="whyNeverStrangers"
-            value={formData.whyNeverStrangers}
-            onChange={handleInputChange}
-            rows={4}
-            className="w-full px-4 py-2 border border-beige-frame rounded-lg bg-white focus:ring-2 focus:ring-red-accent focus:border-red-accent"
+            options={cities}
           />
-        </div>
 
-        {/* Instagram */}
-        <div>
-          <label
-            htmlFor="instagram"
-            className="block text-sm font-medium text-gray-dark mb-2"
-          >
-            Vibe Check! What&apos;s Your Instagram? (With a clear picture of
-            yourself in your display picture!)
-          </label>
+          <Input
+            label="Birth Date"
+            type="date"
+            id="birthDate"
+            name="birthDate"
+            value={formData.birthDate}
+            onChange={handleInputChange}
+            required
+          />
+
           <div>
-            <span className="text-sm text-gray-medium mr-2">@</span>
-            <input
-              type="text"
-              id="instagram"
-              name="instagram"
-              placeholder="Username"
-              value={formData.instagram}
+            <label className="block text-sm font-medium text-[var(--text)] mb-3">
+              Gender
+            </label>
+            <div className="space-y-2">
+              {["Male", "Female", "Others"].map((gender) => (
+                <label
+                  key={gender}
+                  className="flex items-center space-x-2 cursor-pointer"
+                >
+                  <input
+                    type="radio"
+                    name="gender"
+                    value={gender}
+                    checked={formData.gender === gender}
+                    onChange={() => handleRadioChange(gender)}
+                    className="w-4 h-4 text-[var(--primary)] border-[var(--border)] focus:ring-[var(--primary)]"
+                  />
+                  <span className="text-[var(--text)]">{gender}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-[var(--text)] mb-3">
+              Which gender are you attracted to?
+            </label>
+            <div className="space-y-2">
+              {["Men", "Women"].map((option) => (
+                <label
+                  key={option}
+                  className="flex items-center space-x-2 cursor-pointer"
+                >
+                  <input
+                    type="checkbox"
+                    checked={formData.attractedTo.includes(option)}
+                    onChange={() => handleCheckboxChange("attractedTo", option)}
+                    className="w-4 h-4 text-[var(--primary)] border-[var(--border)] rounded focus:ring-[var(--primary)]"
+                  />
+                  <span className="text-[var(--text)]">{option}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-[var(--text)] mb-3">
+              What are you looking for?
+            </label>
+            <div className="space-y-2">
+              {["Friends", "A Date"].map((option) => (
+                <label
+                  key={option}
+                  className="flex items-center space-x-2 cursor-pointer"
+                >
+                  <input
+                    type="checkbox"
+                    checked={formData.lookingFor.includes(option)}
+                    onChange={() => handleCheckboxChange("lookingFor", option)}
+                    className="w-4 h-4 text-[var(--primary)] border-[var(--border)] rounded focus:ring-[var(--primary)]"
+                  />
+                  <span className="text-[var(--text)]">{option}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label
+              htmlFor="whyNeverStrangers"
+              className="block text-sm font-medium text-[var(--text)] mb-2"
+            >
+              Tell us why Never Strangers is for you
+            </label>
+            <textarea
+              id="whyNeverStrangers"
+              name="whyNeverStrangers"
+              value={formData.whyNeverStrangers}
               onChange={handleInputChange}
-              className="inline-block w-[calc(100%-2rem)] px-4 py-2 border border-beige-frame rounded-lg bg-white focus:ring-2 focus:ring-red-accent focus:border-red-accent"
+              rows={4}
+              className="w-full px-4 py-2.5 bg-[var(--bg-panel)] border border-[var(--border)] rounded-xl text-[var(--text)] placeholder:text-[var(--text-subtle)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-[var(--primary)] transition-all duration-200"
             />
           </div>
-        </div>
 
-        {/* Profile Photo Upload */}
-        <div>
-          <label className="block text-sm font-medium text-gray-dark mb-2">
-            Upload your Profile Photo
-          </label>
-          <div className="flex items-center gap-4">
-            <div className="w-24 h-24 border-2 border-beige-frame rounded-full flex items-center justify-center bg-white overflow-hidden">
-              {formData.profilePhoto ? (
-                <Image
-                  src={URL.createObjectURL(formData.profilePhoto)}
-                  alt="Profile preview"
-                  width={96}
-                  height={96}
-                  className="w-full h-full object-cover"
-                  unoptimized
-                />
-              ) : (
-                <div className="w-8 h-8 bg-blue-600 rounded-full"></div>
-              )}
-            </div>
-            <div>
+          <div>
+            <label
+              htmlFor="instagram"
+              className="block text-sm font-medium text-[var(--text)] mb-2"
+            >
+              Instagram Handle
+            </label>
+            <div className="flex items-center">
+              <span className="text-sm text-[var(--text-muted)] mr-2">@</span>
               <input
-                type="file"
-                id="profilePhoto"
-                accept="image/*"
-                onChange={handleFileChange}
-                className="hidden"
+                type="text"
+                id="instagram"
+                name="instagram"
+                placeholder="username"
+                value={formData.instagram}
+                onChange={handleInputChange}
+                className="flex-1 px-4 py-2.5 bg-[var(--bg-panel)] border border-[var(--border)] rounded-xl text-[var(--text)] placeholder:text-[var(--text-subtle)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-[var(--primary)] transition-all duration-200"
               />
-              <label
-                htmlFor="profilePhoto"
-                className="inline-block bg-gray-dark text-white px-6 py-2 rounded-lg font-medium hover:opacity-90 transition-opacity cursor-pointer"
-              >
-                Upload
-              </label>
+            </div>
+            <p className="mt-1.5 text-sm text-[var(--text-muted)]">
+              Please use a profile picture that clearly shows your face
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-[var(--text)] mb-2">
+              Profile Photo
+            </label>
+            <div className="flex items-center gap-4">
+              <div className="w-24 h-24 border-2 border-[var(--border)] rounded-full flex items-center justify-center bg-[var(--bg-muted)] overflow-hidden">
+                {formData.profilePhoto ? (
+                  <Image
+                    src={URL.createObjectURL(formData.profilePhoto)}
+                    alt="Profile preview"
+                    width={96}
+                    height={96}
+                    className="w-full h-full object-cover"
+                    unoptimized
+                  />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-[var(--primary)] opacity-20"></div>
+                )}
+              </div>
+              <div>
+                <input
+                  type="file"
+                  id="profilePhoto"
+                  accept="image/*"
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
+                <label
+                  htmlFor="profilePhoto"
+                  className="inline-block"
+                >
+                  <Button type="button" variant="outline" size="md">
+                    Upload Photo
+                  </Button>
+                </label>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Terms Checkboxes */}
-        <div className="space-y-3">
-          <label className="flex items-start space-x-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={formData.termsAccepted}
-              onChange={(e) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  termsAccepted: e.target.checked,
-                }))
-              }
-              required
-              className="mt-1 w-4 h-4 text-red-accent border-beige-frame rounded focus:ring-red-accent"
-            />
-            <span className="text-sm text-gray-dark">
-              I agree to the Terms and Conditions
-            </span>
-          </label>
-          <label className="flex items-start space-x-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={formData.privacyAccepted}
-              onChange={(e) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  privacyAccepted: e.target.checked,
-                }))
-              }
-              required
-              className="mt-1 w-4 h-4 text-red-accent border-beige-frame rounded focus:ring-red-accent"
-            />
-            <span className="text-sm text-gray-dark">
-              I agree to the Privacy Policy
-            </span>
-          </label>
-        </div>
+          <div className="space-y-3 pt-4 border-t border-[var(--border)]">
+            <label className="flex items-start space-x-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.termsAccepted}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    termsAccepted: e.target.checked,
+                  }))
+                }
+                required
+                className="mt-1 w-4 h-4 text-[var(--primary)] border-[var(--border)] rounded focus:ring-[var(--primary)]"
+              />
+              <span className="text-sm text-[var(--text)]">
+                I agree to the Terms and Conditions
+              </span>
+            </label>
+            <label className="flex items-start space-x-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.privacyAccepted}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    privacyAccepted: e.target.checked,
+                  }))
+                }
+                required
+                className="mt-1 w-4 h-4 text-[var(--primary)] border-[var(--border)] rounded focus:ring-[var(--primary)]"
+              />
+              <span className="text-sm text-[var(--text)]">
+                I agree to the Privacy Policy
+              </span>
+            </label>
+          </div>
 
-        {/* Buttons */}
-        <div className="flex gap-4 pt-4">
-          <button
-            type="submit"
-            data-testid="register-submit"
-            className="flex-1 bg-red-accent text-white px-8 py-3 rounded-lg font-medium hover:opacity-90 transition-opacity"
-          >
-            Request access
-          </button>
-          <Link
-            href="/login"
-            className="flex-1 bg-red-accent text-white px-8 py-3 rounded-lg font-medium hover:opacity-90 transition-opacity text-center"
-          >
-            Login
-          </Link>
-        </div>
-      </form>
+          <div className="flex flex-col sm:flex-row gap-4 pt-4">
+            <Button
+              type="submit"
+              data-testid="register-submit"
+              fullWidth
+              size="lg"
+            >
+              Request Access
+            </Button>
+            <Link href="/login" className="flex-1">
+              <Button type="button" variant="outline" fullWidth size="lg">
+                Already have an account?
+              </Button>
+            </Link>
+          </div>
+        </form>
+      </Card>
     </div>
   );
 }
-
