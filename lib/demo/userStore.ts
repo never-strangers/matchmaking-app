@@ -19,44 +19,25 @@ let supabaseUsersCache: UserProfile[] | null = null;
 let cacheTimestamp = 0;
 const CACHE_TTL_MS = 30000; // 30 seconds
 
-/**
- * Check if we should use Supabase
- */
-function useSupabase(): boolean {
+/** Check if Supabase is configured and we should use it. */
+function isSupabaseAvailable(): boolean {
   return typeof window !== "undefined" && userService.isAvailable();
 }
 
 /**
- * Get all users (sync - localStorage with Supabase cache)
+ * Get all users (sync - Supabase cache or localStorage only).
+ * No auto-seed: users are available only after POST /api/demo/seed or explicit reset+seed.
  */
 export function listUsers(): UserProfile[] {
   if (typeof window === "undefined") return [];
-  
+
   // Return cached Supabase data if fresh
   if (supabaseUsersCache && Date.now() - cacheTimestamp < CACHE_TTL_MS) {
     return supabaseUsersCache;
   }
-  
+
   const stored = localStorage.getItem(USERS_KEY);
-  if (!stored) {
-    // Try to initialize from central init
-    try {
-      const { initializeDemoData } = require("./initDemoData");
-      initializeDemoData();
-      const retry = localStorage.getItem(USERS_KEY);
-      if (retry) {
-        return JSON.parse(retry);
-      }
-    } catch {
-      // Fallback to old seed
-      const seeded = seedDemoUsers();
-      saveUsers(seeded);
-      return seeded;
-    }
-  }
-  if (!stored) {
-    return [];
-  }
+  if (!stored) return [];
   try {
     return JSON.parse(stored);
   } catch {
@@ -65,20 +46,17 @@ export function listUsers(): UserProfile[] {
 }
 
 /**
- * Get all users (async - Supabase with localStorage fallback)
+ * Get all users (async - Supabase first, then localStorage cache).
+ * Users only appear after seed (POST /api/demo/seed) or reset+seed; no default localStorage seed.
  */
 export async function listUsersAsync(): Promise<UserProfile[]> {
-  if (useSupabase()) {
+  if (isSupabaseAvailable()) {
     try {
       const users = await userService.listUsers();
-      if (users.length > 0) {
-        // Update cache
-        supabaseUsersCache = users;
-        cacheTimestamp = Date.now();
-        // Also sync to localStorage for offline access
-        saveUsers(users);
-        return users;
-      }
+      supabaseUsersCache = users;
+      cacheTimestamp = Date.now();
+      saveUsers(users);
+      return users;
     } catch (err) {
       console.warn("Failed to fetch users from Supabase, using localStorage:", err);
     }
@@ -90,7 +68,7 @@ export async function listUsersAsync(): Promise<UserProfile[]> {
  * Refresh user cache from Supabase
  */
 export async function refreshUsersFromSupabase(): Promise<UserProfile[]> {
-  if (!useSupabase()) return listUsers();
+  if (!isSupabaseAvailable()) return listUsers();
   
   try {
     const users = await userService.listUsers();
@@ -465,7 +443,7 @@ function saveUsers(users: UserProfile[]): void {
  * Get user by ID (async - Supabase with localStorage fallback)
  */
 export async function getUserByIdAsync(id: string): Promise<UserProfile | null> {
-  if (useSupabase()) {
+  if (isSupabaseAvailable()) {
     try {
       const user = await userService.getUserById(id);
       if (user) return user;
@@ -491,7 +469,7 @@ export async function createUserAsync(profile: {
   profilePhotoUrl?: string;
   questionnaireAnswers: QuestionnaireAnswers;
 }): Promise<UserProfile> {
-  if (useSupabase()) {
+  if (isSupabaseAvailable()) {
     try {
       const user = await userService.createUser(profile);
       if (user) {
@@ -513,7 +491,7 @@ export async function updateUserAsync(
   userId: string,
   updates: Partial<UserProfile>
 ): Promise<UserProfile | null> {
-  if (useSupabase()) {
+  if (isSupabaseAvailable()) {
     try {
       const user = await userService.updateUser(userId, updates);
       if (user) {
@@ -536,7 +514,7 @@ export async function setUserStatusAsync(
   status: UserStatus,
   notes?: string
 ): Promise<UserProfile | null> {
-  if (useSupabase()) {
+  if (isSupabaseAvailable()) {
     try {
       const user = await userService.setUserStatus(userId, status, notes);
       if (user) {
@@ -559,7 +537,7 @@ export async function verifyEmailOTPAsync(email: string, otp: string): Promise<b
     return false;
   }
 
-  if (useSupabase()) {
+  if (isSupabaseAvailable()) {
     try {
       const success = await userService.verifyEmail(email);
       if (success) {

@@ -26,8 +26,8 @@ export default function RootLayout({
         <RouteGuard>
           <header className="border-b" style={{ backgroundColor: "var(--bg)", borderColor: "var(--border)" }}>
             <div className="max-w-7xl mx-auto px-6 lg:px-20">
-              <div className="flex justify-between items-center h-20">
-                <div className="flex items-center">
+              <div className="flex justify-between items-center h-20 gap-3">
+                <div className="flex items-center flex-shrink-0">
                   <Link 
                     href="/" 
                     className="hover:opacity-80 transition-opacity"
@@ -44,7 +44,9 @@ export default function RootLayout({
                     </div>
                   </Link>
                 </div>
-                <NavBar />
+                <div className="min-w-0 flex-1 flex justify-end">
+                  <NavBar />
+                </div>
               </div>
             </div>
           </header>

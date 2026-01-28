@@ -539,9 +539,8 @@ export function initializeDemoData(): void {
     },
   ];
 
-  // Save all data
+  // Save all data (users come from Supabase only, after POST /api/demo/seed)
   try {
-    localStorage.setItem("ns_users", JSON.stringify(users));
     localStorage.setItem("ns_registrations", JSON.stringify(rsvps));
     localStorage.setItem("ns_questionnaire_events", JSON.stringify(eventQuestionnaires));
     localStorage.setItem("ns_checkins", JSON.stringify(checkIns));

@@ -8,7 +8,7 @@ import { useDemoStore } from "@/lib/demo/demoStore";
 import { getMatchesForUser } from "@/lib/matching/questionnaireMatch";
 import { QUESTIONS } from "@/lib/questionnaire/questions";
 import { MatchUser } from "@/types/questionnaire";
-import { listUsers } from "@/lib/demo/userStore";
+import { listUsersAsync } from "@/lib/demo/userStore";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
@@ -31,6 +31,7 @@ function AdminPageContent() {
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const [isAdminMode, setIsAdminMode] = useState(false);
+  const [sessionUsers, setSessionUsers] = useState<Record<string, { name: string; picture?: string }>>({});
   const { isLoading } = useSession();
 
   useEffect(() => {
@@ -52,6 +53,15 @@ function AdminPageContent() {
     if (events.length > 0 && !selectedEventId) {
       setSelectedEventId(events[0].id);
     }
+    (async () => {
+      const all = await listUsersAsync();
+      const users: Record<string, { name: string; picture?: string }> = {};
+      all.forEach((u) => {
+        if (!u.email) return;
+        users[u.email] = { name: u.name, picture: u.profilePhotoUrl };
+      });
+      setSessionUsers(users);
+    })();
   }, [isLoggedIn, isLoading, router, isAdmin, user, events.length, selectedEventId]);
 
   const handleRunMatching = async () => {
@@ -77,12 +87,6 @@ function AdminPageContent() {
           });
         }
       }
-
-      const sessionUsers: Record<string, { name: string; picture?: string }> = {};
-      listUsers().forEach((u) => {
-        if (!u.email) return;
-        sessionUsers[u.email] = { name: u.name, picture: u.profilePhotoUrl };
-      });
 
       const eventQuestions = event.questions
         .map((qId) => QUESTIONS.find((q) => q.id === qId))

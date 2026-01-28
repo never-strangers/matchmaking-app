@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "@/lib/auth/useSession";
 import { useDemoStore } from "@/lib/demo/demoStore";
-import { listUsers, getUserById } from "@/lib/demo/userStore";
+import { listUsersAsync } from "@/lib/demo/userStore";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
@@ -55,12 +55,15 @@ function MatchPageContent() {
       setSelectedEventId(events[0].id);
     }
 
-    const users: Record<string, { name: string; picture?: string; phone?: string }> = {};
-    listUsers().forEach((u) => {
-      if (!u.email) return;
-      users[u.email] = { name: u.name, picture: u.profilePhotoUrl, phone: u.phone };
-    });
-    setSessionUsers(users);
+    (async () => {
+      const all = await listUsersAsync();
+      const users: Record<string, { name: string; picture?: string; phone?: string }> = {};
+      all.forEach((u) => {
+        if (!u.email) return;
+        users[u.email] = { name: u.name, picture: u.profilePhotoUrl, phone: u.phone };
+      });
+      setSessionUsers(users);
+    })();
   }, [isLoggedIn, isLoading, router, events.length, selectedEventId]);
 
   useEffect(() => {
@@ -94,6 +97,19 @@ function MatchPageContent() {
 
   const getUserPhone = (email: string) => {
     return sessionUsers[email]?.phone;
+  };
+
+  /** Phone for WhatsApp: from session or derived from phone_XXXX@demo.local */
+  const getPhoneForWhatsApp = (email: string): string | null => {
+    const fromSession = sessionUsers[email]?.phone;
+    if (fromSession) return fromSession;
+    const m = String(email).match(/^phone_(\d+)@demo\.local$/);
+    return m ? `+${m[1]}` : null;
+  };
+
+  const getWhatsAppUrl = (phone: string) => {
+    const digits = phone.replace(/\D/g, "");
+    return `https://wa.me/${digits}`;
   };
 
   if (isLoading) {
@@ -232,21 +248,6 @@ function MatchPageContent() {
                             ) : null}
                             <div className="flex flex-wrap gap-2 mt-4">
                               {liked && <Badge variant="success">✓ Liked</Badge>}
-                              {mutual && (
-                                <>
-                                  <Badge variant="info">💬 Mutual Interest - Can Message</Badge>
-                                  {getUserPhone(match.otherEmail) && (
-                                    <div className="mt-2 p-3 rounded-lg" style={{ backgroundColor: "var(--bg-muted)", border: "1px solid var(--border)" }}>
-                                      <p className="text-xs font-semibold mb-1" style={{ color: "var(--text-muted)" }}>
-                                        Phone Number:
-                                      </p>
-                                      <p className="text-sm font-mono" style={{ color: "var(--text)" }}>
-                                        {getUserPhone(match.otherEmail)}
-                                      </p>
-                                    </div>
-                                  )}
-                                </>
-                              )}
                             </div>
                           </div>
                           <div className="flex flex-col gap-2 sm:ml-4">
@@ -258,13 +259,26 @@ function MatchPageContent() {
                                 Express Interest
                               </Button>
                             ) : mutual ? (
-                              <Link
-                                href={`/messages/${selectedEventId}:${[user.email, match.otherEmail].sort().join(":")}`}
-                              >
-                                <Button variant="secondary" size="md" fullWidth>
+                              getPhoneForWhatsApp(match.otherEmail) ? (
+                                <a
+                                  href={getWhatsAppUrl(getPhoneForWhatsApp(match.otherEmail)!)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex w-full items-center justify-center font-medium transition-all duration-200 rounded-xl touch-manipulation focus:outline-none focus:ring-2 focus:ring-offset-2 px-4 py-2.5 text-base bg-[var(--bg-muted)] text-[var(--text)] hover:bg-[var(--border)] focus:ring-[var(--primary)] no-underline"
+                                  style={{ WebkitTapHighlightColor: "transparent" }}
+                                >
                                   Message
-                                </Button>
-                              </Link>
+                                </a>
+                              ) : (
+                                <Link
+                                  href={`/messages/${selectedEventId}:${[user.email, match.otherEmail].sort().join(":")}`}
+                                  className="block w-full"
+                                >
+                                  <Button variant="secondary" size="md" fullWidth>
+                                    Message
+                                  </Button>
+                                </Link>
+                              )
                             ) : (
                               <span className="text-sm text-center" style={{ color: "var(--text-muted)" }}>
                                 Waiting for mutual interest

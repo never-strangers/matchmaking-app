@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "@/lib/auth/useSession";
 import { useDemoStore } from "@/lib/demo/demoStore";
-import { listUsers } from "@/lib/demo/userStore";
+import { listUsersAsync } from "@/lib/demo/userStore";
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -31,12 +31,15 @@ export default function MessagesPage() {
       return;
     }
 
-    const users: Record<string, { name: string; picture?: string }> = {};
-    listUsers().forEach((u) => {
-      if (!u.email) return;
-      users[u.email] = { name: u.name, picture: u.profilePhotoUrl };
-    });
-    setSessionUsers(users);
+    (async () => {
+      const all = await listUsersAsync();
+      const users: Record<string, { name: string; picture?: string }> = {};
+      all.forEach((u) => {
+        if (!u.email) return;
+        users[u.email] = { name: u.name, picture: u.profilePhotoUrl };
+      });
+      setSessionUsers(users);
+    })();
 
     if (user?.email) {
       const userConversations = getConversationsForUser(user.email);

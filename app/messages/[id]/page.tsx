@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "@/lib/auth/useSession";
 import { useDemoStore } from "@/lib/demo/demoStore";
-import { listUsers } from "@/lib/demo/userStore";
+import { listUsersAsync } from "@/lib/demo/userStore";
 
 export default function ConversationPage() {
   const params = useParams();
@@ -52,12 +52,15 @@ export default function ConversationPage() {
       }
     }
 
-    const users: Record<string, { name: string; picture?: string }> = {};
-    listUsers().forEach((u) => {
-      if (!u.email) return;
-      users[u.email] = { name: u.name, picture: u.profilePhotoUrl };
-    });
-    setSessionUsers(users);
+    (async () => {
+      const all = await listUsersAsync();
+      const users: Record<string, { name: string; picture?: string }> = {};
+      all.forEach((u) => {
+        if (!u.email) return;
+        users[u.email] = { name: u.name, picture: u.profilePhotoUrl };
+      });
+      setSessionUsers(users);
+    })();
 
     // Load messages
     const msgs = getMessages(conversationId);
