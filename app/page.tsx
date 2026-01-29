@@ -7,14 +7,14 @@ import FinalCTA from "@/components/landing/FinalCTA";
 import Footer from "@/components/landing/Footer";
 
 export const metadata: Metadata = {
-  title: "Never Strangers - Meet Your New Connection",
+  title: "Never Strangers - Meet Your New Soulmate",
   description:
     "Curated social events where real people meet — no apps, no algorithms, just you. Invite-only mixers designed for meaningful conversation.",
   alternates: {
     canonical: "https://thisisneverstrangers.com/",
   },
   openGraph: {
-    title: "Never Strangers - Meet Your New Connection",
+    title: "Never Strangers - Meet Your New Soulmate",
     description:
       "Curated social events where real people meet — no apps, no algorithms, just you.",
     url: "https://thisisneverstrangers.com/",
@@ -32,7 +32,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Never Strangers - Meet Your New Connection",
+    title: "Never Strangers - Meet Your New Soulmate",
     description:
       "Curated social events where real people meet — no apps, no algorithms, just you.",
     images: ["https://thisisneverstrangers.com/wp-content/uploads/2026/01/1-2.webp"],
