@@ -2,8 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { useSession } from "@/lib/auth/useSession";
-import { useRouter } from "next/navigation";
+import { useInviteSession } from "@/lib/auth/useInviteSession";
 
 const navLinkClass =
   "text-sm font-medium transition-colors block py-2 px-3 rounded-lg touch-manipulation";
@@ -16,8 +15,7 @@ const navLinkHover = {
 };
 
 export default function NavBar() {
-  const router = useRouter();
-  const { user, isLoggedIn, isAdmin, logout } = useSession();
+  const { user, isLoggedIn, isAdmin, logout } = useInviteSession();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -45,9 +43,6 @@ export default function NavBar() {
     setShowUserMenu(false);
     setMobileOpen(false);
     logout();
-    setTimeout(() => {
-      window.location.href = "/register";
-    }, 100);
   };
 
   const closeMobile = () => setMobileOpen(false);
@@ -58,13 +53,13 @@ export default function NavBar() {
       <div className="hidden md:flex items-center space-x-6 flex-shrink-0">
         {!isLoggedIn ? (
           <Link
-            href="/register"
+            href="/"
             data-testid="nav-register"
             className={navLinkClass}
             style={navLinkStyle}
             {...navLinkHover}
           >
-            Login
+            Get Invite
           </Link>
         ) : (
           <>
@@ -116,12 +111,12 @@ export default function NavBar() {
       <div className="md:hidden relative flex-shrink-0" ref={mobileMenuRef}>
         {!isLoggedIn ? (
           <Link
-            href="/register"
+            href="/"
             data-testid="nav-register"
             className={`${navLinkClass} py-2 px-3`}
             style={navLinkStyle}
           >
-            Login
+            Get Invite
           </Link>
         ) : (
           <>
@@ -202,7 +197,7 @@ export default function NavBar() {
             onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-muted)")}
           >
             <span className="truncate max-w-[180px]">
-              {user.name} · {user.phone}
+              {user.displayName} · {user.phoneE164}
             </span>
             <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />

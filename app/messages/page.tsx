@@ -27,7 +27,7 @@ export default function MessagesPage() {
     if (isLoading) return;
 
     if (!isLoggedIn) {
-      router.replace("/register");
+      router.replace("/");
       return;
     }
 

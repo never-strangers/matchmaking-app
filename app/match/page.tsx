@@ -1,299 +1,293 @@
-"use client";
-
-import { useState, useEffect, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { useSession } from "@/lib/auth/useSession";
-import { useDemoStore } from "@/lib/demo/demoStore";
-import { listUsersAsync } from "@/lib/demo/userStore";
+import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
+import { verifySessionToken } from "@/lib/auth/sessionToken";
+import { getServiceSupabaseClient } from "@/lib/supabase/serverClient";
+import { getMatchesForUser } from "@/lib/matching/questionnaireMatch";
+import type {
+  QuestionnaireAnswers,
+  MatchUser,
+  Question,
+} from "@/types/questionnaire";
 import { Card } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
-import { Badge } from "@/components/ui/Badge";
-import { Select } from "@/components/ui/Select";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { MatchCard } from "@/components/match/MatchCard";
+import { MatchRealtimeSubscriber } from "@/components/match/MatchRealtimeSubscriber";
 
-function MatchPageContent() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const { user, isLoggedIn, isLoading, isAdmin } = useSession();
-  const {
-    listEvents,
-    getMatches,
-    isLiked,
-    likeUser,
-    hasMutualLike,
-    getOrCreateConversation,
-  } = useDemoStore();
+type MatchRow = {
+  otherProfileId: string;
+  displayName: string;
+  score: number;
+  aligned: string[];
+  mismatched: string[];
+  likedByMe: boolean;
+  mutual: boolean;
+  whatsappUrl: string | null;
+};
 
-  const [events, setEvents] = useState(useDemoStore.getState().listEvents());
-  const [selectedEventId, setSelectedEventId] = useState<string | null>(
-    searchParams.get("eventId") || null
-  );
-  const [matches, setMatches] = useState<
-    Array<{
-      otherEmail: string;
-      score: number;
-      aligned?: string[];
-      mismatched?: string[];
-    }>
-  >([]);
-  const [sessionUsers, setSessionUsers] = useState<
-    Record<string, { name: string; picture?: string; phone?: string }>
-  >({});
+export default async function MatchPage() {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("ns_session")?.value;
+  const session = verifySessionToken(token);
+  if (!session) {
+    redirect("/");
+  }
 
-  useEffect(() => {
-    if (isLoading) return;
+  const supabase = getServiceSupabaseClient();
 
-    if (!isLoggedIn) {
-      router.replace("/register");
-      return;
-    }
+  // For now, use the single seeded demo event
+  const { data: events } = await supabase
+    .from("events")
+    .select("id, title, status")
+    .eq("status", "live")
+    .order("created_at", { ascending: true });
 
-    setEvents(useDemoStore.getState().listEvents());
-    if (events.length > 0 && !selectedEventId) {
-      setSelectedEventId(events[0].id);
-    }
-
-    (async () => {
-      const all = await listUsersAsync();
-      const users: Record<string, { name: string; picture?: string; phone?: string }> = {};
-      all.forEach((u) => {
-        if (!u.email) return;
-        users[u.email] = { name: u.name, picture: u.profilePhotoUrl, phone: u.phone };
-      });
-      setSessionUsers(users);
-    })();
-  }, [isLoggedIn, isLoading, router, events.length, selectedEventId]);
-
-  useEffect(() => {
-    if (!selectedEventId || !user?.email) return;
-    const eventMatches = getMatches(selectedEventId, user.email);
-    setMatches(eventMatches.slice(0, 3));
-  }, [selectedEventId, user, getMatches]);
-
-  const handleLike = (otherEmail: string) => {
-    if (!selectedEventId || !user?.email) return;
-    likeUser(selectedEventId, user.email, otherEmail);
-
-    if (hasMutualLike(selectedEventId, user.email, otherEmail)) {
-      getOrCreateConversation(selectedEventId, user.email, otherEmail);
-      alert(
-        `You and ${sessionUsers[otherEmail]?.name || otherEmail} liked each other! You can now message.`
-      );
-    }
-
-    const eventMatches = getMatches(selectedEventId, user.email);
-    setMatches(eventMatches.slice(0, 3));
-  };
-
-  const getUserName = (email: string) => {
-    return sessionUsers[email]?.name || email;
-  };
-
-  const getUserPicture = (email: string) => {
-    return sessionUsers[email]?.picture;
-  };
-
-  const getUserPhone = (email: string) => {
-    return sessionUsers[email]?.phone;
-  };
-
-  /** Phone for WhatsApp: from session or derived from phone_XXXX@demo.local */
-  const getPhoneForWhatsApp = (email: string): string | null => {
-    const fromSession = sessionUsers[email]?.phone;
-    if (fromSession) return fromSession;
-    const m = String(email).match(/^phone_(\d+)@demo\.local$/);
-    return m ? `+${m[1]}` : null;
-  };
-
-  const getWhatsAppUrl = (phone: string) => {
-    const digits = phone.replace(/\D/g, "");
-    return `https://wa.me/${digits}`;
-  };
-
-  if (isLoading) {
+  if (!events || events.length === 0) {
     return (
-      <div className="max-w-5xl mx-auto px-4 py-16">
-        <p style={{ color: "var(--text-muted)" }}>Loading...</p>
+      <div className="max-w-5xl mx-auto px-4 py-8 sm:py-12">
+        <PageHeader
+          title="Your Introductions"
+          subtitle="Join an event first to see your matches."
+        />
+        <EmptyState
+          title="No events available"
+          description="Check back soon for upcoming gatherings in your city."
+        />
       </div>
     );
   }
 
-  if (!isLoggedIn || !user) {
-    return null;
+  const event = events[0];
+
+  // Load all answers for this event
+  const { data: answerRows } = await supabase
+    .from("answers")
+    .select("profile_id, question_id, answer")
+    .eq("event_id", event.id);
+
+  if (!answerRows || answerRows.length === 0) {
+    return (
+      <div className="max-w-5xl mx-auto px-4 py-8 sm:py-12">
+        <PageHeader
+          title="Your Introductions"
+          subtitle="Admin needs to run matching for this event."
+        />
+        <Card padding="lg">
+          <EmptyState
+            title="No introductions yet"
+            description="Once matching is run and attendees answer questions, your top introductions will appear here."
+          />
+        </Card>
+        <div className="mt-8">
+          <Link
+            href="/events"
+            className="text-sm hover:underline"
+            style={{ color: "var(--text-muted)" }}
+          >
+            ← Back to Events
+          </Link>
+        </div>
+      </div>
+    );
   }
 
-  const selectedEvent = selectedEventId
-    ? useDemoStore.getState().getEvent(selectedEventId)
-    : null;
+  // Build QuestionnaireAnswers per profile
+  const answersByProfile = new Map<string, QuestionnaireAnswers>();
+  answerRows.forEach((row: any) => {
+    const pid = String(row.profile_id);
+    const qid = String(row.question_id);
+    const v = row.answer as any;
+    const n =
+      typeof v === "number"
+        ? v
+        : typeof v?.value === "number"
+        ? v.value
+        : null;
+    if (!(n === 1 || n === 2 || n === 3 || n === 4)) return;
+    if (!answersByProfile.has(pid)) {
+      answersByProfile.set(pid, {});
+    }
+    const qa = answersByProfile.get(pid)!;
+    qa[qid] = n;
+  });
+
+  const currentAnswers = answersByProfile.get(session.profile_id);
+  if (!currentAnswers) {
+    return (
+      <div className="max-w-5xl mx-auto px-4 py-8 sm:py-12">
+        <PageHeader
+          title="Your Introductions"
+          subtitle="Answer this event's questions to see your introductions."
+        />
+        <Card padding="lg">
+          <EmptyState
+            title="No answers yet"
+            description="Complete the event questionnaire first, then return to see your matches."
+          />
+        </Card>
+        <div className="mt-8">
+          <Link
+            href={`/events/${event.id}/questions`}
+            className="text-sm hover:underline"
+            style={{ color: "var(--text-muted)" }}
+          >
+            → Go to Event Questions
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // Build questions model for explanation text
+  const { data: questionRows } = await supabase
+    .from("questions")
+    .select("id, prompt, weight")
+    .eq("event_id", event.id)
+    .order("order_index", { ascending: true });
+
+  const questions: Question[] = (questionRows || []).map((q: any) => ({
+    id: String(q.id),
+    text: q.prompt,
+    category: "Custom" as any,
+    weight: Number(q.weight ?? 1),
+    isDealbreaker: false,
+  }));
+
+  // Build MatchUser models
+  const others: MatchUser[] = [];
+  for (const [pid, qa] of answersByProfile.entries()) {
+    if (pid === session.profile_id) continue;
+    others.push({
+      id: pid,
+      name: pid,
+      city: "",
+      answers: qa,
+    });
+  }
+
+  if (others.length === 0) {
+    return (
+      <div className="max-w-5xl mx-auto px-4 py-8 sm:py-12">
+        <PageHeader
+          title="Your Introductions"
+          subtitle="Waiting for more attendees to complete their questionnaires."
+        />
+        <Card padding="lg">
+          <EmptyState
+            title="No introductions yet"
+            description="Once others answer their questions, your introductions will appear here."
+          />
+        </Card>
+        <div className="mt-8">
+          <Link
+            href="/events"
+            className="text-sm hover:underline"
+            style={{ color: "var(--text-muted)" }}
+          >
+            ← Back to Events
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const currentUser: MatchUser = {
+    id: session.profile_id,
+    name: session.display_name,
+    city: "",
+    answers: currentAnswers,
+  };
+
+  const computed = getMatchesForUser(currentUser, others, questions);
+
+  // Load likes for this event (from or to current user)
+  const { data: likeRows } = await supabase
+    .from("likes")
+    .select("from_profile_id, to_profile_id")
+    .eq("event_id", event.id)
+    .or(
+      `from_profile_id.eq.${session.profile_id},to_profile_id.eq.${session.profile_id}`
+    );
+
+  const likedByMe = new Set<string>();
+  const likedByThem = new Set<string>();
+  (likeRows || []).forEach((r: { from_profile_id: string; to_profile_id: string }) => {
+    if (r.from_profile_id === session.profile_id) likedByMe.add(r.to_profile_id);
+    if (r.to_profile_id === session.profile_id) likedByThem.add(r.from_profile_id);
+  });
+
+  // Load display_name and phone_e164 for other profiles
+  const otherIds = [...new Set(others.map((o) => o.id))];
+  const { data: profileRows } = await supabase
+    .from("profiles")
+    .select("id, display_name, phone_e164")
+    .in("id", otherIds.length ? otherIds : ["__none__"]);
+
+  const profileMap = new Map<
+    string,
+    { display_name: string | null; phone_e164: string | null }
+  >();
+  (profileRows || []).forEach((p: { id: string; display_name: string | null; phone_e164: string | null }) => {
+    profileMap.set(p.id, { display_name: p.display_name, phone_e164: p.phone_e164 });
+  });
+
+  function buildWhatsAppUrl(phoneE164: string): string {
+    const digits = phoneE164.replace(/\D/g, "");
+    return `https://wa.me/${digits}`;
+  }
+
+  const matches: MatchRow[] = computed.map((m) => {
+    const otherId = m.user.id;
+    const info = profileMap.get(otherId);
+    const displayName = info?.display_name || m.user.name || otherId;
+    const mutual = likedByMe.has(otherId) && likedByThem.has(otherId);
+    const phone = info?.phone_e164;
+    const whatsappUrl = mutual && phone ? buildWhatsAppUrl(phone) : null;
+    return {
+      otherProfileId: otherId,
+      displayName,
+      score: m.score,
+      aligned: m.aligned,
+      mismatched: m.mismatched,
+      likedByMe: likedByMe.has(otherId),
+      mutual,
+      whatsappUrl,
+    };
+  });
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8 sm:py-12">
+      <MatchRealtimeSubscriber eventId={event.id} />
       <PageHeader
         title="Your Introductions"
-        subtitle="View your compatibility scores and express interest to unlock messaging"
+        subtitle={`Top matches for ${event.title}`}
       />
 
-      {events.length === 0 ? (
-        <EmptyState
-          title="No events available"
-          description="Join an event first to see your potential introductions."
-        />
+      {matches.length === 0 ? (
+        <Card padding="lg">
+          <EmptyState
+            title="No introductions yet"
+            description="Once matching is run, your top introductions will appear here."
+          />
+        </Card>
       ) : (
-        <>
-          <div className="mb-6">
-            <Select
-              label="Select Event"
-              value={selectedEventId || ""}
-              onChange={(e) => setSelectedEventId(e.target.value)}
-              options={events.map((event) => ({
-                value: event.id,
-                label: `${event.title} (${event.city})`,
-              }))}
+        <div className="space-y-4">
+          {matches.map((m) => (
+            <MatchCard
+              key={m.otherProfileId}
+              eventId={event.id}
+              otherProfileId={m.otherProfileId}
+              displayName={m.displayName}
+              score={m.score}
+              aligned={m.aligned}
+              mismatched={m.mismatched}
+              likedByMe={m.likedByMe}
+              mutual={m.mutual}
+              whatsappUrl={m.whatsappUrl}
             />
-          </div>
-
-          {selectedEvent && (
-            <>
-              {matches.length === 0 ? (
-                <Card padding="lg">
-                  <EmptyState
-                    title="No introductions yet"
-                    description="Admin needs to run matching for this event."
-                    action={
-                      isAdmin ? (
-                        <Link href={`/admin?demo_admin=1`}>
-                          <Button variant="outline" size="md">
-                            Go to Admin Dashboard
-                          </Button>
-                        </Link>
-                      ) : undefined
-                    }
-                  />
-                </Card>
-              ) : (
-                <div className="space-y-4">
-                  {matches.map((match) => {
-                    const liked = selectedEventId
-                      ? isLiked(selectedEventId, user.email, match.otherEmail)
-                      : false;
-                    const mutual = selectedEventId
-                      ? hasMutualLike(
-                          selectedEventId,
-                          user.email,
-                          match.otherEmail
-                        )
-                      : false;
-
-                    return (
-                      <Card key={match.otherEmail} variant="elevated" padding="md">
-                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-3">
-                              {getUserPicture(match.otherEmail) && (
-                                <img
-                                  src={getUserPicture(match.otherEmail)}
-                                  alt={getUserName(match.otherEmail)}
-                                  className="w-12 h-12 rounded-full object-cover"
-                                />
-                              )}
-                              <div>
-                                <h3 className="text-lg font-semibold" style={{ color: "var(--text)" }}>
-                                  {getUserName(match.otherEmail)}
-                                </h3>
-                                <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-                                  {match.otherEmail}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="mb-4">
-                              <span className="text-3xl font-bold" style={{ color: "var(--primary)" }}>
-                                {match.score}%
-                              </span>
-                              <span className="text-sm ml-2" style={{ color: "var(--text-muted)" }}>
-                                Compatibility
-                              </span>
-                            </div>
-                            {(match.aligned && match.aligned.length > 0) ||
-                            (match.mismatched && match.mismatched.length > 0) ? (
-                              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                  <div className="text-xs font-semibold mb-2" style={{ color: "var(--text)" }}>
-                                    Top Aligned
-                                  </div>
-                                  <ul className="list-disc list-inside space-y-1">
-                                    {(match.aligned || []).map((reason, idx) => (
-                                      <li
-                                        key={idx}
-                                        className="text-xs"
-                                        style={{ color: "var(--text-muted)" }}
-                                      >
-                                        {reason}
-                                      </li>
-                                    ))}
-                                  </ul>
-                                </div>
-                                <div>
-                                  <div className="text-xs font-semibold mb-2" style={{ color: "var(--text)" }}>
-                                    Top Mismatch
-                                  </div>
-                                  <div className="text-xs" style={{ color: "var(--text-muted)" }}>
-                                    {match.mismatched && match.mismatched[0]
-                                      ? match.mismatched[0]
-                                      : "No notable mismatches"}
-                                  </div>
-                                </div>
-                              </div>
-                            ) : null}
-                            <div className="flex flex-wrap gap-2 mt-4">
-                              {liked && <Badge variant="success">✓ Liked</Badge>}
-                            </div>
-                          </div>
-                          <div className="flex flex-col gap-2 sm:ml-4">
-                            {!liked ? (
-                              <Button
-                                onClick={() => handleLike(match.otherEmail)}
-                                size="md"
-                              >
-                                Express Interest
-                              </Button>
-                            ) : mutual ? (
-                              getPhoneForWhatsApp(match.otherEmail) ? (
-                                <a
-                                  href={getWhatsAppUrl(getPhoneForWhatsApp(match.otherEmail)!)}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex w-full items-center justify-center font-medium transition-all duration-200 rounded-xl touch-manipulation focus:outline-none focus:ring-2 focus:ring-offset-2 px-4 py-2.5 text-base bg-[var(--bg-muted)] text-[var(--text)] hover:bg-[var(--border)] focus:ring-[var(--primary)] no-underline"
-                                  style={{ WebkitTapHighlightColor: "transparent" }}
-                                >
-                                  Message
-                                </a>
-                              ) : (
-                                <Link
-                                  href={`/messages/${selectedEventId}:${[user.email, match.otherEmail].sort().join(":")}`}
-                                  className="block w-full"
-                                >
-                                  <Button variant="secondary" size="md" fullWidth>
-                                    Message
-                                  </Button>
-                                </Link>
-                              )
-                            ) : (
-                              <span className="text-sm text-center" style={{ color: "var(--text-muted)" }}>
-                                Waiting for mutual interest
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </Card>
-                    );
-                  })}
-                </div>
-              )}
-            </>
-          )}
-        </>
+          ))}
+        </div>
       )}
 
       <div className="mt-8">
@@ -309,16 +303,3 @@ function MatchPageContent() {
   );
 }
 
-export default function MatchPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="max-w-5xl mx-auto px-4 py-16">
-          <p style={{ color: "var(--text-muted)" }}>Loading...</p>
-        </div>
-      }
-    >
-      <MatchPageContent />
-    </Suspense>
-  );
-}

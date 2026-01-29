@@ -30,7 +30,7 @@ export default function ConversationPage() {
     if (isLoading) return;
 
     if (!isLoggedIn) {
-      router.replace("/register");
+      router.replace("/");
       return;
     }
 
