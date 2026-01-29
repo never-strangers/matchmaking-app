@@ -8,6 +8,8 @@ type InviteUser = {
   role: "user" | "admin";
   phoneE164: string;
   displayName: string;
+  name: string;
+  phone: string;
 };
 
 type State = {
@@ -36,6 +38,8 @@ export function useInviteSession() {
           role: data.role,
           phoneE164: data.phone_e164,
           displayName: data.display_name,
+          name: data.display_name ?? data.profile_id,
+          phone: data.phone_e164 ?? "",
         },
         isLoading: false,
       });

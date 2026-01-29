@@ -33,7 +33,12 @@ export default function InviteLoginPage() {
           return;
         }
 
+        const data = (await res.json()) as { ok?: boolean; pending_registration?: boolean };
         if (!cancelled) {
+          if (data.pending_registration) {
+            router.replace("/register");
+            return;
+          }
           // Session cookie is now set; redirect to events
           router.replace("/events");
         }

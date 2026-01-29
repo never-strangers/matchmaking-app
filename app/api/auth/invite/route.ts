@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { cookies } from "next/headers";
 import { getServiceSupabaseClient } from "@/lib/supabase/serverClient";
-import { signSessionToken, SessionRole } from "@/lib/auth/sessionToken";
+import { signSessionToken, signPendingInviteToken, SessionRole } from "@/lib/auth/sessionToken";
 
 type InviteBody = {
   invite_token?: string;
@@ -63,43 +63,27 @@ export async function POST(req: NextRequest) {
   }
 
   if (!profile) {
-    // Create a new profile for this invited user
-    const profileId = crypto.randomUUID();
-    const safeDigits = String(phoneE164 || "")
-      .replace(/\D/g, "")
-      .slice(-12);
-    const syntheticEmail =
-      safeDigits.length > 0
-        ? `invite_${safeDigits}@demo.local`
-        : `invite_${profileId}@demo.local`;
+    // First-time user: require registration instead of auto-creating profile
+    const isSharedLink = inviteToken === (process.env.DEMO_PUBLIC_INVITE_TOKEN || "public");
+    const pendingToken = signPendingInviteToken(
+      isSharedLink ? { invite_token: inviteToken } : { invited_user_id: invitedId, invite_token: inviteToken }
+    );
+    const cookieStore = await cookies();
+    const oneHour = 60 * 60;
+    cookieStore.set("ns_pending_invite", pendingToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: oneHour,
+    });
+    return Response.json({
+      ok: true,
+      pending_registration: true,
+    });
+  }
 
-    const { data: inserted, error: insertError } = await supabase
-      .from("profiles")
-      .insert({
-        id: profileId,
-        name: displayName,
-        display_name: displayName,
-        email: syntheticEmail,
-        phone: phoneE164,
-        phone_e164: phoneE164,
-        city: "Singapore",
-        status: "approved",
-        email_verified: true,
-        role,
-        invited_user_id: invitedId,
-        created_at: new Date().toISOString(),
-        approved_at: new Date().toISOString(),
-      })
-      .select()
-      .single();
-
-    if (insertError || !inserted) {
-      console.error("Failed to create profile from invite:", insertError);
-      return new Response("Failed to create profile", { status: 500 });
-    }
-
-    profile = inserted;
-  } else {
+  {
     // Ensure invited_user_id and basic fields are kept in sync
     const updates: Record<string, unknown> = {};
     if (!profile.invited_user_id) updates.invited_user_id = invitedId;

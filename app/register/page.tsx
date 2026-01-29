@@ -6,87 +6,83 @@ import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { isAdminPhone, setSession, ADMIN_PHONES_RAW } from "@/lib/demo/authStore";
-import { upsertUser } from "@/lib/demo/userStore";
-import type { Role } from "@/types/roles";
 
-function normalizeSgPhoneDigits(phoneDigits: string): string {
-  return phoneDigits.replace(/\D/g, "").slice(0, 8);
+function normalizePhoneDigits(value: string): string {
+  return value.replace(/\D/g, "").slice(0, 12);
 }
 
 export default function RegisterPage() {
   const router = useRouter();
-  const [name, setName] = useState("");
+  const [displayName, setDisplayName] = useState("");
   const [phoneDigits, setPhoneDigits] = useState("");
+  const [countryCode] = useState("+65");
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
     setError(null);
-    setSuccess(null);
+    setLoading(true);
 
-    const trimmedName = name.trim();
-    const normalizedDigits = normalizeSgPhoneDigits(phoneDigits);
-    const fullPhone = `+65${normalizedDigits}`;
+    const trimmedName = displayName.trim();
+    const digits = normalizePhoneDigits(phoneDigits);
+    const phone_e164 = digits.length ? `+${countryCode.replace(/\D/g, "")}${digits}` : "";
 
     if (!trimmedName) {
       setError("Please enter your name.");
+      setLoading(false);
       return;
     }
-    if (normalizedDigits.length !== 8) {
-      setError("Please enter an 8-digit Singapore phone number.");
+    if (digits.length < 8) {
+      setError("Please enter a valid phone number (at least 8 digits).");
+      setLoading(false);
       return;
     }
 
-    const userId = `usr_65${normalizedDigits}`;
-    
-    // Admin is determined by allowlisted phone numbers (default: +6511111111)
-    const role: Role = isAdminPhone(fullPhone) ? "admin" : "user";
-    
-    upsertUser({
-      id: userId,
-      name: trimmedName,
-      phone: fullPhone,
-      city: "Singapore",
-      role,
-    });
-
-    setSession({
-      userId,
-      phone: fullPhone,
-      name: trimmedName,
-      role,
-    });
-
-    setSuccess("Signed in. Redirecting to events...");
-    // Use full page reload so global layout/NavBar re-mounts
-    // and picks up the new demo session deterministically.
-    if (typeof window !== "undefined") {
-      window.location.href = "/events";
-    } else {
-      router.replace("/events");
+    try {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          display_name: trimmedName,
+          phone_e164: phone_e164 || undefined,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error || "Registration failed. Use your invite link and try again.");
+        setLoading(false);
+        return;
+      }
+      router.replace((data.redirect as string) || "/events");
+      if (typeof window !== "undefined") {
+        window.location.href = (data.redirect as string) || "/events";
+      }
+    } catch {
+      setError("Something went wrong. Please try again.");
+      setLoading(false);
     }
   };
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8 sm:py-12">
       <PageHeader
-        title="Login"
-        subtitle="Internal demo phone login (no OTP for now)"
+        title="Complete your profile"
+        subtitle="Enter your name and phone to join the event"
       />
-      
+
       <Card>
         <form onSubmit={handleSubmit} className="space-y-6">
           <Input
             label="Name"
             type="text"
-            id="name"
-            name="name"
+            id="display_name"
+            name="display_name"
             data-testid="register-name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            placeholder="Your name"
             required
           />
 
@@ -97,26 +93,26 @@ export default function RegisterPage() {
                 type="text"
                 id="countryCode"
                 name="countryCode"
-                value="+65"
+                value={countryCode}
                 disabled
               />
             </div>
             <div className="sm:col-span-2">
               <Input
-                label="Phone (8 digits)"
+                label="Phone"
                 type="tel"
                 id="phone"
                 name="phone"
                 data-testid="register-phone"
                 value={phoneDigits}
                 onChange={(e) => {
-                  setPhoneDigits(normalizeSgPhoneDigits(e.target.value));
+                  setPhoneDigits(normalizePhoneDigits(e.target.value));
                   setError(null);
                 }}
                 inputMode="numeric"
                 placeholder="81234567"
                 required
-                helperText={`Singapore numbers only. Admin: ${ADMIN_PHONES_RAW.split(",")[0].replace("+65", "")}`}
+                helperText="Singapore numbers: 8 digits"
               />
             </div>
           </div>
@@ -131,21 +127,21 @@ export default function RegisterPage() {
             </div>
           )}
 
-          {success && (
-            <div
-              className="text-sm rounded-lg px-3 py-2"
-              style={{ backgroundColor: "var(--bg-muted)", color: "var(--text)" }}
-              data-testid="register-success"
-            >
-              {success}
-            </div>
-          )}
-
-          <Button type="submit" data-testid="register-submit" fullWidth size="lg">
-            Login
+          <Button
+            type="submit"
+            data-testid="register-submit"
+            fullWidth
+            size="lg"
+            disabled={loading}
+          >
+            {loading ? "Creating account…" : "Join event"}
           </Button>
         </form>
       </Card>
+
+      <p className="mt-4 text-center text-sm" style={{ color: "var(--text-muted)" }}>
+        No invite? Use the QR or link from your event to register.
+      </p>
     </div>
   );
 }

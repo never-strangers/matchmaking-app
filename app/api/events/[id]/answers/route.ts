@@ -10,7 +10,7 @@ type Body = {
 
 export async function POST(
   req: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   const cookieStore = await cookies();
   const token = cookieStore.get("ns_session")?.value;
@@ -19,7 +19,7 @@ export async function POST(
     return new Response("Unauthorized", { status: 401 });
   }
 
-  const eventId = context.params.id;
+  const { id: eventId } = await context.params;
   let body: Body;
   try {
     body = (await req.json()) as Body;

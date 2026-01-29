@@ -85,3 +85,49 @@ export function verifySessionToken(token: string | null | undefined): SessionPay
   }
 }
 
+// --- Pending invite (first-time registration) ---
+const PENDING_INVITE_TTL_SECONDS = 60 * 60; // 1 hour
+
+export type PendingInvitePayload = {
+  invite_token: string;
+  exp: number;
+  /** Set when link is per-user; omitted when using shared (public) link */
+  invited_user_id?: string;
+};
+
+export function signPendingInviteToken(payload: Omit<PendingInvitePayload, "exp"> & { invited_user_id?: string }): string {
+  const now = Math.floor(Date.now() / 1000);
+  const exp = now + PENDING_INVITE_TTL_SECONDS;
+  const withExp: PendingInvitePayload = { ...payload, exp };
+  const json = JSON.stringify(withExp);
+  const payloadB64 = base64urlEncode(Buffer.from(json, "utf8"));
+  const hmac = crypto.createHmac("sha256", getSessionSecret());
+  hmac.update(payloadB64);
+  const signature = base64urlEncode(hmac.digest());
+  return `${payloadB64}.${signature}`;
+}
+
+export function verifyPendingInviteToken(token: string | null | undefined): PendingInvitePayload | null {
+  if (!token) return null;
+  const parts = token.split(".");
+  if (parts.length !== 2) return null;
+  const [payloadB64, signature] = parts;
+  const hmac = crypto.createHmac("sha256", getSessionSecret());
+  hmac.update(payloadB64);
+  const expectedSig = base64urlEncode(hmac.digest());
+  const sigBuf = Buffer.from(signature, "utf8");
+  const expectedBuf = Buffer.from(expectedSig, "utf8");
+  if (sigBuf.length !== expectedBuf.length || !crypto.timingSafeEqual(sigBuf, expectedBuf)) {
+    return null;
+  }
+  try {
+    const payloadJson = base64urlDecode(payloadB64).toString("utf8");
+    const decoded = JSON.parse(payloadJson) as PendingInvitePayload;
+    const now = Math.floor(Date.now() / 1000);
+    if (!decoded.exp || decoded.exp < now) return null;
+    return decoded;
+  } catch {
+    return null;
+  }
+}
+

@@ -4,6 +4,7 @@ import Image from "next/image";
 import NavBar from "@/components/NavBar";
 import RouteGuard from "@/components/RouteGuard";
 import DemoDataInit from "@/components/DemoDataInit";
+import { SessionBanner } from "@/components/SessionBanner";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -50,6 +51,7 @@ export default function RootLayout({
               </div>
             </div>
           </header>
+          <SessionBanner />
           <main>{children}</main>
           <DemoDataInit />
         </RouteGuard>

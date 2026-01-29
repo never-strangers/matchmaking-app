@@ -13,6 +13,7 @@ type DbEvent = {
   id: string;
   title: string;
   status: string;
+  city?: string | null;
 };
 
 type EventsPageData = {
@@ -30,11 +31,54 @@ type EventsPageData = {
 async function getEventsPageData(profileId: string, role: string): Promise<EventsPageData> {
   const supabase = getServiceSupabaseClient();
 
-  const { data: events, error } = await supabase
-    .from("events")
-    .select("id, title, status")
-    .eq("status", "live")
-    .order("created_at", { ascending: true });
+  let userCity: string | null = null;
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("city")
+    .eq("id", profileId)
+    .maybeSingle();
+  if (profile?.city) userCity = profile.city;
+
+  let events: DbEvent[] | null = null;
+  let error: unknown = null;
+
+  if (userCity) {
+    const res = await supabase
+      .from("events")
+      .select("id, title, status, city")
+      .eq("status", "live")
+      .or(`city.eq.${userCity},city.is.null`)
+      .order("created_at", { ascending: true });
+    events = res.data;
+    error = res.error;
+    if (error && ((error as { message?: string }).message?.includes("column"))) {
+      error = null;
+      const fallback = await supabase
+        .from("events")
+        .select("id, title, status")
+        .eq("status", "live")
+        .order("created_at", { ascending: true });
+      events = fallback.data;
+      error = fallback.error;
+    }
+  } else {
+    const res = await supabase
+      .from("events")
+      .select("id, title, status, city")
+      .eq("status", "live")
+      .order("created_at", { ascending: true });
+    events = res.data;
+    error = res.error;
+    if (error && ((error as { message?: string }).message?.includes("column"))) {
+      const fallback = await supabase
+        .from("events")
+        .select("id, title, status")
+        .eq("status", "live")
+        .order("created_at", { ascending: true });
+      events = fallback.data;
+      error = fallback.error;
+    }
+  }
 
   if (error) {
     console.error("Error loading events:", error);
