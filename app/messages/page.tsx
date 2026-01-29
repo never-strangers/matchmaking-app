@@ -106,7 +106,7 @@ export default function MessagesPage() {
         <Card padding="lg">
           <EmptyState
             title="No conversations yet"
-            description="Express interest on the Matches page and wait for mutual interest to start messaging."
+            description="Send a like on the Matches page and wait for a mutual like to start messaging."
             action={
               <Link href="/match">
                 <Button variant="outline" size="md">

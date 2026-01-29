@@ -147,14 +147,14 @@ export function MatchCard({
               onClick={handleExpressInterest}
               disabled={loading}
             >
-              {loading ? "Sending…" : "Express Interest"}
+              {loading ? "Sending…" : "Send like"}
             </Button>
           ) : (
             <span
               className="text-sm py-2"
               style={{ color: "var(--text-muted)" }}
             >
-              Interest sent
+              Like sent
             </span>
           )}
         </div>
