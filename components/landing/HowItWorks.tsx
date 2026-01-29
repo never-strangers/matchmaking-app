@@ -26,7 +26,7 @@ const steps = [
 export default function HowItWorks() {
   return (
     <section
-      className="px-6 py-20 lg:px-20 lg:py-32"
+      className="px-4 py-14 sm:px-6 sm:py-16 lg:px-20 lg:py-20 xl:py-32"
       style={{ backgroundColor: "var(--bg-muted)" }}
     >
       <div className="max-w-7xl mx-auto">
@@ -37,45 +37,45 @@ export default function HowItWorks() {
           HOW IT WORKS
         </p>
         <h2
-          className="text-4xl lg:text-5xl font-bold mb-12 text-center"
+          className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-8 sm:mb-12 text-center"
           style={{ color: "var(--text)", fontFamily: "'Cabinet Grotesk', system-ui, sans-serif" }}
         >
           Four steps from stranger to friend.
         </h2>
 
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           {steps.map((step, index) => (
             <div key={index}>
               <div
-                className="p-8 rounded-xl relative"
+                className="p-6 sm:p-8 rounded-xl relative"
                 style={{
                   backgroundColor: "var(--bg-panel)",
                   boxShadow: "var(--shadow-sm)",
                 }}
               >
                 <div
-                  className="text-7xl font-bold leading-none mb-4 opacity-20"
+                  className="text-5xl sm:text-6xl lg:text-7xl font-bold leading-none mb-3 sm:mb-4 opacity-20"
                   style={{ color: "var(--primary)" }}
                 >
                   {step.number}
                 </div>
                 <h3
-                  className="text-2xl font-semibold mb-3"
+                  className="text-xl sm:text-2xl font-semibold mb-2 sm:mb-3"
                   style={{ color: "var(--text)" }}
                 >
                   {step.title}
                 </h3>
                 <p
-                  className="text-base leading-relaxed"
+                  className="text-sm sm:text-base leading-relaxed"
                   style={{ color: "var(--text-muted)" }}
                 >
                   {step.description}
                 </p>
               </div>
               {index < steps.length - 1 && (
-                <div className="text-center my-4">
+                <div className="text-center my-3 sm:my-4">
                   <span
-                    className="text-2xl"
+                    className="text-xl sm:text-2xl"
                     style={{ color: "var(--primary)" }}
                   >
                     ↓

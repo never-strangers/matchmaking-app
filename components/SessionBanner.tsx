@@ -9,7 +9,7 @@ export async function SessionBanner() {
 
   return (
     <div
-      className="text-center py-2 px-4 text-sm"
+      className="text-center py-2 px-4 sm:px-6 text-sm"
       style={{
         backgroundColor: "var(--bg-muted)",
         color: "var(--text-muted)",

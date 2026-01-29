@@ -6,17 +6,18 @@ import SocialProof from "@/components/landing/SocialProof";
 import FinalCTA from "@/components/landing/FinalCTA";
 import Footer from "@/components/landing/Footer";
 
+const LANDING_DESC =
+  "Using an algorithm to find your ideal partner at the party itself. We are bringing back the joys of connecting with people organically. Say goodbye to dating apps!";
+
 export const metadata: Metadata = {
-  title: "Never Strangers - Meet Your New Soulmate",
-  description:
-    "Curated social events where real people meet — no apps, no algorithms, just you. Invite-only mixers designed for meaningful conversation.",
+  title: "Never Strangers - A New Way to Meet People",
+  description: LANDING_DESC,
   alternates: {
     canonical: "https://thisisneverstrangers.com/",
   },
   openGraph: {
-    title: "Never Strangers - Meet Your New Soulmate",
-    description:
-      "Curated social events where real people meet — no apps, no algorithms, just you.",
+    title: "Never Strangers - A New Way to Meet People",
+    description: LANDING_DESC,
     url: "https://thisisneverstrangers.com/",
     siteName: "Never Strangers",
     images: [
@@ -32,9 +33,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Never Strangers - Meet Your New Soulmate",
-    description:
-      "Curated social events where real people meet — no apps, no algorithms, just you.",
+    title: "Never Strangers - A New Way to Meet People",
+    description: LANDING_DESC,
     images: ["https://thisisneverstrangers.com/wp-content/uploads/2026/01/1-2.webp"],
   },
 };

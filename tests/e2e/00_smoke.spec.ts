@@ -14,7 +14,7 @@ test.describe('Smoke Tests', () => {
     await test.step('Assert home title is visible', async () => {
       await safeExpectVisible(page, 'home-title');
       const title = page.locator('[data-testid="home-title"]');
-      await expect(title).toContainText('Meet your new');
+      await expect(title).toContainText('A New Way to Meet');
     });
   });
 

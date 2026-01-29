@@ -16,17 +16,17 @@ export default function Hero() {
         <div className="min-w-0">
           <h1
             data-testid="home-title"
-            className="text-3xl sm:text-4xl md:text-5xl lg:text-7xl font-bold mb-4 sm:mb-6 leading-[1.1] sm:leading-tight tracking-tight"
+            className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-7xl font-bold mb-4 sm:mb-6 leading-[1.15] sm:leading-tight tracking-tight break-words"
             style={{ color: "var(--text)", fontFamily: "'Cabinet Grotesk', system-ui, sans-serif" }}
           >
-            Meet your new{" "}
-            <span style={{ color: "var(--primary)" }}>soulmate</span>.
+            Never Strangers —{" "}
+            <span style={{ color: "var(--primary)" }}>A New Way to Meet People</span>
           </h1>
           <p
-            className="text-base sm:text-lg lg:text-xl mb-6 sm:mb-8 max-w-lg leading-relaxed"
+            className="text-sm sm:text-base lg:text-lg xl:text-xl mb-6 sm:mb-8 max-w-lg leading-relaxed"
             style={{ color: "var(--text-muted)" }}
           >
-            Curated social events where real people meet — no apps, no algorithms, just you.
+            Using an algorithm to find your ideal partner at the party itself. We are bringing back the joys of connecting with people organically. Say goodbye to dating apps!
           </p>
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-5 sm:mb-6">
             <Link
