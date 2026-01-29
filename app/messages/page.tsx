@@ -106,11 +106,11 @@ export default function MessagesPage() {
         <Card padding="lg">
           <EmptyState
             title="No conversations yet"
-            description="Express interest on the Introductions page and wait for mutual interest to start messaging."
+            description="Express interest on the Matches page and wait for mutual interest to start messaging."
             action={
               <Link href="/match">
                 <Button variant="outline" size="md">
-                  View Introductions
+                  View Matches
                 </Button>
               </Link>
             }
@@ -168,7 +168,7 @@ export default function MessagesPage() {
           className="text-sm hover:underline"
           style={{ color: "var(--text-muted)" }}
         >
-          ← Back to Introductions
+          ← Back to Matches
         </Link>
       </div>
     </div>

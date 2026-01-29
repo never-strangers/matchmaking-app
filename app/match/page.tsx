@@ -47,7 +47,7 @@ export default async function MatchPage() {
     return (
       <div className="max-w-5xl mx-auto px-4 py-8 sm:py-12">
         <PageHeader
-          title="Your Introductions"
+          title="Your Matches"
           subtitle="Join an event first to see your matches."
         />
         <EmptyState
@@ -70,13 +70,13 @@ export default async function MatchPage() {
     return (
       <div className="max-w-5xl mx-auto px-4 py-8 sm:py-12">
         <PageHeader
-          title="Your Introductions"
+          title="Your Matches"
           subtitle="Admin needs to run matching for this event."
         />
         <Card padding="lg">
           <EmptyState
-            title="No introductions yet"
-            description="Once matching is run and attendees answer questions, your top introductions will appear here."
+            title="No matches yet"
+            description="Once matching is run and attendees answer questions, your top matches will appear here."
           />
         </Card>
         <div className="mt-8">
@@ -117,8 +117,8 @@ export default async function MatchPage() {
     return (
       <div className="max-w-5xl mx-auto px-4 py-8 sm:py-12">
         <PageHeader
-          title="Your Introductions"
-          subtitle="Answer this event's questions to see your introductions."
+          title="Your Matches"
+          subtitle="Answer this event's questions to see your matches."
         />
         <Card padding="lg">
           <EmptyState
@@ -170,13 +170,13 @@ export default async function MatchPage() {
     return (
       <div className="max-w-5xl mx-auto px-4 py-8 sm:py-12">
         <PageHeader
-          title="Your Introductions"
+          title="Your Matches"
           subtitle="Waiting for more attendees to complete their questionnaires."
         />
         <Card padding="lg">
           <EmptyState
-            title="No introductions yet"
-            description="Once others answer their questions, your introductions will appear here."
+            title="No matches yet"
+            description="Once others answer their questions, your matches will appear here."
           />
         </Card>
         <div className="mt-8">
@@ -260,15 +260,15 @@ export default async function MatchPage() {
     <div className="max-w-5xl mx-auto px-4 py-8 sm:py-12">
       <MatchRealtimeSubscriber eventId={event.id} />
       <PageHeader
-        title="Your Introductions"
+        title="Your Matches"
         subtitle={`Top matches for ${event.title}`}
       />
 
       {matches.length === 0 ? (
         <Card padding="lg">
           <EmptyState
-            title="No introductions yet"
-            description="Once matching is run, your top introductions will appear here."
+            title="No matches yet"
+            description="Once matching is run, your top matches will appear here."
           />
         </Card>
       ) : (

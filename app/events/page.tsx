@@ -14,6 +14,7 @@ type DbEvent = {
   title: string;
   status: string;
   city?: string | null;
+  created_at?: string | null;
 };
 
 type EventsPageData = {
@@ -45,7 +46,7 @@ async function getEventsPageData(profileId: string, role: string): Promise<Event
   if (userCity) {
     const res = await supabase
       .from("events")
-      .select("id, title, status, city")
+      .select("id, title, status, city, created_at")
       .eq("status", "live")
       .or(`city.eq.${userCity},city.is.null`)
       .order("created_at", { ascending: true });
@@ -55,7 +56,7 @@ async function getEventsPageData(profileId: string, role: string): Promise<Event
       error = null;
       const fallback = await supabase
         .from("events")
-        .select("id, title, status")
+        .select("id, title, status, created_at")
         .eq("status", "live")
         .order("created_at", { ascending: true });
       events = fallback.data;
@@ -64,7 +65,7 @@ async function getEventsPageData(profileId: string, role: string): Promise<Event
   } else {
     const res = await supabase
       .from("events")
-      .select("id, title, status, city")
+      .select("id, title, status, city, created_at")
       .eq("status", "live")
       .order("created_at", { ascending: true });
     events = res.data;
@@ -72,7 +73,7 @@ async function getEventsPageData(profileId: string, role: string): Promise<Event
     if (error && ((error as { message?: string }).message?.includes("column"))) {
       const fallback = await supabase
         .from("events")
-        .select("id, title, status")
+        .select("id, title, status, created_at")
         .eq("status", "live")
         .order("created_at", { ascending: true });
       events = fallback.data;
@@ -196,7 +197,7 @@ export default async function EventsPage() {
             if (joined && !completed) {
               primaryLabel = "Complete Questions";
             } else if (joined && completed) {
-              primaryLabel = "View Introductions";
+              primaryLabel = "View Matches";
               primaryHref = "/match";
             }
 
@@ -214,7 +215,20 @@ export default async function EventsPage() {
                       className="text-sm mb-1"
                       style={{ color: "var(--text-muted)" }}
                     >
-                      Live event
+                      {event.created_at
+                        ? (() => {
+                            const d = new Date(event.created_at);
+                            const today = new Date();
+                            const isToday =
+                              d.getDate() === today.getDate() &&
+                              d.getMonth() === today.getMonth() &&
+                              d.getFullYear() === today.getFullYear();
+                            return isToday
+                              ? "Today"
+                              : d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+                          })()
+                        : "Live event"}
+                      {event.created_at ? " · Live event" : ""}
                     </p>
                     <div className="flex flex-wrap gap-2 mt-1">
                       {joined && <Badge variant="success">Joined</Badge>}

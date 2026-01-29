@@ -113,7 +113,7 @@ export default async function EventQuestionsPage(props: EventQuestionsPageProps)
         </Link>
         <PageHeader
           title="Event Questionnaire"
-          subtitle={`Answer all questions for ${eventTitle} to be eligible for introductions`}
+          subtitle={`Answer all questions for ${eventTitle} to be eligible for matches`}
         />
       </div>
 
