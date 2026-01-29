@@ -1,191 +1,122 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
+import { verifySessionToken } from "@/lib/auth/sessionToken";
+import { getServiceSupabaseClient } from "@/lib/supabase/serverClient";
 import AdminShell from "@/components/admin/AdminShell";
-import SectionTitle from "@/components/admin/SectionTitle";
-import StepCard from "@/components/admin/StepCard";
-import MatchesSidebar from "@/components/admin/MatchesSidebar";
-import MatchRow from "@/components/admin/MatchRow";
 import Card from "@/components/admin/Card";
-import {
-  signups,
-  matchesRound1,
-  matchingSummary,
-} from "@/lib/admin/matches.mock";
 
-export default function MatchesPage() {
-  const latestSignups = signups.slice(0, 3);
-  const topMatches = matchesRound1.slice(0, 5);
+type MatchRowData = {
+  aProfileId: string;
+  bProfileId: string;
+  aName: string;
+  bName: string;
+  score: number;
+};
+
+export default async function AdminMatchesPage() {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("ns_session")?.value;
+  const session = verifySessionToken(token);
+  if (!session) redirect("/");
+  if (session.role !== "admin") redirect("/events");
+
+  const supabase = getServiceSupabaseClient();
+
+  const { data: events } = await supabase
+    .from("events")
+    .select("id, title, status")
+    .eq("status", "live")
+    .order("created_at", { ascending: true })
+    .limit(1);
+
+  const event = events?.[0];
+  if (!event) {
+    return (
+      <AdminShell>
+        <Card>
+          <p className="text-sm text-gray-medium mb-4">No live event found. Run matching from the Dashboard for a live event.</p>
+          <Link href="/admin" className="text-sm text-red-accent hover:underline">← Dashboard</Link>
+        </Card>
+      </AdminShell>
+    );
+  }
+
+  const { data: matchRows } = await supabase
+    .from("match_results")
+    .select("a_profile_id, b_profile_id, score")
+    .eq("event_id", event.id)
+    .order("score", { ascending: false });
+
+  const profileIds = new Set<string>();
+  (matchRows || []).forEach((r: { a_profile_id: string; b_profile_id: string }) => {
+    profileIds.add(r.a_profile_id);
+    profileIds.add(r.b_profile_id);
+  });
+
+  let profileMap = new Map<string, string>();
+  if (profileIds.size > 0) {
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("id, display_name")
+      .in("id", [...profileIds]);
+    (profiles || []).forEach((p: { id: string; display_name: string | null }) => {
+      profileMap.set(p.id, p.display_name || p.id.slice(0, 8));
+    });
+  }
+
+  const matches: MatchRowData[] = (matchRows || []).map((r: { a_profile_id: string; b_profile_id: string; score: number }) => ({
+    aProfileId: r.a_profile_id,
+    bProfileId: r.b_profile_id,
+    aName: profileMap.get(r.a_profile_id) || r.a_profile_id.slice(0, 8),
+    bName: profileMap.get(r.b_profile_id) || r.b_profile_id.slice(0, 8),
+    score: Number(r.score),
+  }));
 
   return (
-    <AdminShell twoColumn>
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-8">
-        {/* Left Column - Steps */}
+    <AdminShell>
+      <div className="space-y-6">
         <div>
-          {/* Step 1: Signups */}
-          <SectionTitle
-            number="1"
-            title="Signups"
-            subtitle="Signups are final once matches are revealed"
-          />
-          <StepCard>
-            <div className="space-y-3 mb-4">
-              {latestSignups.map((signup, index) => (
-                <div
-                  key={index}
-                  className="flex justify-between items-center py-2 border-b border-beige-frame last:border-0"
-                >
-                  <span className="text-sm text-gray-dark">{signup.name}</span>
-                  <span className="text-xs text-gray-medium font-mono">
-                    {signup.date}
-                  </span>
-                </div>
-              ))}
-            </div>
-            <Link
-              href="#"
-              className="text-xs text-gray-medium hover:text-gray-dark transition-colors"
-            >
-              Manage {signups.length} guests →
-            </Link>
-          </StepCard>
-
-          {/* Step 2: Matching */}
-          <SectionTitle
-            number="2"
-            title="Matching"
-            subtitle="Use the algorithm to calculate the optimal matches among all of your guests."
-          />
-          <StepCard>
-            <h3 className="text-base font-medium text-gray-dark mb-2">
-              Calculate matches
-            </h3>
-            <p className="text-sm text-gray-medium mb-6">
-              Run the matching algorithm to generate optimal pairings based on
-              compatibility scores and preferences.
-            </p>
-
-            {/* Slider-like visual bar */}
-            <div className="mb-6">
-              <div className="flex justify-between items-center mb-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-medium uppercase tracking-wide">
-                    Romantic-Matched
-                  </span>
-                  <span className="text-sm font-semibold text-gray-dark">
-                    {matchingSummary.romanticMatched}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-medium uppercase tracking-wide">
-                    Friend-Matched
-                  </span>
-                  <span className="text-sm font-semibold text-gray-dark">
-                    {matchingSummary.friendMatched}
-                  </span>
-                </div>
-              </div>
-              <div className="h-2 bg-beige-frame rounded-full overflow-hidden">
-                <div className="h-full flex">
-                  <div
-                    className="bg-gradient-to-r from-pink-500 to-red-accent"
-                    style={{
-                      width: `${
-                        (matchingSummary.romanticMatched /
-                          (matchingSummary.romanticMatched +
-                            matchingSummary.friendMatched)) *
-                        100
-                      }%`,
-                    }}
-                  />
-                  <div
-                    className="bg-gradient-to-r from-blue-500 to-cyan-500"
-                    style={{
-                      width: `${
-                        (matchingSummary.friendMatched /
-                          (matchingSummary.romanticMatched +
-                            matchingSummary.friendMatched)) *
-                        100
-                      }%`,
-                    }}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Buttons */}
-            <div className="flex gap-3 mb-6">
-              <button
-                type="button"
-                className="px-4 py-2 bg-red-accent text-white text-sm font-medium rounded-lg hover:opacity-90 transition-opacity"
-              >
-                Recalculate
-              </button>
-              <button
-                type="button"
-                className="px-4 py-2 bg-gray-200 text-gray-dark text-sm font-medium rounded-lg hover:bg-gray-300 transition-colors"
-              >
-                Options
-              </button>
-            </div>
-
-            <p className="text-xs text-gray-medium mb-6">
-              Calculated: {matchingSummary.calculatedAt}
-            </p>
-
-            {/* Top 5 matches preview */}
-            <div className="mb-4">
-              <h4 className="text-xs text-gray-medium uppercase tracking-wide mb-3">
-                Top Matches Preview
-              </h4>
-              <div className="space-y-2">
-                {topMatches.map((match, index) => (
-                  <div
-                    key={index}
-                    className="py-2 border-b border-beige-frame last:border-0"
-                  >
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs text-gray-dark truncate">
-                        {match.a} + {match.b}
-                      </span>
-                      <span className="text-xs font-medium text-gray-dark ml-2">
-                        {match.score.toFixed(1)}%
-                      </span>
-                    </div>
-                    <span className="text-xs text-gray-medium font-mono">
-                      {match.group}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <Link
-              href="#"
-              className="text-xs text-gray-medium hover:text-gray-dark transition-colors"
-            >
-              All {matchesRound1.length} matches →
-            </Link>
-          </StepCard>
-
-          {/* Step 3: Finalize */}
-          <SectionTitle number="3" title="Finalize these results" />
-          <StepCard>
-            <div className="text-center">
-              <button
-                type="button"
-                className="px-6 py-3 bg-red-accent text-white text-sm font-medium rounded-lg hover:opacity-90 transition-opacity"
-              >
-                List event & notify followers →
-              </button>
-            </div>
-          </StepCard>
+          <h1 className="text-xl font-semibold text-gray-dark mb-1">Matches</h1>
+          <p className="text-sm text-gray-medium">
+            {event.title} — {matches.length} pair{matches.length !== 1 ? "s" : ""}
+          </p>
         </div>
 
-        {/* Right Column - Sidebar */}
-        <div className="lg:sticky lg:top-6 lg:self-start" data-testid="admin-matches-table">
-          <MatchesSidebar matches={matchesRound1} />
-        </div>
+        <Card>
+          {matches.length === 0 ? (
+            <p className="text-sm text-gray-medium mb-4">
+              No match results yet. Run matching from the Dashboard for this event.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-beige-frame text-left text-gray-medium">
+                    <th className="py-2 pr-4 font-medium">Person A</th>
+                    <th className="py-2 pr-4 font-medium">Person B</th>
+                    <th className="py-2 font-medium">Score</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {matches.map((m, idx) => (
+                    <tr key={`${m.aProfileId}-${m.bProfileId}-${idx}`} className="border-b border-beige-frame last:border-0">
+                      <td className="py-2 pr-4 text-gray-dark">{m.aName}</td>
+                      <td className="py-2 pr-4 text-gray-dark">{m.bName}</td>
+                      <td className="py-2 font-medium text-gray-dark">{m.score.toFixed(1)}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <div className="mt-4 pt-4 border-t border-beige-frame">
+            <Link href="/admin" className="text-sm text-gray-medium hover:text-gray-dark">
+              ← Dashboard
+            </Link>
+          </div>
+        </Card>
       </div>
     </AdminShell>
   );
 }
-

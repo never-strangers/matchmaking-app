@@ -116,6 +116,15 @@ export default async function MatchPage() {
   if (!currentAnswers) {
     return (
       <div className="max-w-5xl mx-auto px-4 py-8 sm:py-12">
+        <div className="mb-6">
+          <Link
+            href={`/events/${event.id}/questions`}
+            className="text-sm font-medium hover:underline inline-block"
+            style={{ color: "var(--primary)" }}
+          >
+            → Go to Event Questions
+          </Link>
+        </div>
         <PageHeader
           title="Your Matches"
           subtitle="Answer this event's questions to see your matches."
@@ -126,15 +135,6 @@ export default async function MatchPage() {
             description="Complete the event questionnaire first, then return to see your matches."
           />
         </Card>
-        <div className="mt-8">
-          <Link
-            href={`/events/${event.id}/questions`}
-            className="text-sm hover:underline"
-            style={{ color: "var(--text-muted)" }}
-          >
-            → Go to Event Questions
-          </Link>
-        </div>
       </div>
     );
   }

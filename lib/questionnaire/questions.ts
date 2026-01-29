@@ -1,8 +1,9 @@
 import { Question } from "@/types/questionnaire";
 
 /**
- * Questionnaire definition for matching algorithm
- * 
+ * Questionnaire definition for matching algorithm.
+ * Exactly 10 questions, no duplicates. Kept in sync with DB seed (003_seed_demo.sql).
+ *
  * Answer scale:
  * 1 = Strongly Disagree
  * 2 = Disagree
@@ -10,7 +11,6 @@ import { Question } from "@/types/questionnaire";
  * 4 = Strongly Agree
  */
 export const QUESTIONS: Question[] = [
-  // Lifestyle Category
   {
     id: "q_lifestyle_1",
     text: "I enjoy large social gatherings and parties",
@@ -43,8 +43,6 @@ export const QUESTIONS: Question[] = [
     category: "Lifestyle",
     weight: 1,
   },
-
-  // Social Category
   {
     id: "q_social_1",
     text: "I am comfortable initiating conversations with strangers",
@@ -52,30 +50,10 @@ export const QUESTIONS: Question[] = [
     weight: 2,
   },
   {
-    id: "q_social_2",
-    text: "I prefer meeting new people through mutual friends",
-    category: "Social",
-    weight: 1,
-  },
-  {
-    id: "q_social_3",
-    text: "I enjoy networking events and professional meetups",
-    category: "Social",
-    weight: 1,
-  },
-  {
     id: "q_social_4",
     text: "I value quality friendships over having many acquaintances",
     category: "Social",
     weight: 2,
-  },
-
-  // Values Category
-  {
-    id: "q_values_1",
-    text: "I believe in being authentic and honest in all relationships",
-    category: "Values",
-    weight: 3,
   },
   {
     id: "q_values_2",
@@ -90,28 +68,8 @@ export const QUESTIONS: Question[] = [
     weight: 2,
   },
   {
-    id: "q_values_4",
-    text: "I believe in giving back to the community",
-    category: "Values",
-    weight: 1,
-  },
-
-  // Communication Category
-  {
-    id: "q_comm_1",
-    text: "I prefer texting over phone calls for daily communication",
-    category: "Communication",
-    weight: 1,
-  },
-  {
     id: "q_comm_2",
     text: "I appreciate direct and straightforward communication",
-    category: "Communication",
-    weight: 2,
-  },
-  {
-    id: "q_comm_3",
-    text: "I am comfortable discussing personal topics early in relationships",
     category: "Communication",
     weight: 2,
   },

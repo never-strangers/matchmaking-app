@@ -34,22 +34,23 @@ CREATE INDEX IF NOT EXISTS idx_profiles_role ON profiles(role);
 -- Enable Row Level Security
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 
--- Policy: Allow anonymous read access for demo mode
+-- Policies (idempotent: drop if exists then create)
+DROP POLICY IF EXISTS "Allow anonymous read" ON profiles;
 CREATE POLICY "Allow anonymous read" ON profiles
   FOR SELECT
   USING (true);
 
--- Policy: Allow anonymous insert for demo seeding
+DROP POLICY IF EXISTS "Allow anonymous insert" ON profiles;
 CREATE POLICY "Allow anonymous insert" ON profiles
   FOR INSERT
   WITH CHECK (true);
 
--- Policy: Allow anonymous update for demo
+DROP POLICY IF EXISTS "Allow anonymous update" ON profiles;
 CREATE POLICY "Allow anonymous update" ON profiles
   FOR UPDATE
   USING (true);
 
--- Policy: Allow anonymous delete for demo reset
+DROP POLICY IF EXISTS "Allow anonymous delete" ON profiles;
 CREATE POLICY "Allow anonymous delete" ON profiles
   FOR DELETE
   USING (true);

@@ -16,6 +16,8 @@ type Props = {
   eventTitle: string;
   questions: Question[];
   initialAnswers: Record<string, number>;
+  /** True when answers were already saved (from server). Green badge only when this or after Save. */
+  initialIsComplete?: boolean;
 };
 
 export function QuestionForm({
@@ -23,10 +25,12 @@ export function QuestionForm({
   eventTitle,
   questions,
   initialAnswers,
+  initialIsComplete = false,
 }: Props) {
   const router = useRouter();
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const [saving, setSaving] = useState(false);
+  const [hasSavedOnce, setHasSavedOnce] = useState(false);
   const initializedRef = useRef(false);
 
   // Ensure the user is marked as an attendee for this event.
@@ -58,14 +62,15 @@ export function QuestionForm({
     () => Object.keys(answers).filter((id) => answers[id] != null).length,
     [answers]
   );
-  const isComplete = totalQuestions > 0 && answeredCount >= totalQuestions;
+  const allFilled = totalQuestions > 0 && answeredCount >= totalQuestions;
+  const showCompleteBadge = allFilled && (hasSavedOnce || initialIsComplete);
 
   const handleChange = (questionId: string, value: number) => {
     setAnswers((prev) => ({ ...prev, [questionId]: value }));
   };
 
   const handleConfirm = async () => {
-    if (!isComplete) return;
+    if (!allFilled) return;
     setSaving(true);
     try {
       const payloads = questions.map((q) => ({
@@ -82,6 +87,7 @@ export function QuestionForm({
           })
         )
       );
+      setHasSavedOnce(true);
       router.push("/events");
     } catch (err) {
       console.error("Failed to save answers", err);
@@ -91,7 +97,7 @@ export function QuestionForm({
   };
 
   return (
-    <Card padding="lg">
+    <Card padding="lg" className="min-w-0 overflow-hidden">
       <div
         className="flex justify-between items-center mb-6 pb-4 border-b"
         style={{ borderColor: "var(--border)" }}
@@ -102,8 +108,8 @@ export function QuestionForm({
         >
           Your Responses
         </h2>
-        <Badge variant={isComplete ? "success" : "warning"}>
-          {answeredCount}/{totalQuestions || 10} {isComplete ? "✓" : ""}
+        <Badge variant={showCompleteBadge ? "success" : "warning"}>
+          {answeredCount}/{totalQuestions} {showCompleteBadge ? "✓" : ""}
         </Badge>
       </div>
 
@@ -115,17 +121,17 @@ export function QuestionForm({
         4 = Strongly Agree
       </p>
 
-      <div className="space-y-8 max-h-[600px] overflow-y-auto">
+      <div className="space-y-8 max-h-[600px] overflow-y-auto min-w-0">
         {questions.map((question) => {
           const currentValue = answers[question.id];
           return (
             <div
               key={question.id}
-              className="space-y-3 pb-6 border-b last:border-0"
+              className="space-y-3 pb-6 border-b last:border-0 min-w-0"
               style={{ borderColor: "var(--border)" }}
             >
               <label
-                className="block text-sm font-medium"
+                className="block text-sm font-medium break-words"
                 style={{ color: "var(--text)" }}
               >
                 {question.prompt}
@@ -176,11 +182,11 @@ export function QuestionForm({
         </p>
         <Button
           onClick={handleConfirm}
-          variant={isComplete ? "success" : "outline"}
+          variant={allFilled ? "success" : "outline"}
           size="md"
-          disabled={!isComplete}
+          disabled={!allFilled}
         >
-          {isComplete ? "Save Answers" : "Complete all questions"}
+          {allFilled ? "Save Answers" : "Complete all questions"}
         </Button>
       </div>
     </Card>

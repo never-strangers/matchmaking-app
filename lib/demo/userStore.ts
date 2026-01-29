@@ -569,16 +569,10 @@ function seedDemoUsers(): UserProfile[] {
     q_lifestyle_4: 4,
     q_lifestyle_5: 2,
     q_social_1: 3,
-    q_social_2: 3,
-    q_social_3: 3,
     q_social_4: 4,
-    q_values_1: 4,
     q_values_2: 4,
     q_values_3: 4,
-    q_values_4: 3,
-    q_comm_1: 2,
     q_comm_2: 4,
-    q_comm_3: 4,
   };
 
   return [
@@ -619,7 +613,7 @@ function seedDemoUsers(): UserProfile[] {
       email: "daniel@example.com",
       city: "Singapore",
       cityLocked: true,
-      questionnaireAnswers: { ...baseAnswers, q_values_1: 3, q_comm_2: 3 },
+      questionnaireAnswers: { ...baseAnswers, q_values_2: 3, q_comm_2: 3 },
       status: "approved",
       emailVerified: true,
       role: "user" as const,

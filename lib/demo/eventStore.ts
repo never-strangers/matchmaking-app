@@ -112,13 +112,13 @@ function seedDemoEvents(): Event[] {
           "q_lifestyle_2",
           "q_social_1",
           "q_social_4",
-          "q_values_1",
+          "q_values_2",
         ],
         weights: {
-          q_values_1: 3,
+          q_values_2: 3,
           q_social_4: 2,
         },
-        dealbreakers: ["q_values_1"],
+        dealbreakers: ["q_values_2"],
       },
       requiresApproval: true,
       requiresPayment: true,
@@ -160,12 +160,12 @@ function seedDemoEvents(): Event[] {
       questionnaireTemplate: {
         questionIds: [
           "q_lifestyle_1",
-          "q_social_3",
+          "q_social_4",
           "q_values_2",
           "q_comm_2",
         ],
         weights: {
-          q_social_3: 2,
+          q_social_4: 2,
         },
       },
       requiresApproval: true,

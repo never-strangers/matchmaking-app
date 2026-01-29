@@ -18,9 +18,7 @@ type DbAnswer = {
 };
 
 type EventQuestionsPageProps = {
-  params: {
-    id: string;
-  };
+  params: Promise<{ id: string }>;
 };
 
 async function getEventQuestionsData(eventId: string, profileId: string) {
@@ -87,7 +85,7 @@ async function getEventQuestionsData(eventId: string, profileId: string) {
 }
 
 export default async function EventQuestionsPage(props: EventQuestionsPageProps) {
-  const { id: eventId } = props.params;
+  const { id: eventId } = await props.params;
   const cookieStore = await cookies();
   const token = cookieStore.get("ns_session")?.value;
   const session = verifySessionToken(token);
@@ -99,6 +97,7 @@ export default async function EventQuestionsPage(props: EventQuestionsPageProps)
     eventTitle,
     questions,
     answers,
+    isComplete: initialIsComplete,
   } = await getEventQuestionsData(eventId, session.profile_id);
 
   return (
@@ -122,6 +121,7 @@ export default async function EventQuestionsPage(props: EventQuestionsPageProps)
         eventTitle={eventTitle}
         questions={questions}
         initialAnswers={answers}
+        initialIsComplete={initialIsComplete}
       />
     </div>
   );

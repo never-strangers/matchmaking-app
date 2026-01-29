@@ -10,7 +10,7 @@ function getDemoUsers() {
   const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
   const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
 
-  // Base questionnaire answers
+  // Base questionnaire answers (10 questions only)
   const baseAnswers: QuestionnaireAnswers = {
     q_lifestyle_1: 3,
     q_lifestyle_2: 2,
@@ -18,16 +18,10 @@ function getDemoUsers() {
     q_lifestyle_4: 4,
     q_lifestyle_5: 2,
     q_social_1: 3,
-    q_social_2: 3,
-    q_social_3: 3,
     q_social_4: 4,
-    q_values_1: 4,
     q_values_2: 4,
     q_values_3: 4,
-    q_values_4: 3,
-    q_comm_1: 2,
     q_comm_2: 4,
-    q_comm_3: 4,
   };
 
   return [
@@ -68,7 +62,7 @@ function getDemoUsers() {
       email: "daniel@example.com",
       city: "Singapore",
       city_locked: true,
-      questionnaire_answers: { ...baseAnswers, q_values_1: 3, q_comm_2: 3 },
+      questionnaire_answers: { ...baseAnswers, q_values_2: 3, q_comm_2: 3 },
       status: "approved",
       email_verified: true,
       role: "user",
@@ -226,7 +220,7 @@ function getDemoUsers() {
       email: "sarah@example.com",
       city: "Hong Kong",
       city_locked: true,
-      questionnaire_answers: { ...baseAnswers, q_lifestyle_1: 3, q_social_2: 4, q_values_1: 3 },
+      questionnaire_answers: { ...baseAnswers, q_lifestyle_1: 3, q_social_4: 4, q_values_2: 3 },
       status: "approved",
       email_verified: true,
       role: "user",

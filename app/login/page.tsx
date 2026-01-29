@@ -1,93 +1,149 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useSession } from "@/lib/auth/useSession";
-import { DEMO_USERS } from "@/lib/auth/demoUsers";
-import { getCurrentUser } from "@/lib/auth/googleClientAuth";
+import { Input } from "@/components/ui/Input";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
+
+function normalizePhoneDigits(value: string): string {
+  return value.replace(/\D/g, "").slice(0, 12);
+}
 
 export default function LoginPage() {
   const router = useRouter();
-  const { isLoggedIn, isLoading, loginAsUser } = useSession();
-  const [checkingSession, setCheckingSession] = useState(true);
+  const [phoneDigits, setPhoneDigits] = useState("");
+  const [otp, setOtp] = useState("");
+  const [countryCode] = useState("+65");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  // Check session directly from localStorage to avoid hook state delays
-  useEffect(() => {
-    // Wait a bit to ensure logout has completed
-    const timer = setTimeout(() => {
-      const currentUser = getCurrentUser();
-      if (currentUser) {
-        // User is logged in, redirect to events
-        router.replace("/events");
-      } else {
-        // User is not logged in, show login form
-        setCheckingSession(false);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+
+    const digits = normalizePhoneDigits(phoneDigits);
+    const phone_e164 = digits.length ? `+${countryCode.replace(/\D/g, "")}${digits}` : "";
+
+    if (digits.length < 8) {
+      setError("Enter a valid phone number (at least 8 digits).");
+      setLoading(false);
+      return;
+    }
+    if (!otp.trim()) {
+      setError("Enter the OTP.");
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ phone_e164, otp: otp.trim() }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error || "Login failed.");
+        setLoading(false);
+        return;
       }
-    }, 200);
-    return () => clearTimeout(timer);
-  }, [router]);
-
-  // Show loading state while checking session
-  if (isLoading || checkingSession) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-beige-light px-4">
-        <div className="max-w-md w-full bg-white border border-beige-frame rounded-lg p-8 shadow-lg text-center">
-          <p className="text-gray-medium">Loading...</p>
-        </div>
-      </div>
-    );
-  }
+      const redirectTo = (data.redirect as string) || "/events";
+      router.replace(redirectTo);
+      if (typeof window !== "undefined") {
+        window.location.href = redirectTo;
+      }
+    } catch {
+      setError("Something went wrong. Please try again.");
+      setLoading(false);
+    }
+  };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-beige-light px-4">
-      <div className="max-w-md w-full bg-white border border-beige-frame rounded-lg p-8 shadow-lg">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-dark mb-2">
-            Welcome to Never Strangers
-          </h1>
-          <p className="text-gray-medium">
-            Select a demo user to continue
-          </p>
-        </div>
+    <div className="max-w-2xl mx-auto px-4 py-8 sm:py-12">
+      <PageHeader
+        title="Login"
+        subtitle="Enter your phone and OTP"
+      />
 
-        <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-dark mb-3">
-            Select Demo User
-          </label>
-          <div className="space-y-2 max-h-96 overflow-y-auto">
-            {DEMO_USERS.map((user) => (
-              <button
-                key={user.email}
-                onClick={() => {
-                  loginAsUser(user);
-                  // Use full page reload to ensure all state is fresh and avoid redirect loops
-                  setTimeout(() => {
-                    window.location.href = "/events";
-                  }, 100);
+      <Card>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="sm:col-span-1">
+              <Input
+                label="Country"
+                type="text"
+                id="countryCode"
+                name="countryCode"
+                value={countryCode}
+                disabled
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <Input
+                label="Phone"
+                type="tel"
+                id="phone"
+                name="phone"
+                data-testid="login-phone"
+                value={phoneDigits}
+                onChange={(e) => {
+                  setPhoneDigits(normalizePhoneDigits(e.target.value));
+                  setError(null);
                 }}
-                className="w-full flex items-center gap-3 p-3 border-2 border-beige-frame rounded-lg bg-white hover:border-red-accent hover:bg-red-50 transition-all"
-              >
-                {user.picture && (
-                  <img
-                    src={user.picture}
-                    alt={user.name}
-                    className="w-10 h-10 rounded-full"
-                  />
-                )}
-                <div className="flex-1 text-left">
-                  <p className="text-sm font-medium text-gray-dark">{user.name}</p>
-                  <p className="text-xs text-gray-medium">{user.email}</p>
-                </div>
-              </button>
-            ))}
+                inputMode="numeric"
+                placeholder="81234567"
+                required
+                helperText="Must already be registered (use event link first)"
+              />
+            </div>
           </div>
-        </div>
 
+          <Input
+            label="OTP"
+            type="text"
+            id="otp"
+            name="otp"
+            data-testid="login-otp"
+            value={otp}
+            onChange={(e) => {
+              setOtp(e.target.value.slice(0, 6));
+              setError(null);
+            }}
+            inputMode="numeric"
+            placeholder="Enter OTP"
+            required
+            helperText="Demo OTP: 6969"
+          />
 
-        <p className="mt-6 text-xs text-gray-medium text-center">
-          This is a demo application. All data is stored locally in your browser.
-        </p>
-      </div>
+          {error && (
+            <div
+              className="text-sm rounded-lg px-3 py-2"
+              style={{ backgroundColor: "var(--bg-muted)", color: "var(--text)" }}
+              data-testid="login-error"
+            >
+              {error}
+            </div>
+          )}
+
+          <Button
+            type="submit"
+            data-testid="login-submit"
+            fullWidth
+            size="lg"
+            disabled={loading}
+          >
+            {loading ? "Logging in…" : "Login"}
+          </Button>
+        </form>
+      </Card>
+
+      <p className="mt-4 text-center text-sm" style={{ color: "var(--text-muted)" }}>
+        New? Use the event QR or link to <a href="/register" className="hover:underline">Register</a>.
+      </p>
     </div>
   );
 }

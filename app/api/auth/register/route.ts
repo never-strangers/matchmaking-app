@@ -52,6 +52,18 @@ export async function POST(req: NextRequest) {
 
   const supabase = getServiceSupabaseClient();
 
+  const { data: existingProfile } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("phone_e164", phoneE164)
+    .maybeSingle();
+  if (existingProfile) {
+    return new Response(
+      JSON.stringify({ error: "This phone is already registered. Use Login instead." }),
+      { status: 409, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
   let invitedId: string;
   let role: SessionRole;
   let city: string;
