@@ -136,25 +136,26 @@ CREATE INDEX IF NOT EXISTS idx_likes_to ON likes(to_profile_id);
 -- Realtime configuration
 -----------------------------
 -- Add core tables to the supabase_realtime publication so clients can
--- subscribe to changes. This assumes the default publication exists.
+-- subscribe to changes. Only add if not already in the publication (idempotent).
 
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
-    ALTER PUBLICATION supabase_realtime
-    ADD TABLE event_attendees;
-
-    ALTER PUBLICATION supabase_realtime
-    ADD TABLE answers;
-
-    ALTER PUBLICATION supabase_realtime
-    ADD TABLE match_runs;
-
-    ALTER PUBLICATION supabase_realtime
-    ADD TABLE match_results;
-
-    ALTER PUBLICATION supabase_realtime
-    ADD TABLE likes;
+    IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'event_attendees') THEN
+      ALTER PUBLICATION supabase_realtime ADD TABLE event_attendees;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'answers') THEN
+      ALTER PUBLICATION supabase_realtime ADD TABLE answers;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'match_runs') THEN
+      ALTER PUBLICATION supabase_realtime ADD TABLE match_runs;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'match_results') THEN
+      ALTER PUBLICATION supabase_realtime ADD TABLE match_results;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'likes') THEN
+      ALTER PUBLICATION supabase_realtime ADD TABLE likes;
+    END IF;
   END IF;
 END
 $$;

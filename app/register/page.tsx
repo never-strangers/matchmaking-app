@@ -88,14 +88,25 @@ export default function RegisterPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="sm:col-span-1">
-              <Input
-                label="Country"
-                type="text"
-                id="countryCode"
-                name="countryCode"
-                value={countryCode}
-                disabled
-              />
+              <label className="block text-sm font-medium text-[var(--text)] mb-2">
+                Country
+              </label>
+              <div
+                className="flex items-center gap-2 w-full px-4 py-2.5 bg-[var(--bg-panel)] border rounded-xl border-[var(--border)]"
+                style={{ minHeight: "2.75rem" }}
+              >
+                <span className="text-xl shrink-0 select-none" aria-hidden>
+                  🇸🇬
+                </span>
+                <input
+                  type="text"
+                  id="countryCode"
+                  name="countryCode"
+                  value={countryCode}
+                  disabled
+                  className="flex-1 min-w-0 bg-transparent border-0 p-0 focus:ring-0 focus:outline-none text-[var(--text)] disabled:cursor-default"
+                />
+              </div>
             </div>
             <div className="sm:col-span-2">
               <Input

@@ -60,6 +60,42 @@ export default async function MatchPage() {
 
   const event = events[0];
 
+  // Matches are only available after admin has run matching for this event.
+  const { data: runRows } = await supabase
+    .from("match_runs")
+    .select("id")
+    .eq("event_id", event.id)
+    .eq("status", "done")
+    .limit(1);
+
+  const matchesRun = (runRows?.length ?? 0) > 0;
+
+  if (!matchesRun) {
+    return (
+      <div className="max-w-5xl mx-auto px-4 py-8 sm:py-12">
+        <PageHeader
+          title="Your Matches"
+          subtitle="Matches will appear after the host runs matching for this event."
+        />
+        <Card padding="lg">
+          <EmptyState
+            title="No matches yet"
+            description="Once the host runs matching, your top matches will appear here."
+          />
+        </Card>
+        <div className="mt-8">
+          <Link
+            href="/events"
+            className="text-sm hover:underline"
+            style={{ color: "var(--text-muted)" }}
+          >
+            ← Back to Events
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   // Load all answers for this event
   const { data: answerRows } = await supabase
     .from("answers")

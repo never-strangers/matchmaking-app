@@ -24,6 +24,7 @@ type EventsPageData = {
       answerCount: number;
       totalQuestions: number;
       completed: boolean;
+      matchesRun: boolean;
     }
   >;
   isAdmin: boolean;
@@ -129,6 +130,17 @@ async function getEventsPageData(profileId: string, role: string): Promise<Event
     questionCountByEvent[id] = (questionCountByEvent[id] || 0) + 1;
   });
 
+  // Events for which admin has run matching (match_runs with status = 'done')
+  const { data: runRows } = await supabase
+    .from("match_runs")
+    .select("event_id")
+    .in("event_id", eventIds)
+    .eq("status", "done");
+
+  const matchesRunSet = new Set<string>(
+    (runRows || []).map((r: any) => String(r.event_id))
+  );
+
   const enrichedEvents = baseEvents.map((e) => {
     const id = String(e.id);
     const totalQuestions = questionCountByEvent[id] || 0;
@@ -136,6 +148,7 @@ async function getEventsPageData(profileId: string, role: string): Promise<Event
     const joined = joinedSet.has(id);
     const completed =
       joined && totalQuestions > 0 && answerCount >= totalQuestions;
+    const matchesRun = matchesRunSet.has(id);
 
     return {
       ...e,
@@ -143,6 +156,7 @@ async function getEventsPageData(profileId: string, role: string): Promise<Event
       answerCount,
       totalQuestions,
       completed,
+      matchesRun,
     };
   });
 
@@ -189,16 +203,23 @@ export default async function EventsPage() {
       ) : (
         <div className="space-y-4">
           {events.map((event) => {
-            const { joined, completed, answerCount, totalQuestions } = event;
+            const { joined, completed, answerCount, totalQuestions, matchesRun } = event;
 
             let primaryLabel = "Enter Event";
             let primaryHref = `/events/${event.id}/questions`;
+            let showPrimary = true;
 
             if (joined && !completed) {
               primaryLabel = "Complete Questions";
             } else if (joined && completed) {
-              primaryLabel = "View Matches";
-              primaryHref = "/match";
+              if (matchesRun) {
+                primaryLabel = "View Matches";
+                primaryHref = "/match";
+              } else {
+                primaryLabel = "Matches pending";
+                primaryHref = "#";
+                showPrimary = false;
+              }
             }
 
             return (
@@ -240,13 +261,26 @@ export default async function EventsPage() {
                           {answerCount}/{totalQuestions} answered
                         </Badge>
                       )}
+                      {joined && completed && !matchesRun && (
+                        <Badge variant="warning">Matches pending</Badge>
+                      )}
                     </div>
+                    {joined && completed && !matchesRun && (
+                      <p
+                        className="text-sm mt-2"
+                        style={{ color: "var(--text-muted)" }}
+                      >
+                        Matches will appear after the host runs matching.
+                      </p>
+                    )}
                   </div>
-                  <div className="flex flex-col sm:flex-row gap-2 sm:ml-4">
-                    <Link href={primaryHref}>
-                      <Button size="md">{primaryLabel}</Button>
-                    </Link>
-                  </div>
+                  {showPrimary && (
+                    <div className="flex flex-col sm:flex-row gap-2 sm:ml-4">
+                      <Link href={primaryHref}>
+                        <Button size="md">{primaryLabel}</Button>
+                      </Link>
+                    </div>
+                  )}
                 </div>
               </Card>
             );

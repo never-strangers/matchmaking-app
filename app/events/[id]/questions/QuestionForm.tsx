@@ -65,6 +65,13 @@ export function QuestionForm({
   const allFilled = totalQuestions > 0 && answeredCount >= totalQuestions;
   const showCompleteBadge = allFilled && (hasSavedOnce || initialIsComplete);
 
+  const scaleLabels: Record<number, string> = {
+    1: "Strongly Disagree",
+    2: "Disagree",
+    3: "Agree",
+    4: "Strongly Agree",
+  };
+
   const handleChange = (questionId: string, value: number) => {
     setAnswers((prev) => ({ ...prev, [questionId]: value }));
   };
@@ -136,11 +143,11 @@ export function QuestionForm({
               >
                 {question.prompt}
               </label>
-              <div className="flex flex-wrap gap-4">
-                {[1, 2, 3, 4].map((value) => (
+              <div className="grid grid-cols-2 gap-x-4 gap-y-2 sm:gap-4">
+                {([4, 3, 2, 1] as const).map((value) => (
                   <label
                     key={value}
-                    className="flex items-center space-x-2 cursor-pointer"
+                    className="flex items-center gap-2 cursor-pointer"
                   >
                     <input
                       type="radio"
@@ -148,19 +155,13 @@ export function QuestionForm({
                       value={value}
                       checked={currentValue === value}
                       onChange={() => handleChange(question.id, value)}
-                      className="w-4 h-4 text-[var(--primary)] border-[var(--border)] focus:ring-[var(--primary)]"
+                      className="w-4 h-4 shrink-0 text-[var(--primary)] border-[var(--border)] focus:ring-[var(--primary)]"
                     />
                     <span
                       className="text-xs"
                       style={{ color: "var(--text-muted)" }}
                     >
-                      {value === 1
-                        ? "Strongly Disagree"
-                        : value === 2
-                        ? "Disagree"
-                        : value === 3
-                        ? "Agree"
-                        : "Strongly Agree"}
+                      {scaleLabels[value]}
                     </span>
                   </label>
                 ))}

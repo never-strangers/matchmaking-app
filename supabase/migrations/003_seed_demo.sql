@@ -7,7 +7,7 @@
 INSERT INTO events (id, title, status)
 VALUES (
   '00000000-0000-0000-0000-000000000001',
-  'Never Strangers Live Demo',
+  'Unfiltered Farewell Event',
   'live'
 )
 ON CONFLICT (id) DO NOTHING;
