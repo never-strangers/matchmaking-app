@@ -130,4 +130,3 @@ export function verifyPendingInviteToken(token: string | null | undefined): Pend
     return null;
   }
 }
-

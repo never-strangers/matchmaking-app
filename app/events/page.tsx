@@ -36,10 +36,19 @@ async function getEventsPageData(profileId: string, role: string): Promise<Event
   let userCity: string | null = null;
   const { data: profile } = await supabase
     .from("profiles")
-    .select("city")
+    .select("city, invited_user_id")
     .eq("id", profileId)
     .maybeSingle();
-  if (profile?.city) userCity = profile.city;
+  if (profile?.city) {
+    userCity = profile.city;
+  } else if (profile?.invited_user_id) {
+    const { data: invited } = await supabase
+      .from("invited_users")
+      .select("city")
+      .eq("id", profile.invited_user_id)
+      .maybeSingle();
+    if (invited?.city) userCity = invited.city;
+  }
 
   let events: DbEvent[] | null = null;
   let error: unknown = null;

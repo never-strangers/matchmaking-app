@@ -5,6 +5,7 @@ import { verifySessionToken } from "@/lib/auth/sessionToken";
 import { getServiceSupabaseClient } from "@/lib/supabase/serverClient";
 import AdminShell from "@/components/admin/AdminShell";
 import Card from "@/components/admin/Card";
+import { AdminMatchesClient } from "./AdminMatchesClient";
 
 type MatchRowData = {
   aProfileId: string;
@@ -14,28 +15,57 @@ type MatchRowData = {
   score: number;
 };
 
-export default async function AdminMatchesPage() {
+type EventOption = { id: string; title: string; matchCount: number };
+
+export default async function AdminMatchesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ event?: string }>;
+}) {
   const cookieStore = await cookies();
   const token = cookieStore.get("ns_session")?.value;
   const session = verifySessionToken(token);
   if (!session) redirect("/");
   if (session.role !== "admin") redirect("/events");
 
+  const { event: eventIdParam } = await searchParams;
   const supabase = getServiceSupabaseClient();
 
-  const { data: events } = await supabase
+  const { data: allEvents } = await supabase
     .from("events")
     .select("id, title, status")
-    .eq("status", "live")
-    .order("created_at", { ascending: true })
-    .limit(1);
+    .order("created_at", { ascending: true });
 
-  const event = events?.[0];
+  const eventIds = (allEvents || []).map((e) => e.id);
+  let matchCountsByEvent: Record<string, number> = {};
+  if (eventIds.length > 0) {
+    const { data: matchRows } = await supabase
+      .from("match_results")
+      .select("event_id")
+      .in("event_id", eventIds);
+    (matchRows || []).forEach((r: { event_id: string }) => {
+      const id = String(r.event_id);
+      matchCountsByEvent[id] = (matchCountsByEvent[id] || 0) + 1;
+    });
+  }
+
+  const eventOptions: EventOption[] = (allEvents || []).map((e) => ({
+    id: String(e.id),
+    title: e.title,
+    matchCount: matchCountsByEvent[String(e.id)] || 0,
+  }));
+
+  const selectedEventId =
+    eventIdParam && eventOptions.some((e) => e.id === eventIdParam)
+      ? eventIdParam
+      : eventOptions[0]?.id;
+
+  const event = eventOptions.find((e) => e.id === selectedEventId);
   if (!event) {
     return (
       <AdminShell>
         <Card>
-          <p className="text-sm text-gray-medium mb-4">No live event found. Run matching from the Dashboard for a live event.</p>
+          <p className="text-sm text-gray-medium mb-4">No events found. Create an event from the Dashboard.</p>
           <Link href="/admin" className="text-sm text-red-accent hover:underline">← Dashboard</Link>
         </Card>
       </AdminShell>
@@ -45,7 +75,7 @@ export default async function AdminMatchesPage() {
   const { data: matchRows } = await supabase
     .from("match_results")
     .select("a_profile_id, b_profile_id, score")
-    .eq("event_id", event.id)
+    .eq("event_id", selectedEventId)
     .order("score", { ascending: false });
 
   const profileIds = new Set<string>();
@@ -78,9 +108,11 @@ export default async function AdminMatchesPage() {
       <div className="space-y-6">
         <div>
           <h1 className="text-xl font-semibold text-gray-dark mb-1">Matches</h1>
-          <p className="text-sm text-gray-medium">
-            {event.title} — {matches.length} pair{matches.length !== 1 ? "s" : ""}
-          </p>
+          <AdminMatchesClient
+            events={eventOptions}
+            selectedEventId={selectedEventId}
+            matchCount={matches.length}
+          />
         </div>
 
         <Card>

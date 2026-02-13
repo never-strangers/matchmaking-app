@@ -18,6 +18,7 @@ export type AdminEventSummary = {
 
 type Props = {
   events: AdminEventSummary[];
+  showCreateButton?: boolean;
 };
 
 function statusLabel(status: string, matchCount: number): string {
@@ -28,7 +29,7 @@ function statusLabel(status: string, matchCount: number): string {
   return status;
 }
 
-export function AdminEventsClient({ events }: Props) {
+export function AdminEventsClient({ events, showCreateButton = true }: Props) {
   const router = useRouter();
   const [runningId, setRunningId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -91,12 +92,21 @@ export function AdminEventsClient({ events }: Props) {
 
   return (
     <Card padding="lg">
-      <h2
-        className="text-lg font-semibold mb-4"
-        style={{ color: "var(--text)" }}
-      >
-        Events
-      </h2>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+        <h2
+          className="text-lg font-semibold"
+          style={{ color: "var(--text)" }}
+        >
+          Events
+        </h2>
+        {showCreateButton && (
+          <Link href="/admin/events/new">
+            <Button size="sm" data-testid="admin-create-event">
+              Create Event
+            </Button>
+          </Link>
+        )}
+      </div>
       <div className="space-y-4">
         {events.map((event) => {
           const isRunning = runningId === event.id || isPending;
@@ -128,7 +138,7 @@ export function AdminEventsClient({ events }: Props) {
                   Matches: {event.matchCount}
                 </p>
                 <Link
-                  href="/admin/matches"
+                  href={`/admin/matches?event=${encodeURIComponent(event.id)}`}
                   className="text-xs mt-1 inline-block hover:underline"
                   style={{ color: "var(--text-muted)" }}
                 >
