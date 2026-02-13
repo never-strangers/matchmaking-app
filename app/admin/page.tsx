@@ -29,7 +29,20 @@ export default async function AdminPage() {
         subtitle="Control events and matching."
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
+        <Link href="/admin/users">
+          <Card padding="lg" className="hover:shadow-md transition-shadow h-full">
+            <h3 className="text-base font-semibold mb-1" style={{ color: "var(--text)" }}>
+              Users
+            </h3>
+            <p className="text-sm mb-3" style={{ color: "var(--text-muted)" }}>
+              Review, approve, or reject pending user profiles.
+            </p>
+            <Button size="sm" variant="secondary">
+              Manage Users →
+            </Button>
+          </Card>
+        </Link>
         <Link href="/admin/events">
           <Card padding="lg" className="hover:shadow-md transition-shadow h-full">
             <h3 className="text-base font-semibold mb-1" style={{ color: "var(--text)" }}>

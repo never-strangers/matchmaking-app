@@ -1,7 +1,5 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { cookies } from "next/headers";
-import { verifySessionToken } from "@/lib/auth/sessionToken";
+import { requireApprovedUser } from "@/lib/auth/requireApprovedUser";
 import { getServiceSupabaseClient } from "@/lib/supabase/serverClient";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -176,12 +174,7 @@ async function getEventsPageData(profileId: string, role: string): Promise<Event
 }
 
 export default async function EventsPage() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("ns_session")?.value;
-  const session = verifySessionToken(token);
-  if (!session) {
-    redirect("/");
-  }
+  const session = await requireApprovedUser();
 
   const { events, isAdmin } = await getEventsPageData(
     session.profile_id,

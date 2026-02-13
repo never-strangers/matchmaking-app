@@ -10,6 +10,8 @@ type InviteUser = {
   displayName: string;
   name: string;
   phone: string;
+  avatarPath: string | null;
+  avatarUpdatedAt: string | null;
 };
 
 type State = {
@@ -40,6 +42,8 @@ export function useInviteSession() {
           displayName: data.display_name,
           name: data.display_name ?? data.profile_id,
           phone: data.phone_e164 ?? "",
+          avatarPath: data.avatar_path ?? null,
+          avatarUpdatedAt: data.avatar_updated_at ?? null,
         },
         isLoading: false,
       });
@@ -50,6 +54,9 @@ export function useInviteSession() {
 
   useEffect(() => {
     void load();
+    const onProfileUpdate = () => void load();
+    window.addEventListener("profile-avatar-updated", onProfileUpdate);
+    return () => window.removeEventListener("profile-avatar-updated", onProfileUpdate);
   }, [load]);
 
   const logout = useCallback(async () => {

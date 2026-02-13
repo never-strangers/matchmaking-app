@@ -1,11 +1,8 @@
-import { cookies } from "next/headers";
-import { verifySessionToken } from "@/lib/auth/sessionToken";
+import { getAuthUser } from "@/lib/auth/getAuthUser";
 
 export async function SessionBanner() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("ns_session")?.value;
-  const session = verifySessionToken(token);
-  if (!session) return null;
+  const auth = await getAuthUser();
+  if (!auth) return null;
 
   return (
     <div
@@ -16,7 +13,7 @@ export async function SessionBanner() {
         borderBottom: "1px solid var(--border)",
       }}
     >
-      You&apos;re logged in as <strong style={{ color: "var(--text)" }}>{session.display_name}</strong>
+      You&apos;re logged in as <strong style={{ color: "var(--text)" }}>{auth.display_name}</strong>
     </div>
   );
 }

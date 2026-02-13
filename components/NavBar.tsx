@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useInviteSession } from "@/lib/auth/useInviteSession";
+import { AvatarSquare } from "@/components/ui/AvatarSquare";
 
 const navLinkClass =
   "text-sm font-medium transition-colors block py-2 px-3 rounded-lg touch-manipulation";
@@ -81,6 +82,9 @@ export default function NavBar() {
               </>
             ) : (
               <>
+                <Link href="/profile" data-testid="nav-profile" className={navLinkClass} style={navLinkStyle} {...navLinkHover} onClick={closeMobile}>
+                  Profile
+                </Link>
                 <Link href="/events" data-testid="nav-events" className={navLinkClass} style={navLinkStyle} {...navLinkHover} onClick={closeMobile}>
                   Events
                 </Link>
@@ -88,18 +92,31 @@ export default function NavBar() {
                   Matches
                 </Link>
                 {isAdmin && (
-                  <Link href="/admin" data-testid="nav-admin" className={navLinkClass} style={navLinkStyle} {...navLinkHover} onClick={closeMobile}>
-                    Admin
-                  </Link>
+                  <>
+                    <Link href="/admin" data-testid="nav-admin" className={navLinkClass} style={navLinkStyle} {...navLinkHover} onClick={closeMobile}>
+                      Admin
+                    </Link>
+                    <Link href="/admin/users" data-testid="nav-admin-users" className={navLinkClass} style={navLinkStyle} {...navLinkHover} onClick={closeMobile}>
+                      Users
+                    </Link>
+                  </>
                 )}
                 <div className="border-t my-2" style={{ borderColor: "var(--border)" }} />
-                <div className="px-4 py-2">
-                  <p className="text-sm font-medium truncate" style={{ color: "var(--text)" }}>
-                    {user?.name}
-                  </p>
-                  <p className="text-xs truncate" style={{ color: "var(--text-muted)" }}>
-                    {user?.phone}
-                  </p>
+                <div className="px-4 py-2 flex items-center gap-3">
+                  <AvatarSquare
+                    avatarPath={user?.avatarPath ?? null}
+                    cacheBust={user?.avatarUpdatedAt ?? null}
+                    size={40}
+                    alt={user?.name ?? "Profile"}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium truncate" style={{ color: "var(--text)" }}>
+                      {user?.name}
+                    </p>
+                    <p className="text-xs truncate" style={{ color: "var(--text-muted)" }}>
+                      {user?.phone}
+                    </p>
+                  </div>
                 </div>
                 <button
                   onClick={handleLogout}

@@ -2,20 +2,22 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { getPostLoginRedirect } from "@/lib/auth/getPostLoginRedirect";
 
-function normalizePhoneDigits(value: string): string {
-  return value.replace(/\D/g, "").slice(0, 12);
+function isValidEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 }
 
 export default function LoginPage() {
   const router = useRouter();
-  const [phoneDigits, setPhoneDigits] = useState("");
-  const [otp, setOtp] = useState("");
-  const [countryCode] = useState("+65");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -24,34 +26,59 @@ export default function LoginPage() {
     setError(null);
     setLoading(true);
 
-    const digits = normalizePhoneDigits(phoneDigits);
-    const phone_e164 = digits.length ? `+${countryCode.replace(/\D/g, "")}${digits}` : "";
+    const trimmedEmail = email.trim();
+    const trimmedPassword = password.trim();
 
-    if (digits.length < 8) {
-      setError("Enter a valid phone number (at least 8 digits).");
+    if (!trimmedEmail) {
+      setError("Email is required.");
       setLoading(false);
       return;
     }
-    if (!otp.trim()) {
-      setError("Enter the OTP.");
+    if (!isValidEmail(trimmedEmail)) {
+      setError("Enter a valid email address.");
+      setLoading(false);
+      return;
+    }
+    if (!trimmedPassword) {
+      setError("Password is required.");
       setLoading(false);
       return;
     }
 
     try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ phone_e164, otp: otp.trim() }),
+      const supabase = createClient();
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email: trimmedEmail,
+        password: trimmedPassword,
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setError(data.error || "Login failed.");
+
+      if (signInError) {
+        if (signInError.message?.toLowerCase().includes("email not confirmed")) {
+          setError("Please confirm your email before logging in.");
+        } else if (
+          signInError.message?.toLowerCase().includes("invalid") ||
+          signInError.message?.toLowerCase().includes("credentials")
+        ) {
+          setError("Invalid email or password.");
+        } else {
+          setError(signInError.message || "Login failed.");
+        }
         setLoading(false);
         return;
       }
-      const redirectTo = (data.redirect as string) || "/events";
+
+      if (!data.user) {
+        setError("Login failed. Please try again.");
+        setLoading(false);
+        return;
+      }
+
+      // Ensure profile exists and get status for redirect
+      const res = await fetch("/api/profile", { credentials: "include" });
+      const profile = res.ok ? await res.json().catch(() => null) : null;
+      const status = profile?.status ?? "pending_verification";
+      const redirectTo = getPostLoginRedirect(status);
+
       router.replace(redirectTo);
       if (typeof window !== "undefined") {
         window.location.href = redirectTo;
@@ -66,74 +93,47 @@ export default function LoginPage() {
     <div className="max-w-2xl mx-auto px-4 py-8 sm:py-12">
       <PageHeader
         title="Login"
-        subtitle="Enter your phone and OTP"
+        subtitle="Enter your email and password"
       />
 
       <Card>
         <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="sm:col-span-1">
-              <label className="block text-sm font-medium text-[var(--text)] mb-2">
-                Country
-              </label>
-              <div
-                className="flex items-center gap-2 w-full px-4 py-2.5 bg-[var(--bg-panel)] border rounded-xl border-[var(--border)]"
-                style={{ minHeight: "2.75rem" }}
-              >
-                <span className="text-xl shrink-0 select-none" aria-hidden>
-                  🇸🇬
-                </span>
-                <input
-                  type="text"
-                  id="countryCode"
-                  name="countryCode"
-                  value={countryCode}
-                  disabled
-                  className="flex-1 min-w-0 bg-transparent border-0 p-0 focus:ring-0 focus:outline-none text-[var(--text)] disabled:cursor-default"
-                />
-              </div>
-            </div>
-            <div className="sm:col-span-2">
-              <Input
-                label="Phone"
-                type="tel"
-                id="phone"
-                name="phone"
-                data-testid="login-phone"
-                value={phoneDigits}
-                onChange={(e) => {
-                  setPhoneDigits(normalizePhoneDigits(e.target.value));
-                  setError(null);
-                }}
-                inputMode="numeric"
-                placeholder="81234567"
-                required
-                helperText="Must already be registered (use event link first)"
-              />
-            </div>
-          </div>
-
           <Input
-            label="OTP"
-            type="text"
-            id="otp"
-            name="otp"
-            data-testid="login-otp"
-            value={otp}
+            label="Email"
+            type="email"
+            id="email"
+            name="email"
+            data-testid="login-email"
+            value={email}
             onChange={(e) => {
-              setOtp(e.target.value.slice(0, 6));
+              setEmail(e.target.value);
               setError(null);
             }}
-            inputMode="numeric"
-            placeholder="Enter OTP"
+            placeholder="you@example.com"
             required
-            helperText="Demo OTP: 6969"
+            autoComplete="email"
+          />
+
+          <Input
+            label="Password"
+            type="password"
+            id="password"
+            name="password"
+            data-testid="login-password"
+            value={password}
+            onChange={(e) => {
+              setPassword(e.target.value);
+              setError(null);
+            }}
+            placeholder="Your password"
+            required
+            autoComplete="current-password"
           />
 
           {error && (
             <div
               className="text-sm rounded-lg px-3 py-2"
-              style={{ backgroundColor: "var(--bg-muted)", color: "var(--text)" }}
+              style={{ backgroundColor: "var(--bg-muted)", color: "var(--danger)" }}
               data-testid="login-error"
             >
               {error}
@@ -153,7 +153,7 @@ export default function LoginPage() {
       </Card>
 
       <p className="mt-4 text-center text-sm" style={{ color: "var(--text-muted)" }}>
-        New? Use the event QR or link to <a href="/register" className="hover:underline">Register</a>.
+        New? <Link href="/register" className="hover:underline">Register</Link>.
       </p>
     </div>
   );

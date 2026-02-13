@@ -1,7 +1,6 @@
 import { NextRequest } from "next/server";
-import { cookies } from "next/headers";
 import { getServiceSupabaseClient } from "@/lib/supabase/serverClient";
-import { verifySessionToken } from "@/lib/auth/sessionToken";
+import { requireApprovedUserForApi } from "@/lib/auth/requireApprovedUser";
 
 type LikeBody = { to_profile_id?: string };
 
@@ -14,12 +13,8 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("ns_session")?.value;
-  const session = verifySessionToken(token);
-  if (!session) {
-    return new Response("Unauthorized", { status: 401 });
-  }
+  const auth = await requireApprovedUserForApi();
+  if (auth instanceof Response) return auth;
 
   const eventId = (await params).id;
   if (!eventId) {
@@ -43,7 +38,7 @@ export async function POST(
   const { error: insertError } = await supabase.from("likes").upsert(
     {
       event_id: eventId,
-      from_profile_id: session.profile_id,
+      from_profile_id: auth.profile_id,
       to_profile_id: toProfileId,
     },
     { onConflict: "event_id,from_profile_id,to_profile_id" }
@@ -59,7 +54,7 @@ export async function POST(
     .select("from_profile_id")
     .eq("event_id", eventId)
     .eq("from_profile_id", toProfileId)
-    .eq("to_profile_id", session.profile_id)
+    .eq("to_profile_id", auth.profile_id)
     .maybeSingle();
 
   const mutual = !!reverseLike;

@@ -6,12 +6,29 @@ import { verifyPendingInviteToken, signSessionToken, SessionRole } from "@/lib/a
 type RegisterBody = {
   display_name?: string;
   phone_e164?: string;
+  email?: string;
+  first_name?: string;
+  last_name?: string;
+  password?: string;
+  city?: string;
+  dob?: string;
+  gender?: string;
+  attracted_to?: string;
+  looking_for?: string;
+  reason?: string;
+  instagram?: string;
 };
 
-/** Normalize to E.164-like: digits only, then + prefix. */
+/** Normalize to E.164: trim, strip spaces/dashes, digits only with + prefix. */
 function normalizePhoneE164(raw: string): string {
-  const digits = String(raw).replace(/\D/g, "");
+  const digits = String(raw).trim().replace(/[\s\-\.]/g, "").replace(/\D/g, "");
   return digits.length ? `+${digits}` : "";
+}
+
+/** Validate E.164: 10–15 digits total (country + number). */
+function isValidPhoneE164(e164: string): boolean {
+  const digits = e164.replace(/\D/g, "");
+  return digits.length >= 10 && digits.length <= 15;
 }
 
 export async function POST(req: NextRequest) {
@@ -35,17 +52,29 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const displayName = (body.display_name ?? "").trim();
+  const displayName =
+    (body.display_name ?? `${(body.first_name ?? "").trim()} ${(body.last_name ?? "").trim()}`.trim()) ||
+    "";
   const phoneE164 = normalizePhoneE164(body.phone_e164 ?? "");
-  if (!displayName) {
+  const fullName = body.first_name || body.last_name
+    ? `${(body.first_name ?? "").trim()} ${(body.last_name ?? "").trim()}`.trim()
+    : displayName;
+  const cityFromBody = (body.city ?? "").trim();
+  const dob = (body.dob ?? "").trim() || null;
+  const gender = (body.gender ?? "").trim() || null;
+  const attractedTo = (body.attracted_to ?? "").trim() || null;
+  const reason = (body.reason ?? "").trim() || null;
+  const instagram = (body.instagram ?? "").trim() || null;
+
+  if (!displayName && !fullName) {
     return new Response(
-      JSON.stringify({ error: "Display name is required" }),
+      JSON.stringify({ error: "Name is required" }),
       { status: 400, headers: { "Content-Type": "application/json" } }
     );
   }
-  if (!phoneE164 || phoneE164.length < 10) {
+  if (!phoneE164 || !isValidPhoneE164(phoneE164)) {
     return new Response(
-      JSON.stringify({ error: "A valid phone number is required" }),
+      JSON.stringify({ error: "A valid phone number is required (8–15 digits, e.g. +65 9123 4567)" }),
       { status: 400, headers: { "Content-Type": "application/json" } }
     );
   }
@@ -85,7 +114,7 @@ export async function POST(req: NextRequest) {
     }
     invitedId = String(invitedUser.id);
     role = invitedUser.role === "admin" ? "admin" : "user";
-    city = (invitedUser as { city?: string | null }).city ?? "Singapore";
+    city = cityFromBody || ((invitedUser as { city?: string | null }).city ?? "sg");
   } else {
     // Shared link: use invite_token as template, create new invited_users row for this person
     const { data: template, error: templateError } = await supabase
@@ -102,7 +131,7 @@ export async function POST(req: NextRequest) {
       );
     }
     role = template.role === "admin" ? "admin" : "user";
-    city = (template as { city?: string | null }).city ?? "Singapore";
+    city = cityFromBody || ((template as { city?: string | null }).city ?? "sg");
 
     const newInvitedId = crypto.randomUUID();
     const newToken = crypto.randomUUID();
@@ -126,25 +155,31 @@ export async function POST(req: NextRequest) {
 
   const profileId = crypto.randomUUID();
   const safeDigits = phoneE164.replace(/\D/g, "").slice(-12);
+  const realEmail = (body.email ?? "").trim();
   const syntheticEmail =
-    safeDigits.length > 0 ? `invite_${safeDigits}@demo.local` : `invite_${profileId}@demo.local`;
+    realEmail || (safeDigits.length > 0 ? `invite_${safeDigits}@demo.local` : `invite_${profileId}@demo.local`);
 
   const { data: inserted, error: insertError } = await supabase
     .from("profiles")
     .insert({
       id: profileId,
-      name: displayName,
-      display_name: displayName,
+      name: fullName || displayName,
+      display_name: fullName || displayName,
       email: syntheticEmail,
       phone: phoneE164,
       phone_e164: phoneE164,
       city,
-      status: "approved",
-      email_verified: true,
+      dob: dob || null,
+      gender: gender || null,
+      attracted_to: attractedTo || null,
+      reason: reason || null,
+      instagram: instagram || null,
+      full_name: fullName || displayName,
+      status: "pending_verification",
+      email_verified: !!realEmail,
       role,
       invited_user_id: invitedId,
       created_at: new Date().toISOString(),
-      approved_at: new Date().toISOString(),
     })
     .select()
     .single();
@@ -155,6 +190,11 @@ export async function POST(req: NextRequest) {
       JSON.stringify({ error: "Failed to create profile" }),
       { status: 500, headers: { "Content-Type": "application/json" } }
     );
+  }
+
+  // Add to admins table when role is admin (Option B: admins table)
+  if (role === "admin") {
+    await supabase.from("admins").upsert({ profile_id: String(inserted.id) }, { onConflict: "profile_id" });
   }
 
   cookieStore.delete("ns_pending_invite");
@@ -173,5 +213,5 @@ export async function POST(req: NextRequest) {
     maxAge: 7 * 24 * 60 * 60,
   });
 
-  return Response.json({ ok: true, redirect: "/events" });
+  return Response.json({ ok: true, redirect: "/pending" });
 }

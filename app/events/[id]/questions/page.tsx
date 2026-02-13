@@ -1,7 +1,5 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { cookies } from "next/headers";
-import { verifySessionToken } from "@/lib/auth/sessionToken";
+import { requireApprovedUser } from "@/lib/auth/requireApprovedUser";
 import { getServiceSupabaseClient } from "@/lib/supabase/serverClient";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { QuestionForm } from "./QuestionForm";
@@ -86,12 +84,7 @@ async function getEventQuestionsData(eventId: string, profileId: string) {
 
 export default async function EventQuestionsPage(props: EventQuestionsPageProps) {
   const { id: eventId } = await props.params;
-  const cookieStore = await cookies();
-  const token = cookieStore.get("ns_session")?.value;
-  const session = verifySessionToken(token);
-  if (!session) {
-    redirect("/");
-  }
+  const session = await requireApprovedUser();
 
   const {
     eventTitle,

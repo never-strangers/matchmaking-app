@@ -1,6 +1,5 @@
 import { NextRequest } from "next/server";
-import { cookies } from "next/headers";
-import { verifySessionToken } from "@/lib/auth/sessionToken";
+import { requireApprovedUserForApi } from "@/lib/auth/requireApprovedUser";
 import { getServiceSupabaseClient } from "@/lib/supabase/serverClient";
 
 type Body = {
@@ -12,12 +11,9 @@ export async function POST(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("ns_session")?.value;
-  const session = verifySessionToken(token);
-  if (!session) {
-    return new Response("Unauthorized", { status: 401 });
-  }
+  const auth = await requireApprovedUserForApi();
+  if (auth instanceof Response) return auth;
+  const { profile_id } = auth;
 
   const { id: eventId } = await context.params;
   let body: Body;
@@ -42,7 +38,7 @@ export async function POST(
       {
         event_id: eventId,
         question_id: questionId,
-        profile_id: session.profile_id,
+        profile_id,
         answer: { value },
         updated_at: new Date().toISOString(),
       },

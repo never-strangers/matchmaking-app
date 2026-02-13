@@ -14,6 +14,7 @@
     "download-media": "node scripts/download-media.js"
   },
   "dependencies": {
+    "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.39.0",
     "next": "^15.0.0",
     "react": "^18.3.1",

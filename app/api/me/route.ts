@@ -1,20 +1,20 @@
-import { cookies } from "next/headers";
-import { verifySessionToken } from "@/lib/auth/sessionToken";
+import { getAuthUser } from "@/lib/auth/getAuthUser";
 
 export async function GET() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("ns_session")?.value;
-  const session = verifySessionToken(token);
-  if (!session) {
+  const auth = await getAuthUser();
+  if (!auth) {
     return new Response("Unauthorized", { status: 401 });
   }
 
   return Response.json({
-    profile_id: session.profile_id,
-    invited_user_id: session.invited_user_id,
-    role: session.role,
-    phone_e164: session.phone_e164,
-    display_name: session.display_name,
+    profile_id: auth.profile_id,
+    invited_user_id: auth.invited_user_id,
+    role: auth.role,
+    phone_e164: auth.phone_e164,
+    display_name: auth.display_name,
+    avatar_path: auth.avatar_path ?? null,
+    avatar_updated_at: auth.avatar_updated_at ?? null,
+    status: auth.status,
   });
 }
 

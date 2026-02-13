@@ -1,7 +1,5 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { cookies } from "next/headers";
-import { verifySessionToken } from "@/lib/auth/sessionToken";
+import { requireApprovedUser } from "@/lib/auth/requireApprovedUser";
 import { getServiceSupabaseClient } from "@/lib/supabase/serverClient";
 import { getMatchesForUser } from "@/lib/matching/questionnaireMatch";
 import type {
@@ -27,12 +25,7 @@ type MatchRow = {
 };
 
 export default async function MatchPage() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("ns_session")?.value;
-  const session = verifySessionToken(token);
-  if (!session) {
-    redirect("/");
-  }
+  const session = await requireApprovedUser();
 
   const supabase = getServiceSupabaseClient();
 

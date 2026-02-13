@@ -60,9 +60,10 @@ export default function VerificationPage() {
       const userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       const user = createOrUpdateUser({
         id: userId,
-        name: `${registrationData.firstName} ${registrationData.lastName}`.trim(),
+        name:
+          `${registrationData.firstName ?? ""} ${registrationData.lastName ?? ""}`.trim() || "User",
         email: registrationData.email,
-        phone: registrationData.phone,
+        phone: registrationData.phone_e164 ?? registrationData.phone,
         age: registrationData.birthDate
           ? new Date().getFullYear() -
             new Date(registrationData.birthDate).getFullYear()
@@ -75,9 +76,9 @@ export default function VerificationPage() {
             [],
           lookingFor: registrationData.lookingFor || [],
         },
-        profilePhotoUrl: registrationData.profilePhoto
-          ? URL.createObjectURL(registrationData.profilePhoto)
-          : undefined,
+        profilePhotoUrl:
+          registrationData.profilePhotoDataUrl ||
+          (registrationData.profilePhoto ? URL.createObjectURL(registrationData.profilePhoto) : undefined),
         questionnaireAnswers: {},
         status: "unverified",
       });

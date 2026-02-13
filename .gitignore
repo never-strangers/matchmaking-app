@@ -10,6 +10,7 @@
 /fish_scan
 /supabase/.temp/
 
+
 # next.js
 /.next/
 /out/

@@ -250,6 +250,8 @@ export function addEvent(event: DemoEvent): void {
 // Registration Data (for register flow)
 export interface RegistrationData {
   email?: string;
+  phone?: string;
+  phone_e164?: string;
   firstName?: string;
   lastName?: string;
   password?: string;
@@ -261,6 +263,7 @@ export interface RegistrationData {
   whyNeverStrangers?: string;
   instagram?: string;
   profilePhoto?: File | null;
+  profilePhotoDataUrl?: string; // Base64 data URL for localStorage
   termsAccepted?: boolean;
   privacyAccepted?: boolean;
 }
