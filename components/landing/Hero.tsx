@@ -47,16 +47,16 @@ export default function Hero() {
         </div>
         <div className="mt-4 sm:mt-6 lg:mt-0">
           <div
-            className="rounded-2xl overflow-hidden w-full max-w-md sm:max-w-none mx-auto lg:mx-0"
-            style={{ boxShadow: "var(--shadow-lg)" }}
+            className="rounded-2xl overflow-hidden w-full max-w-md sm:max-w-none mx-auto lg:mx-0 relative aspect-[3/4] min-h-[280px]"
+            style={{ boxShadow: "var(--shadow-lg)", backgroundColor: "var(--bg-muted, #f5f5f5)" }}
           >
             <Image
               src="/landing/carousel-7.webp"
               alt="People connecting at a Never Strangers event"
-              width={600}
-              height={800}
-              className="w-full h-auto object-cover aspect-[3/4]"
+              fill
+              className="object-cover"
               priority
+              unoptimized
               sizes="(max-width: 640px) 448px, (max-width: 1024px) 50vw, 600px"
             />
           </div>
