@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -35,12 +35,41 @@ function isAtLeast18(dob: string | null): boolean {
   return age >= MIN_AGE;
 }
 
-export function ProfileForm({ initialProfile }: { initialProfile: Profile }) {
+const RESET_COOLDOWN_SECONDS = 30;
+
+export function ProfileForm({
+  initialProfile,
+  showResetSuccess = false,
+}: {
+  initialProfile: Profile;
+  showResetSuccess?: boolean;
+}) {
   const [profile, setProfile] = useState<Profile>(initialProfile);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [resetState, setResetState] = useState<"idle" | "sending" | "sent">("idle");
+  const [resetCooldown, setResetCooldown] = useState(0);
+  const resetCooldownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [showResetSuccessToast, setShowResetSuccessToast] = useState(showResetSuccess);
+
+  useEffect(() => {
+    if (showResetSuccess) {
+      setShowResetSuccessToast(true);
+      if (typeof window !== "undefined") {
+        window.history.replaceState({}, "", window.location.pathname);
+      }
+      const t = setTimeout(() => setShowResetSuccessToast(false), 4000);
+      return () => clearTimeout(t);
+    }
+  }, [showResetSuccess]);
+
+  useEffect(() => {
+    return () => {
+      if (resetCooldownRef.current) clearInterval(resetCooldownRef.current);
+    };
+  }, []);
 
   const handleChange = (field: keyof ProfileUpdateInput, value: string | null) => {
     setProfile((p) => ({ ...p, [field]: value ?? "" }));
@@ -149,6 +178,19 @@ export function ProfileForm({ initialProfile }: { initialProfile: Profile }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {showResetSuccessToast && (
+        <div
+          role="status"
+          className="rounded-xl px-4 py-3 text-sm bg-[var(--success)]/20 text-[var(--success)] flex items-center gap-3"
+          data-testid="reset-success-toast"
+        >
+          <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+          <p className="font-medium">Password updated successfully.</p>
+        </div>
+      )}
+
       {/* Profile Photo */}
       <Card padding="md">
         <span className={SECTION_LABEL}>Profile Photo</span>
@@ -214,6 +256,66 @@ export function ProfileForm({ initialProfile }: { initialProfile: Profile }) {
             maxLength={50}
             data-testid="profile-username"
           />
+        </div>
+      </Card>
+
+      {/* Security */}
+      <Card padding="md" data-testid="profile-security-section">
+        <span className={SECTION_LABEL}>Security</span>
+        <p className="text-sm text-[var(--text-muted)] mb-3">
+          Manage your account security.
+        </p>
+        <div className="border rounded-xl border-[var(--border)] p-4 bg-[var(--bg-panel)]">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <p className="text-sm font-medium text-[var(--text)]">Password</p>
+              <p className="text-xs text-[var(--text-muted)] mt-0.5">
+                We&apos;ll send a reset link to your account email.
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={async () => {
+                if (resetState !== "idle" || resetCooldown > 0) return;
+                setResetState("sending");
+                try {
+                  const res = await fetch("/api/auth/reset-password", {
+                    method: "POST",
+                    credentials: "include",
+                  });
+                  if (res.ok) {
+                    setResetState("sent");
+                    setResetCooldown(RESET_COOLDOWN_SECONDS);
+                    resetCooldownRef.current = setInterval(() => {
+                      setResetCooldown((prev) => {
+                        if (prev <= 1) {
+                          if (resetCooldownRef.current) clearInterval(resetCooldownRef.current);
+                          return 0;
+                        }
+                        return prev - 1;
+                      });
+                    }, 1000);
+                  }
+                } catch {
+                  setResetState("idle");
+                }
+              }}
+              disabled={resetState === "sending" || resetCooldown > 0}
+              data-testid="profile-reset-password-btn"
+            >
+              {resetState === "sending"
+                ? "Sending…"
+                : resetCooldown > 0
+                ? `Resend in ${resetCooldown}s`
+                : "Reset password"}
+            </Button>
+          </div>
+          {resetState === "sent" && (
+            <p className="mt-3 text-sm text-[var(--text-muted)]" data-testid="profile-reset-sent-msg">
+              If an account exists for this email, you&apos;ll receive a reset link shortly. Check your inbox and spam folder.
+            </p>
+          )}
         </div>
       </Card>
 

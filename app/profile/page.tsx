@@ -162,9 +162,13 @@ async function ensureProfile(profileId: string, displayName: string, phoneE164: 
     wp_registered_at: (inserted.wp_registered_at as string) ?? null,
     wp_source: (inserted.wp_source as Record<string, unknown>) ?? null,
   };
-}
+}   https://jlcqtfxqaxbvnbnvsptb.supabase.co/auth/v1/verify?token=5f55fd9a7acd30de67e2656174ec3b3aa71e5ac2f78710abaeee1b5f&type=recovery&redirect_to=http://localhost:3000
 
-export default async function ProfilePage() {
+export default async function ProfilePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ reset?: string }>;
+}) {
   const auth = await getAuthUser();
   if (!auth) {
     redirect("/login");
@@ -176,13 +180,18 @@ export default async function ProfilePage() {
     auth.phone_e164 ?? null
   );
 
+  const { reset } = await searchParams;
+
   return (
     <div className="max-w-2xl mx-auto px-4 py-8 sm:py-12">
       <PageHeader
         title="Profile"
         subtitle="Manage your account and preferences"
       />
-      <ProfileForm initialProfile={profile} />
+      <ProfileForm
+        initialProfile={profile}
+        showResetSuccess={reset === "success"}
+      />
     </div>
   );
 }

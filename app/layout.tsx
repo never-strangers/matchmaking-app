@@ -5,6 +5,7 @@ import NavBar from "@/components/NavBar";
 import RouteGuard from "@/components/RouteGuard";
 import DemoDataInit from "@/components/DemoDataInit";
 import { SessionBanner } from "@/components/SessionBanner";
+import AuthRecoveryRedirect from "@/components/AuthRecoveryRedirect";
 import "./globals.css";
 
 const DEFAULT_DESC =
@@ -66,6 +67,7 @@ export default function RootLayout({
             </div>
           </header>
           <SessionBanner />
+          <AuthRecoveryRedirect />
           <main>{children}</main>
           <DemoDataInit />
         </RouteGuard>

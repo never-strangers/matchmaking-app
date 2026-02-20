@@ -14,12 +14,20 @@ function isValidEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 }
 
+const RESET_COOLDOWN_SECONDS = 60;
+
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  const [showForgot, setShowForgot] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotSent, setForgotSent] = useState(false);
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotCooldown, setForgotCooldown] = useState(0);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -89,6 +97,31 @@ export default function LoginPage() {
     }
   };
 
+  const handleForgotSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = forgotEmail.trim();
+    if (!trimmed || !isValidEmail(trimmed) || forgotLoading || forgotCooldown > 0) return;
+    setForgotLoading(true);
+    try {
+      await fetch("/api/auth/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: trimmed }),
+      });
+    } catch {
+      /* generic message either way */
+    }
+    setForgotSent(true);
+    setForgotLoading(false);
+    setForgotCooldown(RESET_COOLDOWN_SECONDS);
+    const t = setInterval(() => {
+      setForgotCooldown((prev) => {
+        if (prev <= 1) clearInterval(t);
+        return Math.max(0, prev - 1);
+      });
+    }, 1000);
+  };
+
   return (
     <div className="max-w-2xl mx-auto px-4 py-8 sm:py-12">
       <PageHeader
@@ -149,8 +182,75 @@ export default function LoginPage() {
           >
             {loading ? "Logging in…" : "Login"}
           </Button>
+
+          <p className="text-center text-sm" style={{ color: "var(--text-muted)" }}>
+            <button
+              type="button"
+              onClick={() => setShowForgot(true)}
+              className="hover:underline"
+              data-testid="login-forgot-password"
+            >
+              Forgot password?
+            </button>
+          </p>
         </form>
       </Card>
+
+      {showForgot && (
+        <Card className="mt-4">
+          <h3 className="text-sm font-semibold mb-1" style={{ color: "var(--text)" }}>
+            Reset password
+          </h3>
+          {!forgotSent ? (
+            <>
+              <p className="text-sm mb-4" style={{ color: "var(--text-muted)" }}>
+                We&apos;ll email you a secure link to reset your password.
+              </p>
+              <form onSubmit={handleForgotSubmit} className="space-y-4">
+                <Input
+                  label="Email"
+                  type="email"
+                  value={forgotEmail}
+                  onChange={(e) => setForgotEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  required
+                  autoComplete="email"
+                  data-testid="forgot-email"
+                />
+                <Button
+                  type="submit"
+                  variant="secondary"
+                  fullWidth
+                  disabled={forgotLoading || forgotCooldown > 0}
+                  data-testid="forgot-submit"
+                >
+                  {forgotLoading
+                    ? "Sending…"
+                    : forgotCooldown > 0
+                    ? `Resend in ${forgotCooldown}s`
+                    : "Send reset link"}
+                </Button>
+              </form>
+            </>
+          ) : (
+            <p className="text-sm" style={{ color: "var(--text-muted)" }} data-testid="forgot-sent">
+              If an account exists for this email, you&apos;ll receive a reset link shortly. Check your inbox and spam folder.
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              setShowForgot(false);
+              setForgotSent(false);
+              setForgotEmail("");
+            }}
+            className="mt-3 text-sm hover:underline"
+            style={{ color: "var(--text-muted)" }}
+          >
+            Back to login
+          </button>
+        </Card>
+      )}
 
       <p className="mt-4 text-center text-sm" style={{ color: "var(--text-muted)" }}>
         New? <Link href="/register" className="hover:underline">Register</Link>.
