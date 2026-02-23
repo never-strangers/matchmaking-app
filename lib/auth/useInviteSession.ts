@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { usePathname } from "next/navigation";
 
 type InviteUser = {
   profileId: string;
@@ -20,6 +21,7 @@ type State = {
 };
 
 export function useInviteSession() {
+  const pathname = usePathname();
   const [state, setState] = useState<State>({
     user: null,
     isLoading: true,
@@ -53,11 +55,23 @@ export function useInviteSession() {
   }, []);
 
   useEffect(() => {
+    // Skip /api/me on reset-password page — session hasn't been established yet
+    // (PKCE code= or implicit hash tokens are consumed by the page itself)
+    const isResetPage =
+      pathname === "/auth/reset-password" &&
+      typeof window !== "undefined" &&
+      (window.location.search?.includes("code=") ||
+        window.location.hash?.includes("access_token=") ||
+        window.location.hash?.includes("type=recovery"));
+    if (isResetPage) {
+      setState({ user: null, isLoading: false });
+      return;
+    }
     void load();
     const onProfileUpdate = () => void load();
     window.addEventListener("profile-avatar-updated", onProfileUpdate);
     return () => window.removeEventListener("profile-avatar-updated", onProfileUpdate);
-  }, [load]);
+  }, [load, pathname]);
 
   const logout = useCallback(async () => {
     try {

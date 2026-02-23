@@ -7,6 +7,10 @@ import { createClient } from "@/lib/supabase/client";
 
 const MIN_PASSWORD_LENGTH = 8;
 
+// Capture hash at module load — before Supabase client init can clear it
+const CAPTURED_HASH =
+  typeof window !== "undefined" ? window.location.hash : "";
+
 function validatePassword(password: string): string | null {
   if (password.length < MIN_PASSWORD_LENGTH) {
     return `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`;
@@ -30,92 +34,69 @@ function ResetPasswordContent() {
   const [fieldError, setFieldError] = useState<string>("");
 
   const bootstrap = useCallback(async () => {
-    const supabase = createClient();
-    const code = searchParams.get("code");
-    const urlError = searchParams.get("error");
+    try {
+      const hash = CAPTURED_HASH || (typeof window !== "undefined" ? window.location.hash : "");
+      const code = searchParams.get("code");
+      const urlError = searchParams.get("error");
 
-    if (urlError) {
-      setErrorMessage("This reset link is invalid or has expired.");
-      setPageState("error");
-      return;
-    }
-
-    if (code) {
-      const { error } = await supabase.auth.exchangeCodeForSession(code);
-      if (error) {
-        setErrorMessage("This reset link is invalid or has already been used.");
+      if (urlError) {
+        setErrorMessage("This reset link is invalid or has expired.");
         setPageState("error");
         return;
       }
-    }
 
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        if (event === "PASSWORD_RECOVERY" && session) {
-          setPageState("ready");
-        }
+      const supabase = createClient();
+
+      // Check for existing session first — handles React strict mode double-render
+      // where the code was already exchanged on the first render
+      const { data: existingSession } = await supabase.auth.getSession();
+      if (existingSession.session) {
+        setPageState("ready");
+        return;
       }
-    );
 
-    const { data: sessionData } = await supabase.auth.getSession();
-    if (sessionData.session) {
-      setPageState("ready");
-      return () => listener.subscription.unsubscribe();
-    }
+      // PKCE flow: exchange the code for a session
+      if (code) {
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        if (error) {
+          setErrorMessage("This reset link is invalid or has already been used.");
+          setPageState("error");
+          return;
+        }
+        setPageState("ready");
+        return;
+      }
 
-    const hasRecoveryHash = () =>
-      typeof window !== "undefined" &&
-      !!window.location.hash &&
-      (window.location.hash.includes("type=recovery") ||
-        window.location.hash.includes("access_token="));
+      // Implicit flow: tokens in URL hash — parse and set session explicitly
+      if (hash) {
+        const params = new URLSearchParams(hash.replace(/^#/, ""));
+        const accessToken = params.get("access_token");
+        const refreshToken = params.get("refresh_token");
 
-    const waitForSessionOrShowError = () => {
-      const maxWait = 4000;
-      const interval = 200;
-      let elapsed = 0;
-      const poll = () => {
-        supabase.auth.getSession().then(({ data }) => {
-          if (data.session) {
-            setPageState("ready");
-            return;
-          }
-          elapsed += interval;
-          if (elapsed < maxWait) {
-            setTimeout(poll, interval);
-          } else {
+        if (accessToken && refreshToken) {
+          const { error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+          if (error) {
             setErrorMessage(
-              "No recovery session found. Please request a new reset link."
+              error.message || "This reset link is invalid or has already been used."
             );
             setPageState("error");
+            return;
           }
-        });
-      };
-      poll();
-    };
-
-    if (hasRecoveryHash()) {
-      const t = setTimeout(waitForSessionOrShowError, 100);
-      return () => {
-        clearTimeout(t);
-        listener.subscription.unsubscribe();
-      };
-    }
-
-    const deferredCheck = setTimeout(() => {
-      if (hasRecoveryHash()) {
-        waitForSessionOrShowError();
-      } else {
-        setErrorMessage(
-          "No recovery session found. Please request a new reset link."
-        );
-        setPageState("error");
+          setPageState("ready");
+          return;
+        }
       }
-    }, 100);
 
-    return () => {
-      clearTimeout(deferredCheck);
-      listener.subscription.unsubscribe();
-    };
+      setErrorMessage("No recovery session found. Please request a new reset link.");
+      setPageState("error");
+    } catch (err) {
+      console.error("[reset-password] bootstrap error:", err);
+      setErrorMessage("Something went wrong. Please request a new reset link.");
+      setPageState("error");
+    }
   }, [searchParams]);
 
   useEffect(() => {
@@ -138,6 +119,16 @@ function ResetPasswordContent() {
 
     setPageState("submitting");
     const supabase = createClient();
+
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData.session) {
+      setFieldError(
+        "Your session expired. Please request a new reset link and open it in the same browser where you requested it."
+      );
+      setPageState("ready");
+      return;
+    }
+
     const { error } = await supabase.auth.updateUser({ password });
 
     if (error) {

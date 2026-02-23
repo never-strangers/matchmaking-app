@@ -280,23 +280,35 @@ export function ProfileForm({
                 if (resetState !== "idle" || resetCooldown > 0) return;
                 setResetState("sending");
                 try {
-                  const res = await fetch("/api/auth/reset-password", {
-                    method: "POST",
-                    credentials: "include",
-                  });
-                  if (res.ok) {
-                    setResetState("sent");
-                    setResetCooldown(RESET_COOLDOWN_SECONDS);
-                    resetCooldownRef.current = setInterval(() => {
-                      setResetCooldown((prev) => {
-                        if (prev <= 1) {
-                          if (resetCooldownRef.current) clearInterval(resetCooldownRef.current);
-                          return 0;
-                        }
-                        return prev - 1;
-                      });
-                    }, 1000);
+                  const { createClient } = await import("@/lib/supabase/client");
+                  const supabase = createClient();
+                  const { data: { user } } = await supabase.auth.getUser();
+                  const email = user?.email ?? profile.email?.trim();
+                  if (!email) {
+                    setResetState("idle");
+                    return;
                   }
+                  const siteUrl =
+                    typeof window !== "undefined"
+                      ? window.location.origin
+                      : (process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || "");
+                  const redirectTo = `${siteUrl.replace(/\/$/, "")}/auth/reset-password`;
+                  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+                  if (error) {
+                    setResetState("idle");
+                    return;
+                  }
+                  setResetState("sent");
+                  setResetCooldown(RESET_COOLDOWN_SECONDS);
+                  resetCooldownRef.current = setInterval(() => {
+                    setResetCooldown((prev) => {
+                      if (prev <= 1) {
+                        if (resetCooldownRef.current) clearInterval(resetCooldownRef.current);
+                        return 0;
+                      }
+                      return prev - 1;
+                    });
+                  }, 1000);
                 } catch {
                   setResetState("idle");
                 }
