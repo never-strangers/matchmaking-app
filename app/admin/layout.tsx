@@ -1,20 +1,16 @@
 import { redirect } from "next/navigation";
-import { cookies } from "next/headers";
-import { verifySessionToken } from "@/lib/auth/sessionToken";
+import { getAuthUser } from "@/lib/auth/getAuthUser";
 
 export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("ns_session")?.value;
-  const session = verifySessionToken(token);
-
-  if (!session) {
+  const user = await getAuthUser();
+  if (!user) {
     redirect("/");
   }
-  if (session.role !== "admin") {
+  if (user.role !== "admin") {
     redirect("/events");
   }
 

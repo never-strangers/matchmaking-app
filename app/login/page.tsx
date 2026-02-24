@@ -81,6 +81,9 @@ export default function LoginPage() {
         return;
       }
 
+      // Set ns_session cookie so server-rendered admin and layout see the session
+      await fetch("/api/auth/sync-session", { method: "POST", credentials: "include" });
+
       // Ensure profile exists and get status for redirect
       const res = await fetch("/api/profile", { credentials: "include" });
       const profile = res.ok ? await res.json().catch(() => null) : null;

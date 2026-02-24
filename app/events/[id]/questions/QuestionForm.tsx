@@ -16,8 +16,10 @@ type Props = {
   eventTitle: string;
   questions: Question[];
   initialAnswers: Record<string, number>;
-  /** True when answers were already saved (from server). Green badge only when this or after Save. */
   initialIsComplete?: boolean;
+  paymentRequired?: boolean;
+  priceCents?: number;
+  paymentStatus?: string;
 };
 
 export function QuestionForm({
@@ -26,6 +28,9 @@ export function QuestionForm({
   questions,
   initialAnswers,
   initialIsComplete = false,
+  paymentRequired = false,
+  priceCents = 0,
+  paymentStatus = "unpaid",
 }: Props) {
   const router = useRouter();
   const [answers, setAnswers] = useState<Record<string, number>>({});
@@ -76,6 +81,13 @@ export function QuestionForm({
     setAnswers((prev) => ({ ...prev, [questionId]: value }));
   };
 
+  const showPayStep =
+    (hasSavedOnce || initialIsComplete) &&
+    allFilled &&
+    paymentRequired &&
+    priceCents > 0 &&
+    paymentStatus !== "paid";
+
   const handleConfirm = async () => {
     if (!allFilled) return;
     setSaving(true);
@@ -95,11 +107,40 @@ export function QuestionForm({
         )
       );
       setHasSavedOnce(true);
-      router.push("/events");
+      if (!paymentRequired || priceCents <= 0 || paymentStatus === "paid") {
+        router.push("/events");
+      }
     } catch (err) {
       console.error("Failed to save answers", err);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const [payLoading, setPayLoading] = useState(false);
+  const handlePayNow = async () => {
+    setPayLoading(true);
+    try {
+      const res = await fetch("/api/stripe/create-checkout-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ event_id: eventId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        alert(data?.error || "Failed to start checkout");
+        return;
+      }
+      if (data?.url) {
+        window.location.href = data.url;
+        return;
+      }
+    } catch (err) {
+      console.error("Checkout error:", err);
+      alert("Something went wrong. Please try again.");
+    } finally {
+      setPayLoading(false);
     }
   };
 
@@ -190,6 +231,25 @@ export function QuestionForm({
           {allFilled ? "Save Answers" : "Complete all questions"}
         </Button>
       </div>
+
+      {showPayStep && (
+        <div
+          className="mt-6 pt-6 border-t flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+          style={{ borderColor: "var(--border)" }}
+        >
+          <p className="text-sm" style={{ color: "var(--text)" }}>
+            Pay to confirm your seat — {(priceCents / 100).toFixed(2)} SGD
+          </p>
+          <Button
+            onClick={handlePayNow}
+            size="md"
+            disabled={payLoading}
+            data-testid="pay-to-confirm-button"
+          >
+            {payLoading ? "Redirecting…" : "Pay now"}
+          </Button>
+        </div>
+      )}
     </Card>
   );
 }

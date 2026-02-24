@@ -22,6 +22,8 @@ export default function AdminCreateEventPage() {
   const [description, setDescription] = useState("");
   const [startAt, setStartAt] = useState("");
   const [city, setCity] = useState("");
+  const [priceCents, setPriceCents] = useState("");
+  const [paymentRequired, setPaymentRequired] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -54,6 +56,8 @@ export default function AdminCreateEventPage() {
           description: description.trim() || undefined,
           start_at: startAt || undefined,
           city: city || undefined,
+          price_cents: priceCents === "" ? 0 : parseInt(priceCents, 10) || 0,
+          payment_required: paymentRequired,
         }),
       });
 
@@ -156,6 +160,31 @@ export default function AdminCreateEventPage() {
                 </option>
               ))}
             </select>
+          </div>
+
+          <Input
+            label="Price (SGD cents)"
+            type="number"
+            min={0}
+            placeholder="e.g. 5000 for 50.00 SGD"
+            value={priceCents}
+            onChange={(e) => setPriceCents(e.target.value)}
+            disabled={isSubmitting}
+            data-testid="create-event-price-cents"
+          />
+
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="payment-required"
+              checked={paymentRequired}
+              onChange={(e) => setPaymentRequired(e.target.checked)}
+              disabled={isSubmitting}
+              className="w-4 h-4 text-[var(--primary)] border-[var(--border)] rounded focus:ring-[var(--primary)]"
+            />
+            <label htmlFor="payment-required" className="text-sm font-medium text-[var(--text)]">
+              Payment required to confirm seat
+            </label>
           </div>
 
           <div className="flex gap-3 pt-2">

@@ -558,6 +558,7 @@ npm install
 # Create .env.local file with:
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+# Optional for Stripe payment: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, NEXT_PUBLIC_APP_URL
 
 # 4. Run locally
 npm run dev
@@ -567,6 +568,16 @@ npm run dev
 ```
 
 > 📖 **For a complete demo walkthrough, see [DEMO_FLOW.md](./DEMO_FLOW.md)**
+
+### Stripe payment (local)
+
+To test per-event payment locally:
+
+1. Use **test** keys in `.env.local`: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `NEXT_PUBLIC_APP_URL=http://localhost:3000`.
+2. In a separate terminal: `stripe listen --forward-to localhost:3000/api/stripe/webhook` (use the printed `whsec_...` as `STRIPE_WEBHOOK_SECRET`).
+3. Run the app, create a paid event (admin), complete questions, then use **Pay now**; pay with test card `4242 4242 4242 4242`.
+
+See **[docs/STRIPE_LOCAL_TESTING.md](./docs/STRIPE_LOCAL_TESTING.md)** for full steps and webhook simulation.
 
 ---
 

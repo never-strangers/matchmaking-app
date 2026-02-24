@@ -1,17 +1,14 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { cookies } from "next/headers";
-import { verifySessionToken } from "@/lib/auth/sessionToken";
+import { getAuthUser } from "@/lib/auth/getAuthUser";
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 
 export default async function AdminPage() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("ns_session")?.value;
-  const session = verifySessionToken(token);
-  if (!session) redirect("/");
-  if (session.role !== "admin") redirect("/events");
+  const user = await getAuthUser();
+  if (!user) redirect("/");
+  if (user.role !== "admin") redirect("/events");
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 sm:py-8">

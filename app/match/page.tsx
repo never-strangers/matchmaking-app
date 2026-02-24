@@ -29,10 +29,9 @@ export default async function MatchPage() {
 
   const supabase = getServiceSupabaseClient();
 
-  // For now, use the single seeded demo event
   const { data: events } = await supabase
     .from("events")
-    .select("id, title, status")
+    .select("id, title, status, payment_required")
     .eq("status", "live")
     .order("created_at", { ascending: true });
 
@@ -51,29 +50,45 @@ export default async function MatchPage() {
     );
   }
 
-  const event = events[0];
+  const eventIds = events.map((e) => e.id);
+  const { data: attendeeRows } = await supabase
+    .from("event_attendees")
+    .select("event_id, payment_status")
+    .eq("profile_id", session.profile_id)
+    .in("event_id", eventIds);
 
-  // Matches are only available after admin has run matching for this event.
+  const paidOrNotRequiredEventIds = eventIds.filter((eid) => {
+    const ev = events.find((e) => e.id === eid);
+    const paymentRequired = (ev as { payment_required?: boolean })?.payment_required !== false;
+    const att = (attendeeRows || []).find((r: { event_id: string }) => String(r.event_id) === String(eid));
+    const paid = (att as { payment_status?: string })?.payment_status === "paid";
+    return att && (!paymentRequired || paid);
+  });
+
   const { data: runRows } = await supabase
     .from("match_runs")
-    .select("id")
-    .eq("event_id", event.id)
+    .select("event_id")
+    .in("event_id", paidOrNotRequiredEventIds)
     .eq("status", "done")
-    .limit(1);
+    .order("finished_at", { ascending: false });
 
-  const matchesRun = (runRows?.length ?? 0) > 0;
+  const eventIdWithMatches = runRows?.[0]?.event_id;
+  const event = eventIdWithMatches
+    ? events.find((e) => e.id === eventIdWithMatches) ?? events[0]
+    : events[0];
 
-  if (!matchesRun) {
+  if (!eventIdWithMatches) {
+    const hasPaidEvent = paidOrNotRequiredEventIds.length > 0;
     return (
       <div className="max-w-5xl mx-auto px-4 py-8 sm:py-12">
         <PageHeader
           title="Your Matches"
-          subtitle="Matches will appear after the host runs matching for this event."
+          subtitle={hasPaidEvent ? "Matches will appear after the host runs matching for your event." : "Join an event and pay to confirm your seat to see matches."}
         />
         <Card padding="lg">
           <EmptyState
             title="No matches yet"
-            description="Once the host runs matching, your top matches will appear here."
+            description={hasPaidEvent ? "Once the host runs matching, your top matches will appear here." : "Complete an event questionnaire and pay to confirm your seat, then matches will appear here after matching is run."}
           />
         </Card>
         <div className="mt-8">
@@ -89,7 +104,7 @@ export default async function MatchPage() {
     );
   }
 
-  // Load all answers for this event
+  // Load all answers for this event (event already has match_runs done)
   const { data: answerRows } = await supabase
     .from("answers")
     .select("profile_id, question_id, answer")

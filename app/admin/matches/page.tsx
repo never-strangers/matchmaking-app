@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { cookies } from "next/headers";
-import { verifySessionToken } from "@/lib/auth/sessionToken";
+import { getAuthUser } from "@/lib/auth/getAuthUser";
 import { getServiceSupabaseClient } from "@/lib/supabase/serverClient";
 import AdminShell from "@/components/admin/AdminShell";
 import Card from "@/components/admin/Card";
@@ -22,9 +21,7 @@ export default async function AdminMatchesPage({
 }: {
   searchParams: Promise<{ event?: string }>;
 }) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("ns_session")?.value;
-  const session = verifySessionToken(token);
+  const session = await getAuthUser();
   if (!session) redirect("/");
   if (session.role !== "admin") redirect("/events");
 

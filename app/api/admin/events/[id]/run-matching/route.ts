@@ -1,6 +1,5 @@
 import { NextRequest } from "next/server";
-import { cookies } from "next/headers";
-import { verifySessionToken } from "@/lib/auth/sessionToken";
+import { getAuthUser } from "@/lib/auth/getAuthUser";
 import { getServiceSupabaseClient } from "@/lib/supabase/serverClient";
 import { getMatchesForUser } from "@/lib/matching/questionnaireMatch";
 import type { QuestionnaireAnswers, MatchUser, Question } from "@/types/questionnaire";
@@ -9,10 +8,7 @@ export async function POST(
   _req: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("ns_session")?.value;
-  const session = verifySessionToken(token);
-
+  const session = await getAuthUser();
   if (!session) {
     return new Response("Unauthorized", { status: 401 });
   }
