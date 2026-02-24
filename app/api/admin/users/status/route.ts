@@ -1,15 +1,11 @@
 import { NextRequest } from "next/server";
-import { cookies } from "next/headers";
-import { verifySessionToken } from "@/lib/auth/sessionToken";
+import { getAuthUser } from "@/lib/auth/getAuthUser";
 import { getServiceSupabaseClient } from "@/lib/supabase/serverClient";
 
 const VALID_STATUSES = ["approved", "rejected", "pending_verification"] as const;
 
 export async function POST(req: NextRequest) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("ns_session")?.value;
-  const session = verifySessionToken(token);
-
+  const session = await getAuthUser();
   if (!session) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,

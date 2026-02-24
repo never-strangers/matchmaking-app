@@ -1,6 +1,5 @@
 import { NextRequest } from "next/server";
-import { cookies } from "next/headers";
-import { verifySessionToken } from "@/lib/auth/sessionToken";
+import { getAuthUser } from "@/lib/auth/getAuthUser";
 import { getServiceSupabaseClient } from "@/lib/supabase/serverClient";
 
 export type CreateEventBody = {
@@ -8,6 +7,8 @@ export type CreateEventBody = {
   description?: string;
   start_at?: string;
   city?: string;
+  price_cents?: number;
+  payment_required?: boolean;
 };
 
 const DEFAULT_QUESTIONS: { prompt: string; type: string; options: null; weight: number; order_index: number }[] = [
@@ -38,7 +39,9 @@ async function createEventWithDirectInserts(
   name: string,
   description: string | null,
   start_at: string | null,
-  city: string | null
+  city: string | null,
+  price_cents: number = 0,
+  payment_required: boolean = true
 ): Promise<string | null> {
   const { data: event, error: eventError } = await supabase
     .from("events")
@@ -47,7 +50,10 @@ async function createEventWithDirectInserts(
       description: description || null,
       start_at: start_at || null,
       city: city || null,
-      status: "draft",
+      status: "live",
+      price_cents: price_cents,
+      currency: "sgd",
+      payment_required: payment_required,
     })
     .select("id")
     .single();
@@ -79,10 +85,7 @@ async function createEventWithDirectInserts(
 }
 
 export async function POST(req: NextRequest) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("ns_session")?.value;
-  const session = verifySessionToken(token);
-
+  const session = await getAuthUser();
   if (!session) {
     return new Response("Unauthorized", { status: 401 });
   }
@@ -117,21 +120,24 @@ export async function POST(req: NextRequest) {
   const startAt = body.start_at || null;
   const city = body.city?.trim() || null;
 
-  // Try RPC first (when migration 009 is applied)
+  const priceCents = typeof body.price_cents === "number" && body.price_cents >= 0 ? body.price_cents : 0;
+  const paymentRequired = body.payment_required !== false;
+
   const { data: eventId, error } = await supabase.rpc("create_event_with_default_questions", {
     p_name: name,
     p_description: description,
     p_start_at: startAt,
     p_city: city,
+    p_price_cents: priceCents,
+    p_payment_required: paymentRequired,
   });
 
   if (!error) {
     return Response.json({ ok: true, event_id: eventId });
   }
 
-  // PGRST202 = function not found; fallback to direct inserts (works without migration 009)
-  if (error.code === "PGRST202") {
-    const id = await createEventWithDirectInserts(supabase, name, description, startAt, city);
+  if (error?.code === "PGRST202" || (error && String(error.message).includes("function"))) {
+    const id = await createEventWithDirectInserts(supabase, name, description, startAt, city, priceCents, paymentRequired);
     if (id) {
       return Response.json({ ok: true, event_id: id });
     }

@@ -51,6 +51,7 @@ function ResetPasswordContent() {
       // where the code was already exchanged on the first render
       const { data: existingSession } = await supabase.auth.getSession();
       if (existingSession.session) {
+        await fetch("/api/auth/sync-session", { method: "POST", credentials: "include" });
         setPageState("ready");
         return;
       }
@@ -63,6 +64,7 @@ function ResetPasswordContent() {
           setPageState("error");
           return;
         }
+        await fetch("/api/auth/sync-session", { method: "POST", credentials: "include" });
         setPageState("ready");
         return;
       }
@@ -85,6 +87,7 @@ function ResetPasswordContent() {
             setPageState("error");
             return;
           }
+          await fetch("/api/auth/sync-session", { method: "POST", credentials: "include" });
           setPageState("ready");
           return;
         }

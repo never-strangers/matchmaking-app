@@ -22,16 +22,22 @@ type EventQuestionsPageProps = {
 async function getEventQuestionsData(eventId: string, profileId: string) {
   const supabase = getServiceSupabaseClient();
 
-  // Ensure event exists
   const { data: eventRow, error: eventError } = await supabase
     .from("events")
-    .select("id, title, status")
+    .select("id, title, status, price_cents, payment_required")
     .eq("id", eventId)
     .single();
 
   if (eventError || !eventRow) {
     throw new Error("Event not found");
   }
+
+  const { data: attendeeRow } = await supabase
+    .from("event_attendees")
+    .select("payment_status")
+    .eq("event_id", eventId)
+    .eq("profile_id", profileId)
+    .maybeSingle();
 
   // Load questions
   const { data: questions, error: questionsError } = await supabase
@@ -72,6 +78,11 @@ async function getEventQuestionsData(eventId: string, profileId: string) {
   const answeredCount = Object.keys(answersMap).length;
   const isComplete = totalQuestions > 0 && answeredCount >= totalQuestions;
 
+  const paymentRequired =
+    (eventRow as { payment_required?: boolean }).payment_required !== false;
+  const priceCents = Number((eventRow as { price_cents?: number }).price_cents ?? 0);
+  const paymentStatus = (attendeeRow as { payment_status?: string } | null)?.payment_status ?? "unpaid";
+
   return {
     eventTitle: eventRow.title as string,
     questions: (questions || []) as DbQuestion[],
@@ -79,6 +90,9 @@ async function getEventQuestionsData(eventId: string, profileId: string) {
     totalQuestions,
     answeredCount,
     isComplete,
+    paymentRequired,
+    priceCents,
+    paymentStatus,
   };
 }
 
@@ -91,6 +105,9 @@ export default async function EventQuestionsPage(props: EventQuestionsPageProps)
     questions,
     answers,
     isComplete: initialIsComplete,
+    paymentRequired,
+    priceCents,
+    paymentStatus,
   } = await getEventQuestionsData(eventId, session.profile_id);
 
   return (
@@ -115,6 +132,9 @@ export default async function EventQuestionsPage(props: EventQuestionsPageProps)
         questions={questions}
         initialAnswers={answers}
         initialIsComplete={initialIsComplete}
+        paymentRequired={paymentRequired}
+        priceCents={priceCents}
+        paymentStatus={paymentStatus}
       />
     </div>
   );

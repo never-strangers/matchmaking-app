@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { requireApprovedUser } from "@/lib/auth/requireApprovedUser";
 import { getServiceSupabaseClient } from "@/lib/supabase/serverClient";
+import { cityForFilter } from "@/lib/constants/profileOptions";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { PayToConfirmButton } from "@/app/events/PayToConfirmButton";
 
 type DbEvent = {
   id: string;
@@ -23,6 +25,10 @@ type EventsPageData = {
       totalQuestions: number;
       completed: boolean;
       matchesRun: boolean;
+      paymentStatus: string;
+      paymentRequired: boolean;
+      paid: boolean;
+      canViewMatches: boolean;
     }
   >;
   isAdmin: boolean;
@@ -48,15 +54,18 @@ async function getEventsPageData(profileId: string, role: string): Promise<Event
     if (invited?.city) userCity = invited.city;
   }
 
-  let events: DbEvent[] | null = null;
+  // Normalize so "sg" matches events stored as "Singapore" (and vice versa)
+  const filterCity = userCity ? cityForFilter(userCity) : null;
+
+  let events: (DbEvent & { payment_required?: boolean; price_cents?: number })[] | null = null;
   let error: unknown = null;
 
-  if (userCity) {
+  if (filterCity) {
     const res = await supabase
       .from("events")
-      .select("id, title, status, city, created_at")
+      .select("id, title, status, city, created_at, payment_required, price_cents")
       .eq("status", "live")
-      .or(`city.eq.${userCity},city.is.null`)
+      .or(`city.eq.${filterCity},city.is.null`)
       .order("created_at", { ascending: true });
     events = res.data;
     error = res.error;
@@ -67,13 +76,13 @@ async function getEventsPageData(profileId: string, role: string): Promise<Event
         .select("id, title, status, created_at")
         .eq("status", "live")
         .order("created_at", { ascending: true });
-      events = fallback.data;
+      events = fallback.data as typeof events;
       error = fallback.error;
     }
   } else {
     const res = await supabase
       .from("events")
-      .select("id, title, status, city, created_at")
+      .select("id, title, status, city, created_at, payment_required, price_cents")
       .eq("status", "live")
       .order("created_at", { ascending: true });
     events = res.data;
@@ -84,7 +93,7 @@ async function getEventsPageData(profileId: string, role: string): Promise<Event
         .select("id, title, status, created_at")
         .eq("status", "live")
         .order("created_at", { ascending: true });
-      events = fallback.data;
+      events = fallback.data as typeof events;
       error = fallback.error;
     }
   }
@@ -104,13 +113,17 @@ async function getEventsPageData(profileId: string, role: string): Promise<Event
   // Which events has this user joined?
   const { data: attendeeRows } = await supabase
     .from("event_attendees")
-    .select("event_id")
+    .select("event_id, payment_status")
     .eq("profile_id", profileId)
     .in("event_id", eventIds);
 
   const joinedSet = new Set<string>(
     (attendeeRows || []).map((r: any) => String(r.event_id))
   );
+  const paymentStatusByEvent: Record<string, string> = {};
+  (attendeeRows || []).forEach((r: any) => {
+    paymentStatusByEvent[String(r.event_id)] = r.payment_status ?? "unpaid";
+  });
 
   // Answers per event for this profile
   const { data: answerRows } = await supabase
@@ -156,6 +169,10 @@ async function getEventsPageData(profileId: string, role: string): Promise<Event
     const completed =
       joined && totalQuestions > 0 && answerCount >= totalQuestions;
     const matchesRun = matchesRunSet.has(id);
+    const paymentStatus = paymentStatusByEvent[id] ?? "unpaid";
+    const paymentRequired = (e as { payment_required?: boolean }).payment_required !== false;
+    const paid = paymentStatus === "paid";
+    const canViewMatches = matchesRun && (!paymentRequired || paid);
 
     return {
       ...e,
@@ -164,6 +181,10 @@ async function getEventsPageData(profileId: string, role: string): Promise<Event
       totalQuestions,
       completed,
       matchesRun,
+      paymentStatus,
+      paymentRequired,
+      paid,
+      canViewMatches,
     };
   });
 
@@ -205,7 +226,7 @@ export default async function EventsPage() {
       ) : (
         <div className="space-y-4">
           {events.map((event) => {
-            const { joined, completed, answerCount, totalQuestions, matchesRun } = event;
+            const { joined, completed, answerCount, totalQuestions, matchesRun, paymentRequired, paid, canViewMatches } = event;
 
             let primaryLabel = "Enter Event";
             let primaryHref = `/events/${event.id}/questions`;
@@ -213,8 +234,11 @@ export default async function EventsPage() {
 
             if (joined && !completed) {
               primaryLabel = "Complete Questions";
+            } else if (joined && completed && paymentRequired && !paid) {
+              primaryLabel = "Pay to confirm";
+              primaryHref = ""; // use PayToConfirmButton instead of link
             } else if (joined && completed) {
-              if (matchesRun) {
+              if (canViewMatches) {
                 primaryLabel = "View Matches";
                 primaryHref = "/match";
               } else {
@@ -258,6 +282,9 @@ export default async function EventsPage() {
                       {completed && (
                         <Badge variant="info">Questionnaire Complete</Badge>
                       )}
+                      {joined && completed && paymentRequired && paid && (
+                        <Badge variant="success">Paid</Badge>
+                      )}
                       {joined && !completed && totalQuestions > 0 && (
                         <Badge variant="warning">
                           {answerCount}/{totalQuestions} answered
@@ -278,9 +305,13 @@ export default async function EventsPage() {
                   </div>
                   {showPrimary && (
                     <div className="flex flex-col sm:flex-row gap-2 sm:ml-4">
-                      <Link href={primaryHref}>
-                        <Button size="md">{primaryLabel}</Button>
-                      </Link>
+                      {primaryLabel === "Pay to confirm" ? (
+                        <PayToConfirmButton eventId={event.id} />
+                      ) : (
+                        <Link href={primaryHref}>
+                          <Button size="md">{primaryLabel}</Button>
+                        </Link>
+                      )}
                     </div>
                   )}
                 </div>

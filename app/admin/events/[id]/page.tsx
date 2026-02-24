@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
-import { cookies } from "next/headers";
-import { verifySessionToken } from "@/lib/auth/sessionToken";
+import { getAuthUser } from "@/lib/auth/getAuthUser";
 import { getServiceSupabaseClient } from "@/lib/supabase/serverClient";
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -22,9 +21,7 @@ export default async function AdminEventDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id: eventId } = await params;
-  const cookieStore = await cookies();
-  const token = cookieStore.get("ns_session")?.value;
-  const session = verifySessionToken(token);
+  const session = await getAuthUser();
   if (!session) redirect("/");
   if (session.role !== "admin") redirect("/events");
 
