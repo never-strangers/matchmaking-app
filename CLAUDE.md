@@ -8,6 +8,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Current State**: The app is fully functional in **demo mode** using localStorage for all data persistence. Supabase schema and migrations exist but are not yet fully integrated for production.
 
+### Workspace: avoid duplicate folders (iCloud / multiple paths)
+
+On macOS with iCloud Drive you may see two similar paths (e.g. two "Documents - Mikhail's MacBook Pro" with a `neverstrangers` folder each). Only **one** of them is the real Git repo (has a `.git` directory).
+
+- **Always open this project in Cursor/IDE from the folder where `git status` works** (the one that contains `.git`). If you open the other path, edits won’t be in the repo and you’ll see "nothing to commit."
+- **Single source of truth**: use one canonical path. In Terminal, run `pwd` when you’re in the correct neverstrangers folder and use that path when opening the project.
+- **Check**: from project root, `ls -la .git` should list the `.git` directory. If it fails, you’re in the duplicate; close and open the other folder.
+- Running `npm run dev` (or `npm run build`) will fail with a clear message if you’re not in the Git repo.
+
 ## Common Development Commands
 
 ```bash

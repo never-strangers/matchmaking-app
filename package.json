@@ -3,8 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "check-repo": "node scripts/check-git-repo.cjs",
+    "dev": "npm run check-repo && next dev",
+    "build": "npm run check-repo && next build",
     "start": "next start",
     "lint": "next lint",
     "seed:demo": "node scripts/seed-demo.cjs",
