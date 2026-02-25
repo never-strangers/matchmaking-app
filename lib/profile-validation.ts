@@ -100,6 +100,20 @@ export function validateDob21Plus(dob: string | null | undefined): string | null
   return null;
 }
 
+/**
+ * Bounds for native date input (type="date") so the picker is mobile-friendly
+ * and only allows 21+ (max = latest DOB that is still 21 today).
+ */
+export function getDobDateInputBounds(): { min: string; max: string } {
+  const today = new Date();
+  const maxDate = new Date(today);
+  maxDate.setFullYear(maxDate.getFullYear() - MIN_AGE);
+  return {
+    min: "1900-01-01",
+    max: maxDate.toISOString().slice(0, 10),
+  };
+}
+
 /** Normalize gender for storage (lowercase, allow only known values). */
 export function normalizeGender(
   value: string | null | undefined

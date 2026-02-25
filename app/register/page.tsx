@@ -6,6 +6,7 @@ import Link from "next/link";
 import {
   validateDob21Plus,
   parseDateOfBirth,
+  getDobDateInputBounds,
   GENDER_OPTIONS,
   PREFERRED_LANGUAGE_OPTIONS,
 } from "@/lib/profile-validation";
@@ -227,10 +228,11 @@ export default function RegisterPage() {
             </label>
             <input
               id="dob"
-              type="text"
+              name="dob"
+              type="date"
               required
               autoComplete="bday"
-              placeholder="e.g. 1995-06-15 or 15/06/1995"
+              {...getDobDateInputBounds()}
               value={dob}
               onChange={(e) => setDob(e.target.value)}
               className={inputClass}

@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import {
   validateDob21Plus,
   parseDateOfBirth,
+  getDobDateInputBounds,
   GENDER_OPTIONS,
   PREFERRED_LANGUAGE_OPTIONS,
 } from "@/lib/profile-validation";
@@ -303,21 +304,20 @@ export default function ProfilePage() {
             <input
               id="dob"
               name="dob"
-              type="text"
+              type="date"
               autoComplete="bday"
               required
-              placeholder="e.g. 1995-06-15 or 15/06/1995"
+              {...getDobDateInputBounds()}
               value={profile?.dob ?? ""}
               onChange={(e) => {
-                const raw = e.target.value.trim();
-                const normalized = raw ? parseDateOfBirth(raw) ?? raw : "";
-                setProfile((p) => (p ? { ...p, dob: normalized } : { ...defaultProfile(), dob: normalized }));
+                const v = e.target.value.trim();
+                setProfile((p) => (p ? { ...p, dob: v || null } : { ...defaultProfile(), dob: v || null }));
               }}
-              className="w-full px-4 py-2.5 bg-[var(--bg-panel)] border rounded-xl border-[var(--border)] text-[var(--text)] placeholder:text-[var(--text-subtle)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+              className="w-full px-4 py-2.5 bg-[var(--bg-panel)] border rounded-xl border-[var(--border)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
               data-testid="profile-dob"
             />
             <p className="text-xs text-[var(--text-muted)] mt-1">
-              You must be 21+ to join Never Strangers. Type or paste a date (yyyy-mm-dd or dd/mm/yyyy).
+              You must be 21+ to join Never Strangers.
             </p>
           </div>
 
