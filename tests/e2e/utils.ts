@@ -76,24 +76,18 @@ export async function isChatEnabled(page: Page): Promise<boolean> {
 }
 
 /**
- * Login via the demo phone register page.
+ * Log in as the seeded E2E approved user so protected pages can load.
+ * Requires: npm run seed:e2e and Supabase env vars.
  */
 export async function loginViaRegister(
   page: Page,
-  opts: { name?: string; phoneDigits?: string } = {}
+  _opts: { name?: string; phoneDigits?: string } = {}
 ): Promise<void> {
-  const name = opts.name ?? 'Demo User';
-  const phoneDigits = opts.phoneDigits ?? '81234567';
-
-  await page.goto('/register');
-  await page.fill('[data-testid="register-name"]', name);
-  await page.fill('[data-testid="register-phone"]', phoneDigits);
-  await page.click('[data-testid="register-submit"]');
-
-  await expect(page).toHaveURL('/events');
-  await expect(page.locator('[data-testid="events-title"]')).toBeVisible({
-    timeout: 5000,
-  });
+  const { loginUser } = await import('./authHelpers');
+  const { E2E_APPROVED_USER } = await import('../fixtures/e2e-users');
+  await loginUser(page, E2E_APPROVED_USER);
+  await expect(page).toHaveURL(/\/(events|pending)/, { timeout: 10_000 });
+  await expect(page.locator('[data-testid="events-headline"], [data-testid="events-title"], [data-testid="pending-headline"]').first()).toBeVisible({ timeout: 5000 });
 }
 
 /**

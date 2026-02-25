@@ -307,16 +307,19 @@ export default async function MatchPage() {
         title="Your Matches"
         subtitle={`Top matches for ${event.title}`}
       />
+      <h2 className="sr-only" data-testid="matches-headline">
+        Your Matches
+      </h2>
 
       {matches.length === 0 ? (
-        <Card padding="lg">
+        <Card padding="lg" data-testid="matches-list-container">
           <EmptyState
             title="No matches yet"
             description="Once matching is run, your top matches will appear here."
           />
         </Card>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-4" data-testid="matches-list-container">
           {matches.map((m) => (
             <MatchCard
               key={m.otherProfileId}

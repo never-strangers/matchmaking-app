@@ -44,17 +44,57 @@ export function isAtLeast21(dob: string | Date): boolean {
 }
 
 /**
+ * Parse common date inputs to YYYY-MM-DD for storage and validation.
+ * Accepts: yyyy-mm-dd, dd/mm/yyyy, dd-mm-yyyy (and short forms like d/m/yyyy).
+ * Returns null if unparseable.
+ */
+export function parseDateOfBirth(input: string | null | undefined): string | null {
+  if (input == null || (input = String(input).trim()) === "") return null;
+  // Already ISO-like (yyyy-mm-dd)
+  const iso = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(input);
+  if (iso) {
+    const [, y, m, d] = iso;
+    const month = Number(m);
+    const day = Number(d);
+    if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+      return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+    }
+  }
+  // dd/mm/yyyy or dd-mm-yyyy
+  const dmy = /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/.exec(input);
+  if (dmy) {
+    const [, d, m, y] = dmy;
+    const month = Number(m);
+    const day = Number(d);
+    if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+      return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+    }
+  }
+  // Fallback: let Date parse (handles some other formats)
+  const d = new Date(input);
+  if (!Number.isNaN(d.getTime())) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  }
+  return null;
+}
+
+/**
  * Validates DOB for 21+ requirement. Returns error message or null if valid.
+ * Accepts common formats (yyyy-mm-dd, dd/mm/yyyy); normalizes before validating.
  */
 export function validateDob21Plus(dob: string | null | undefined): string | null {
   if (dob == null || String(dob).trim() === "") {
     return "Date of birth is required.";
   }
-  const d = new Date(dob);
+  const normalized = parseDateOfBirth(dob) ?? dob;
+  const d = new Date(normalized);
   if (Number.isNaN(d.getTime())) {
-    return "Please enter a valid date of birth.";
+    return "Please enter a valid date of birth (e.g. 1995-06-15 or 15/06/1995).";
   }
-  if (!isAtLeast21(dob)) {
+  if (!isAtLeast21(normalized)) {
     return AGE_ERROR_MESSAGE;
   }
   return null;

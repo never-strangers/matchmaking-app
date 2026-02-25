@@ -46,6 +46,9 @@ export default async function PendingPage({ searchParams }: Props) {
         title="Account Pending Verification"
         subtitle="Your account is under review"
       />
+      <h2 className="sr-only" data-testid="pending-headline">
+        Account Pending Verification
+      </h2>
 
       <Card padding="lg">
         <p className="mb-6" style={{ color: "var(--text-muted)" }}>
@@ -53,7 +56,7 @@ export default async function PendingPage({ searchParams }: Props) {
           notify you once you&apos;re approved to access events and matches.
         </p>
         <Link href="/profile">
-          <Button size="lg" fullWidth>
+          <Button size="lg" fullWidth data-testid="pending-cta-profile">
             Go to Profile
           </Button>
         </Link>

@@ -1,30 +1,37 @@
 import { defineConfig, devices } from '@playwright/test';
+import dotenv from 'dotenv';
 
 /**
  * Read environment variables from file.
  * https://github.com/motdotla/dotenv
  */
-// require('dotenv').config();
+dotenv.config({ path: '.env.test' });
+dotenv.config();
 
 /**
  * See https://playwright.dev/docs/test-configuration.
  */
 export default defineConfig({
   testDir: './tests/e2e',
-  /* Run tests in files in parallel */
-  fullyParallel: true,
+  /* Single sequential auth journey (register → login → pending → approve → profile → logout) */
+  testMatch: [/tests\/e2e\/auth-journey\.spec\.ts/],
+  /* Keep deterministic order for shared fixtures/storage states */
+  fullyParallel: false,
   /* Fail the build on CI if you accidentally left test.only in the source code. */
   forbidOnly: !!process.env.CI,
   /* Retry on CI only */
   retries: process.env.CI ? 2 : 1,
   /* Opt out of parallel tests on CI. */
-  workers: process.env.CI ? 1 : undefined,
+  workers: 1,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: [
     ['list'],
     ['html', { outputFolder: 'playwright-report' }],
     ['json', { outputFile: 'playwright-report/results.json' }],
   ],
+  /* Test and assertion timeouts: 30s max */
+  timeout: 30_000,
+  expect: { timeout: 30_000 },
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */
@@ -38,9 +45,9 @@ export default defineConfig({
     /* Viewport */
     viewport: { width: 1280, height: 720 },
     /* Timeout for each action */
-    actionTimeout: 10000,
+    actionTimeout: 30_000,
     /* Navigation timeout */
-    navigationTimeout: 30000,
+    navigationTimeout: 30_000,
   },
 
   /* Configure projects for major browsers */

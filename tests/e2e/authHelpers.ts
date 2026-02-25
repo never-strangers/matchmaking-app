@@ -1,0 +1,72 @@
+import { expect, Page } from "@playwright/test";
+import type { TestUser } from "../utils/testUser";
+import { approvedStorageStatePath, pendingStorageStatePath } from "../utils/testUser";
+
+/** Minimal credentials for login (used by both TestUser and E2E predefined users). */
+export type LoginCredentials = { email: string; password: string };
+
+export async function registerUser(page: Page, user: TestUser): Promise<void> {
+  await page.goto("/register");
+  await page.getByTestId("register-email").fill(user.email);
+  if (user.firstName) await page.getByTestId("register-first-name").fill(user.firstName);
+  if (user.lastName) await page.getByTestId("register-last-name").fill(user.lastName);
+  await page.getByTestId("register-password").fill(user.password);
+  if (user.city) await page.getByTestId("register-city").selectOption(user.city);
+  await page.getByTestId("register-dob").fill(user.dob);
+  await page.getByTestId(`register-gender-${user.gender}`).check();
+  (user.attractedTo ?? []).forEach((v) => page.getByTestId(`register-attracted-to-${v}`).check());
+  (user.lookingFor ?? []).forEach((v) => page.getByTestId(`register-looking-for-${v}`).check());
+  await page.getByTestId("register-reason").fill(user.reason);
+  await page.getByTestId("register-instagram").fill(user.instagram);
+  await page
+    .getByTestId("register-preferred-language")
+    .selectOption(user.preferredLanguage ? { value: user.preferredLanguage } : { index: 0 });
+  await page.getByTestId("register-agreement-accurate").check();
+  await page.getByTestId("register-submit").click();
+}
+
+export async function loginUser(page: Page, credentials: LoginCredentials): Promise<void> {
+  await page.goto("/login");
+  await page.getByTestId("login-email").fill(credentials.email);
+  await page.getByTestId("login-password").fill(credentials.password);
+  await page.getByTestId("login-submit").click();
+  // Wait for post-login redirect so session cookies are set before next steps
+  await expect(page).toHaveURL(/\/(events|pending)/, { timeout: 10_000 });
+}
+
+export async function openNavMenu(page: Page): Promise<void> {
+  await page.getByTestId("nav-menu-toggle").click();
+}
+
+export async function assertPendingGating(page: Page): Promise<void> {
+  await expect(page).toHaveURL(/\/pending/);
+  await expect(page.getByTestId("pending-headline")).toBeVisible();
+
+  await page.goto("/events");
+  await expect(page).toHaveURL(/\/pending/);
+
+  await page.goto("/matches");
+  await expect(page).toHaveURL(/\/pending/);
+}
+
+export async function assertApprovedAccess(page: Page): Promise<void> {
+  await page.goto("/events");
+  await expect(page).toHaveURL(/\/events/);
+  await expect(page.getByTestId("events-headline")).toBeVisible();
+  await expect(page.getByTestId("events-list-container")).toBeVisible();
+
+  await page.goto("/matches");
+  await expect(page).toHaveURL(/\/match/);
+  // Page may show match list (headline + list) or empty state when there are no matches
+  await expect(
+    page.getByTestId("matches-headline").or(page.getByRole("heading", { name: "No matches yet" }))
+  ).toBeVisible();
+}
+
+export async function savePendingStorageState(page: Page): Promise<void> {
+  await page.context().storageState({ path: pendingStorageStatePath });
+}
+
+export async function saveApprovedStorageState(page: Page): Promise<void> {
+  await page.context().storageState({ path: approvedStorageStatePath });
+}

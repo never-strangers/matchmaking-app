@@ -27,6 +27,31 @@ test.describe('Smoke Tests', () => {
       await expect(page.locator('[data-testid="register-submit"]')).toBeVisible();
     });
 
+    test('Registration form has all required fields', async ({ page }) => {
+      await page.goto('/register');
+      await expect(page.getByTestId('register-email')).toBeVisible();
+      await expect(page.getByTestId('register-first-name')).toBeVisible();
+      await expect(page.getByTestId('register-last-name')).toBeVisible();
+      await expect(page.getByTestId('register-password')).toBeVisible();
+      await expect(page.getByTestId('register-city')).toBeVisible();
+      await expect(page.getByTestId('register-dob')).toBeVisible();
+      await expect(page.getByTestId('register-gender-male')).toBeVisible();
+      await expect(page.getByTestId('register-gender-female')).toBeVisible();
+      await expect(page.getByTestId('register-gender-others')).toBeVisible();
+      await expect(page.getByTestId('register-attracted-to-men')).toBeVisible();
+      await expect(page.getByTestId('register-attracted-to-women')).toBeVisible();
+      await expect(page.getByTestId('register-looking-for-friends')).toBeVisible();
+      await expect(page.getByTestId('register-looking-for-date')).toBeVisible();
+      await expect(page.getByTestId('register-reason')).toBeVisible();
+      await expect(page.getByTestId('register-instagram')).toBeVisible();
+      await expect(page.getByTestId('register-photo')).toBeVisible();
+      await expect(page.getByTestId('register-preferred-language')).toBeVisible();
+      await expect(page.getByTestId('register-agreement-marketing')).toBeVisible();
+      await expect(page.getByTestId('register-agreement-accurate')).toBeVisible();
+      await expect(page.getByTestId('register-submit')).toBeVisible();
+      await expect(page.getByTestId('register-login-link')).toBeVisible();
+    });
+
     await test.step('Protected pages load after login', async () => {
       await loginViaRegister(page);
 

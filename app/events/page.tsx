@@ -170,7 +170,10 @@ async function getEventsPageData(profileId: string, role: string): Promise<Event
       joined && totalQuestions > 0 && answerCount >= totalQuestions;
     const matchesRun = matchesRunSet.has(id);
     const paymentStatus = paymentStatusByEvent[id] ?? "unpaid";
-    const paymentRequired = (e as { payment_required?: boolean }).payment_required !== false;
+    const priceCents = Number((e as { price_cents?: number }).price_cents ?? 0);
+    const paymentRequired =
+      (e as { payment_required?: boolean }).payment_required !== false &&
+      priceCents > 0;
     const paid = paymentStatus === "paid";
     const canViewMatches = matchesRun && (!paymentRequired || paid);
 
@@ -217,6 +220,9 @@ export default async function EventsPage() {
           ) : undefined
         }
       />
+      <h2 className="sr-only" data-testid="events-headline">
+        Upcoming Events
+      </h2>
 
       {events.length === 0 ? (
         <EmptyState
@@ -224,7 +230,7 @@ export default async function EventsPage() {
           description="Check back soon for upcoming gatherings in your city."
         />
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-4" data-testid="events-list-container">
           {events.map((event) => {
             const { joined, completed, answerCount, totalQuestions, matchesRun, paymentRequired, paid, canViewMatches } = event;
 

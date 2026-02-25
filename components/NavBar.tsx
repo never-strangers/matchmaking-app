@@ -50,6 +50,7 @@ export default function NavBar() {
           aria-label="Open menu"
           aria-expanded={mobileOpen}
           onClick={() => setMobileOpen(!mobileOpen)}
+          data-testid="nav-menu-toggle"
           className="p-2 rounded-lg touch-manipulation transition-colors -mr-2"
           style={{ color: "var(--text-muted)" }}
         >

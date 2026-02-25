@@ -1,0 +1,17 @@
+{
+  "pending": {
+    "email": "e2e-pending@example.com",
+    "password": "E2ePending1!",
+    "status": "pending_verification"
+  },
+  "approved": {
+    "email": "e2e-approved@example.com",
+    "password": "E2eApproved1!",
+    "status": "approved"
+  },
+  "rejected": {
+    "email": "e2e-rejected@example.com",
+    "password": "E2eRejected1!",
+    "status": "rejected"
+  }
+}
