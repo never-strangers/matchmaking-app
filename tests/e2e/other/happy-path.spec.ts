@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { clearNsLocalStorage, loginViaRegister } from './utils';
+import { clearNsLocalStorage, loginViaRegister } from '../utils';
 
 /**
  * Full Happy Path Demo Flow Test

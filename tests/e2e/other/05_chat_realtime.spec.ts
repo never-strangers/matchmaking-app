@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { clearNsLocalStorage, isChatEnabled, setChatUser, waitForMessage } from './utils';
+import { clearNsLocalStorage, isChatEnabled, setChatUser, waitForMessage } from '../utils';
 
 test.describe('Chat Realtime', () => {
   test.beforeEach(async ({ page }) => {

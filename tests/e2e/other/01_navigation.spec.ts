@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { clearNsLocalStorage, gotoAndAssertTitle, isChatEnabled, loginViaRegister } from './utils';
+import { clearNsLocalStorage, gotoAndAssertTitle, isChatEnabled, loginViaRegister } from '../utils';
 
 test.describe('Navigation', () => {
   test.beforeEach(async ({ page }) => {

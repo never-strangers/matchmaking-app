@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { clearNsLocalStorage } from './utils';
+import { clearNsLocalStorage } from '../utils';
 
 test.describe('Guest gating', () => {
   test.beforeEach(async ({ page }) => {

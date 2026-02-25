@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { clearNsLocalStorage, isChatEnabled } from './utils';
+import { clearNsLocalStorage, isChatEnabled } from '../utils';
 
 test.describe('Feature Flags', () => {
   test.beforeEach(async ({ page }) => {

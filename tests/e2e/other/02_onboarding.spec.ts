@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { clearNsLocalStorage, safeExpectVisible, loginViaRegister } from './utils';
+import { clearNsLocalStorage, safeExpectVisible, loginViaRegister } from '../utils';
 
 test.describe('Onboarding', () => {
   test.beforeEach(async ({ page }) => {
