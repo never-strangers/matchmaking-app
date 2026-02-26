@@ -26,12 +26,14 @@ export async function registerUser(page: Page, user: TestUser): Promise<void> {
 }
 
 export async function loginUser(page: Page, credentials: LoginCredentials): Promise<void> {
-  await page.goto("/login");
+  await page.goto("/login", { waitUntil: "load" });
+  // Ensure submit button is visible so form is ready (avoids native form submit before hydration)
+  await page.getByTestId("login-submit").waitFor({ state: "visible" });
   await page.getByTestId("login-email").fill(credentials.email);
   await page.getByTestId("login-password").fill(credentials.password);
   await page.getByTestId("login-submit").click();
-  // Wait for post-login redirect so session cookies are set before next steps
-  await expect(page).toHaveURL(/\/(events|pending)/, { timeout: 10_000 });
+  // Wait for post-login redirect (ensure E2E users are seeded: npm run seed:e2e)
+  await expect(page).toHaveURL(/\/(events|pending)/, { timeout: 15_000 });
 }
 
 export async function openNavMenu(page: Page): Promise<void> {

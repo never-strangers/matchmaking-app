@@ -1,12 +1,17 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type AttendeeRow = {
+  id: string;
   profileId: string;
   displayName: string;
   phoneLast4: string;
   joinedAt: string;
   answersCount: number;
   totalQuestions: number;
+  paymentStatus: string;
+  ticketStatus: string;
+  checkedIn: boolean;
+  checkedInAt: string | null;
 };
 
 export async function getAttendeesByEvent(
@@ -17,20 +22,34 @@ export async function getAttendeesByEvent(
 
   const { data: attendeeRows } = await supabase
     .from("event_attendees")
-    .select("event_id, profile_id, joined_at")
+    .select("id, event_id, profile_id, joined_at, payment_status, ticket_status, checked_in, checked_in_at")
     .in("event_id", eventIds);
 
   const byEvent: Record<string, AttendeeRow[]> = {};
-  (attendeeRows || []).forEach((r: { event_id: string; profile_id: string; joined_at: string }) => {
+  (attendeeRows || []).forEach((r: {
+    id: string;
+    event_id: string;
+    profile_id: string;
+    joined_at: string;
+    payment_status?: string;
+    ticket_status?: string;
+    checked_in?: boolean;
+    checked_in_at?: string | null;
+  }) => {
     const eid = String(r.event_id);
     if (!byEvent[eid]) byEvent[eid] = [];
     byEvent[eid].push({
+      id: String(r.id),
       profileId: r.profile_id,
       displayName: "",
       phoneLast4: "",
       joinedAt: r.joined_at || "",
       answersCount: 0,
       totalQuestions: 0,
+      paymentStatus: r.payment_status ?? "unpaid",
+      ticketStatus: r.ticket_status ?? "reserved",
+      checkedIn: r.checked_in ?? false,
+      checkedInAt: r.checked_in_at ?? null,
     });
   });
 
@@ -81,7 +100,7 @@ export async function getAttendeesByEvent(
         totalQuestions: total,
         answersCount: count,
       };
-    });
+    }) as AttendeeRow[];
     byEvent[eid].sort((a, b) => (b.joinedAt || "").localeCompare(a.joinedAt || ""));
   }
   return byEvent;

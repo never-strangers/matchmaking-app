@@ -40,7 +40,9 @@ This repo hosts the new **Matching Core** — a lightweight, AI-powered system r
 ### 🎟️ Events Management
 - **Events Feed** (`/events`)
   - Event listing with city and date information
-  - Create new event button
+  - Only **upcoming** events are shown; events whose start date/time is in the past are hidden from users (they remain visible to admins in `/admin/events`)
+  - **Enter Event** opens a preview modal (poster, details, questionnaire status) with CTAs: Complete Questions or Continue to Event
+  - Create new event button (admin)
 - **Event Creation Flow** (`/events/new`)
   - **Setup Step** (`/events/new/setup`): Configure matching preferences, event details, tier, and guest count
   - **Questions Step** (`/events/new/questions`): Build custom questionnaire for event participants
@@ -48,15 +50,16 @@ This repo hosts the new **Matching Core** — a lightweight, AI-powered system r
 
 ### 🎯 Matching System
 - **Match Preview** (`/match`)
-  - Display potential matches with profile information
-  - Shows name, age, city, and interests
-  - Card-based match presentation
+  - Matches revealed **one-by-one**: full-screen 3→2→1 countdown before each reveal; progress persists across refresh.
+  - Display potential matches with profile information (name, score, aligned/mismatched reasons).
+  - Card-based match presentation; “Next match” to reveal more. See `docs/MATCH_REVEAL_AND_CHECKIN.md`.
 
 ### 🧮 Admin Dashboard
 - **Main Dashboard** (`/admin`)
   - KPI metrics: Total Events, Active Users, This Month's events
   - Community members list with join dates
   - Past events timeline
+- **Event detail** (`/admin/events/[id]`): **Guest list** with Payment, Ticket, **Check-in** / **Undo check-in** per attendee; **Run Matching** includes only checked-in (and paid, questionnaire-complete) attendees. See `docs/MATCH_REVEAL_AND_CHECKIN.md`.
 - **Matches Management** (`/admin/matches`)
   - **Step 1: Signups**
     - View and manage event signups
@@ -578,6 +581,37 @@ To test per-event payment locally:
 3. Run the app, create a paid event (admin), complete questions, then use **Pay now**; pay with test card `4242 4242 4242 4242`.
 
 See **[docs/STRIPE_LOCAL_TESTING.md](./docs/STRIPE_LOCAL_TESTING.md)** for full steps and webhook simulation.
+
+### Error handling
+
+- A generic server error page is available at `/500` for unexpected failures during runtime and export.
+
+### Supabase event cleanup + seeding (dev/local)
+
+For deterministic event data in dev/local (and staging, if explicitly confirmed), you can reset events using Supabase directly:
+
+```bash
+# Cleanup all events except a keep-list (example keeps the original seeded event)
+npm run cleanup:events -- --keep 00000000-0000-0000-0000-000000000001
+
+# Seed a fixed set of demo events (past/future/free/paid/tiered)
+SEED_CONFIRM=true npm run seed:events
+
+# One-shot reset: cleanup (delete all) + seed
+npm run reset:events
+```
+
+Safety:
+- `cleanup:events` and `seed:events` **require** `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`.
+- `seed:events` and `reset:events` require `SEED_CONFIRM=true` and will refuse to run when `NODE_ENV="production"` unless `SEED_CONFIRM=true` is set.
+- `cleanup:events --dry-run` shows how many rows per table *would* be deleted without changing data.
+
+The seeding script creates:
+- Past Friends Mixer (Free)
+- Future Friends Mixer (Free)
+- Dating Night (Paid Single Price)
+- Friends Mixer (Paid Single Price)
+- Big Event (Tiered Tickets) with Early Bird/Wave 1/Wave 2/VIP ticket types
 
 ---
 

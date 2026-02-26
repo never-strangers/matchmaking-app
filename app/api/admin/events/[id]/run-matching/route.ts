@@ -19,11 +19,26 @@ export async function POST(
   const { id: eventId } = await context.params;
   const supabase = getServiceSupabaseClient();
 
-  // Load attendees for this event
-  const { data: attendees, error: attendeesError } = await supabase
+  const { data: event, error: eventError } = await supabase
+    .from("events")
+    .select("id, payment_required")
+    .eq("id", eventId)
+    .maybeSingle();
+  if (eventError || !event) {
+    return new Response("Event not found", { status: 404 });
+  }
+  const paymentRequired = (event as { payment_required?: boolean }).payment_required !== false;
+
+  // Load attendees: checked_in = true, and if payment_required then payment_status = 'paid'
+  let query = supabase
     .from("event_attendees")
     .select("profile_id")
-    .eq("event_id", eventId);
+    .eq("event_id", eventId)
+    .eq("checked_in", true);
+  if (paymentRequired) {
+    query = query.eq("payment_status", "paid");
+  }
+  const { data: attendees, error: attendeesError } = await query;
 
   if (attendeesError) {
     console.error("Error loading attendees:", attendeesError);
@@ -31,11 +46,14 @@ export async function POST(
   }
 
   const attendeeIds = Array.from(
-    new Set((attendees || []).map((a: any) => String(a.profile_id)))
+    new Set((attendees || []).map((a: { profile_id: string }) => String(a.profile_id)))
   );
 
   if (attendeeIds.length < 2) {
-    return new Response("Not enough attendees for matching", { status: 400 });
+    return new Response("Not enough checked-in attendees for matching (need at least 2)", { status: 400 });
+  }
+  if (attendeeIds.length < 4) {
+    console.warn(`Run matching: only ${attendeeIds.length} checked-in attendees for event ${eventId}`);
   }
 
   // Load questions for this event
@@ -158,12 +176,14 @@ export async function POST(
     }
   }
 
+  let upsertedRows: Array<{ id: string; a_profile_id: string; b_profile_id: string; score: number }> = [];
   if (resultsToUpsert.length > 0) {
-    const { error: upsertError } = await supabase
+    const { data: upserted, error: upsertError } = await supabase
       .from("match_results")
       .upsert(resultsToUpsert, {
         onConflict: "event_id,a_profile_id,b_profile_id",
-      });
+      })
+      .select("id, a_profile_id, b_profile_id, score");
 
     if (upsertError) {
       console.error("Error upserting match_results:", upsertError);
@@ -172,6 +192,51 @@ export async function POST(
         .update({ status: "failed", finished_at: new Date().toISOString() })
         .eq("id", runRow.id);
       return new Response("Failed to save matches", { status: 500 });
+    }
+    upsertedRows = upserted || [];
+  }
+
+  // Reset reveal progress and populate match_reveals for one-by-one reveal
+  await supabase.from("match_reveals").delete().eq("event_id", eventId);
+
+  if (upsertedRows.length > 0) {
+    const byViewer = new Map<string, Array<{ match_result_id: string; score: number }>>();
+    for (const row of upsertedRows) {
+      const a = String(row.a_profile_id);
+      const b = String(row.b_profile_id);
+      const id = String(row.id);
+      const score = Number(row.score);
+      if (!byViewer.has(a)) byViewer.set(a, []);
+      byViewer.get(a)!.push({ match_result_id: id, score });
+      if (a !== b) {
+        if (!byViewer.has(b)) byViewer.set(b, []);
+        byViewer.get(b)!.push({ match_result_id: id, score });
+      }
+    }
+    const revealInserts: Array<{
+      event_id: string;
+      viewer_user_id: string;
+      match_result_id: string;
+      reveal_order: number;
+      revealed_at: null;
+    }> = [];
+    for (const [viewerId, list] of byViewer.entries()) {
+      list.sort((x, y) => y.score - x.score);
+      list.forEach((item, idx) => {
+        revealInserts.push({
+          event_id: eventId,
+          viewer_user_id: viewerId,
+          match_result_id: item.match_result_id,
+          reveal_order: idx + 1,
+          revealed_at: null,
+        });
+      });
+    }
+    if (revealInserts.length > 0) {
+      const { error: revealErr } = await supabase.from("match_reveals").insert(revealInserts);
+      if (revealErr) {
+        console.error("Error inserting match_reveals:", revealErr);
+      }
     }
   }
 

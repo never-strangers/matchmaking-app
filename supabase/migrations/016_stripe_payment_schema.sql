@@ -47,6 +47,7 @@ CREATE INDEX IF NOT EXISTS idx_payment_events_created ON payment_events(created_
 ALTER TABLE payment_events ENABLE ROW LEVEL SECURITY;
 
 -- No SELECT/INSERT for anon/authenticated; only service role (bypasses RLS) can insert/read
+DROP POLICY IF EXISTS "Service role only payment_events" ON payment_events;
 CREATE POLICY "Service role only payment_events" ON payment_events
   FOR ALL
   USING (false)

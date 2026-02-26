@@ -6,7 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 export default function InviteLoginPage() {
   const params = useParams<{ token: string }>();
   const router = useRouter();
-  const token = params.token;
+  const token = params?.token ?? "";
 
   const [status, setStatus] = useState<"loading" | "error">("loading");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);

@@ -36,8 +36,13 @@ function ResetPasswordContent() {
   const bootstrap = useCallback(async () => {
     try {
       const hash = CAPTURED_HASH || (typeof window !== "undefined" ? window.location.hash : "");
-      const code = searchParams.get("code");
-      const urlError = searchParams.get("error");
+      const params =
+        searchParams ??
+        new URLSearchParams(
+          typeof window !== "undefined" ? window.location.search : ""
+        );
+      const code = params.get("code");
+      const urlError = params.get("error");
 
       if (urlError) {
         setErrorMessage("This reset link is invalid or has expired.");

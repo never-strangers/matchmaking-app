@@ -133,7 +133,7 @@ export default function LoginPage() {
       />
 
       <Card>
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form method="post" onSubmit={handleSubmit} className="space-y-6">
           <Input
             label="Email"
             type="email"

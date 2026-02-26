@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { requireApprovedUser } from "@/lib/auth/requireApprovedUser";
 import { getServiceSupabaseClient } from "@/lib/supabase/serverClient";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -34,10 +35,17 @@ async function getEventQuestionsData(eventId: string, profileId: string) {
 
   const { data: attendeeRow } = await supabase
     .from("event_attendees")
-    .select("payment_status")
+    .select("payment_status, ticket_type_id")
     .eq("event_id", eventId)
     .eq("profile_id", profileId)
     .maybeSingle();
+
+  const { data: ticketTypes } = await supabase
+    .from("event_ticket_types")
+    .select("id, code, name, price_cents, currency, cap, sold, is_active")
+    .eq("event_id", eventId)
+    .eq("is_active", true)
+    .order("sort_order", { ascending: true });
 
   // Load questions
   const { data: questions, error: questionsError } = await supabase
@@ -82,6 +90,8 @@ async function getEventQuestionsData(eventId: string, profileId: string) {
     (eventRow as { payment_required?: boolean }).payment_required !== false;
   const priceCents = Number((eventRow as { price_cents?: number }).price_cents ?? 0);
   const paymentStatus = (attendeeRow as { payment_status?: string } | null)?.payment_status ?? "unpaid";
+  const hasReservedTicket = !!(attendeeRow as { ticket_type_id?: string | null } | null)?.ticket_type_id;
+  const ticketTypesList = (ticketTypes || []) as { id: string; code: string; name: string; price_cents: number; currency: string; cap: number; sold: number }[];
 
   return {
     eventTitle: eventRow.title as string,
@@ -93,6 +103,8 @@ async function getEventQuestionsData(eventId: string, profileId: string) {
     paymentRequired,
     priceCents,
     paymentStatus,
+    ticketTypes: ticketTypesList,
+    hasReservedTicket,
   };
 }
 
@@ -108,7 +120,25 @@ export default async function EventQuestionsPage(props: EventQuestionsPageProps)
     paymentRequired,
     priceCents,
     paymentStatus,
+    ticketTypes,
+    hasReservedTicket,
   } = await getEventQuestionsData(eventId, session.profile_id);
+
+  // Questions are shown after payment. If payment is required and not yet paid, send user to event page to pay first.
+  if (paymentRequired && paymentStatus !== "paid") {
+    const supabase = getServiceSupabaseClient();
+    await supabase
+      .from("event_attendees")
+      .upsert(
+        {
+          event_id: eventId,
+          profile_id: session.profile_id,
+          joined_at: new Date().toISOString(),
+        },
+        { onConflict: "event_id,profile_id" }
+      );
+    redirect(`/events/${eventId}`);
+  }
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8 sm:py-12">
@@ -135,6 +165,8 @@ export default async function EventQuestionsPage(props: EventQuestionsPageProps)
         paymentRequired={paymentRequired}
         priceCents={priceCents}
         paymentStatus={paymentStatus}
+        ticketTypes={ticketTypes}
+        hasReservedTicket={hasReservedTicket}
       />
     </div>
   );

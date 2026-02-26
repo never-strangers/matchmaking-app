@@ -11,6 +11,16 @@ type Question = {
   prompt: string;
 };
 
+type TicketType = {
+  id: string;
+  code: string;
+  name: string;
+  price_cents: number;
+  currency: string;
+  cap: number;
+  sold: number;
+};
+
 type Props = {
   eventId: string;
   eventTitle: string;
@@ -20,6 +30,8 @@ type Props = {
   paymentRequired?: boolean;
   priceCents?: number;
   paymentStatus?: string;
+  ticketTypes?: TicketType[];
+  hasReservedTicket?: boolean;
 };
 
 export function QuestionForm({
@@ -31,6 +43,8 @@ export function QuestionForm({
   paymentRequired = false,
   priceCents = 0,
   paymentStatus = "unpaid",
+  ticketTypes = [],
+  hasReservedTicket: _initialHasReservedTicket = false,
 }: Props) {
   const router = useRouter();
   const [answers, setAnswers] = useState<Record<string, number>>({});
@@ -81,6 +95,7 @@ export function QuestionForm({
     setAnswers((prev) => ({ ...prev, [questionId]: value }));
   };
 
+  // Questions are after payment; pay step only for free events where payment was skipped
   const showPayStep =
     (hasSavedOnce || initialIsComplete) &&
     allFilled &&

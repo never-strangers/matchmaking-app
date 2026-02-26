@@ -165,6 +165,31 @@ function getMismatchedReasons(
 }
 
 /**
+ * Get aligned and mismatched explanation strings for a pair of users (by answers).
+ * Used by reveal APIs to build match card payload without full MatchUser.
+ */
+export function getExplanationsForPair(
+  userAAnswers: QuestionnaireAnswers,
+  userBAnswers: QuestionnaireAnswers,
+  questions: Question[],
+  options?: { alignedTopN?: number; mismatchedTopN?: number }
+): { aligned: string[]; mismatched: string[] } {
+  const aligned = getAlignedReasons(
+    userAAnswers,
+    userBAnswers,
+    questions,
+    options?.alignedTopN ?? 3
+  );
+  const mismatched = getMismatchedReasons(
+    userAAnswers,
+    userBAnswers,
+    questions,
+    options?.mismatchedTopN ?? 2
+  );
+  return { aligned, mismatched };
+}
+
+/**
  * Get matches for a user based on questionnaire answers
  * @param currentUser Current user with their answers
  * @param candidates Array of candidate users to match against

@@ -13,8 +13,11 @@ dotenv.config();
  */
 export default defineConfig({
   testDir: './tests/e2e',
-  /* Single sequential auth journey (register → login → pending → approve → profile → logout) */
-  testMatch: [/tests\/e2e\/auth-journey\.spec\.ts/],
+  /* E2E specs to run (auth journey + match reveal/check-in). Omit testMatch to run all specs in tests/e2e. */
+  testMatch: [
+    /tests\/e2e\/auth-journey\.spec\.ts/,
+    /tests\/e2e\/match-reveal-and-checkin\.spec\.ts/,
+  ],
   /* Keep deterministic order for shared fixtures/storage states */
   fullyParallel: false,
   /* Fail the build on CI if you accidentally left test.only in the source code. */

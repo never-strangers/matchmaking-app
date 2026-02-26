@@ -1,3 +1,21 @@
+---
+description: 
+alwaysApply: true
+---
+
+## Reality Check (Source of Truth)
+
+The codebase supports two modes:
+
+- **Demo Mode** (`NEXT_PUBLIC_DEMO_MODE=true`): localStorage + mock data for fast demos/E2E.
+- **Production Mode** (`NEXT_PUBLIC_DEMO_MODE=false`): Supabase Auth (email/password), Supabase DB, RLS.
+
+### Auth (Production Mode)
+- Users register/login with **email + password**
+- New users start with `profiles.status = 'pending_verification'`
+- Pending users can log in but are gated to `/profile` and `/pending` only
+- Admins review and approve/reject users in `/admin/users`
+
 # CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.

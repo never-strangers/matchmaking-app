@@ -42,7 +42,7 @@ This document provides a step-by-step guide to demonstrate all features implemen
    - **Password:** Pre-filled with masked characters
    - **City:** Select from dropdown (Singapore, Kuala Lumpur, Manila, etc.)
    - **Birth Date:** Select a date
-   - **Gender:** Select (Male, Female, Others)
+   - **Gender:** Select (Male, Female, Other)
    - **Attracted To:** Check Men/Women
    - **Looking For:** Check Friends/A Date
    - **Why Never Strangers:** Write a brief message

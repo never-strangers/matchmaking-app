@@ -14,7 +14,8 @@ import { EventRegistration } from "@/types/registration";
 export default function HostEventManagePage() {
   const params = useParams();
   const router = useRouter();
-  const eventId = params.id as string;
+  const rawId = params?.id;
+  const eventId = (Array.isArray(rawId) ? rawId[0] : rawId) ?? "";
   const [event, setEvent] = useState<Event | null>(null);
   const [registrations, setRegistrations] = useState<EventRegistration[]>([]);
   const [hostCity, setHostCity] = useState<string | null>(null);

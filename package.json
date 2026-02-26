@@ -10,6 +10,9 @@
     "lint": "next lint",
     "seed:demo": "node scripts/seed-demo.cjs",
     "seed:e2e": "node scripts/seed-e2e-users.cjs",
+    "seed:events": "SEED_CONFIRM=true npx tsx scripts/seed-events.ts",
+    "cleanup:events": "npx tsx scripts/cleanup-events.ts",
+    "reset:events": "SEED_CONFIRM=true npx tsx scripts/cleanup-events.ts && SEED_CONFIRM=true npx tsx scripts/seed-events.ts",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:report": "playwright show-report",
@@ -36,6 +39,7 @@
     "postcss": "^8.4.35",
     "qrcode": "^1.5.4",
     "tailwindcss": "^3.4.1",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "tsx": "4.21.0"
   }
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/Card";
@@ -16,16 +16,52 @@ const CITIES = [
   { value: "Tokyo", label: "Tokyo" },
 ] as const;
 
+const CATEGORIES = [
+  { value: "friends", label: "Friends" },
+  { value: "dating", label: "Dating" },
+] as const;
+
 export default function AdminCreateEventPage() {
   const router = useRouter();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [startAt, setStartAt] = useState("");
+  const [endAt, setEndAt] = useState("");
   const [city, setCity] = useState("");
+  const [category, setCategory] = useState<"friends" | "dating">("friends");
+  const [whatsIncluded, setWhatsIncluded] = useState("");
   const [priceCents, setPriceCents] = useState("");
   const [paymentRequired, setPaymentRequired] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [posterFile, setPosterFile] = useState<File | null>(null);
+  const [posterPreview, setPosterPreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const handlePosterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null;
+    e.target.value = "";
+    if (!file) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      setError("File too large. Max 10MB.");
+      return;
+    }
+    const allowed = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+    if (!allowed.includes(file.type)) {
+      setError("Use JPG, PNG, or WebP.");
+      return;
+    }
+
+    setError(null);
+    setPosterFile(file);
+    try {
+      const url = URL.createObjectURL(file);
+      setPosterPreview(url);
+    } catch {
+      setPosterPreview(null);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,7 +91,10 @@ export default function AdminCreateEventPage() {
           name: trimmedName,
           description: description.trim() || undefined,
           start_at: startAt || undefined,
+          end_at: endAt || undefined,
           city: city || undefined,
+          category,
+          whats_included: whatsIncluded.trim() || undefined,
           price_cents: priceCents === "" ? 0 : parseInt(priceCents, 10) || 0,
           payment_required: paymentRequired,
         }),
@@ -69,6 +108,23 @@ export default function AdminCreateEventPage() {
       }
 
       const eventId = data?.event_id;
+      if (eventId && posterFile) {
+        try {
+          const formData = new FormData();
+          formData.append("file", posterFile);
+          const uploadRes = await fetch(`/api/admin/events/${eventId}/poster`, {
+            method: "POST",
+            credentials: "include",
+            body: formData,
+          });
+          if (!uploadRes.ok) {
+            const uploadData = await uploadRes.json().catch(() => ({}));
+            console.error("Poster upload during create failed:", uploadData);
+          }
+        } catch (uploadErr) {
+          console.error("Error uploading poster during create:", uploadErr);
+        }
+      }
       if (eventId) {
         router.push(`/admin/events/${eventId}`);
       } else {
@@ -133,6 +189,48 @@ export default function AdminCreateEventPage() {
             />
           </div>
 
+          <div>
+            <label className="block text-sm font-medium text-[var(--text)] mb-2">
+              Poster (optional)
+            </label>
+            <div className="flex flex-col sm:flex-row gap-3 items-start">
+              {posterPreview ? (
+                <img
+                  src={posterPreview}
+                  alt="Event poster preview"
+                  className="w-32 h-32 object-cover rounded-xl border border-[var(--border)]"
+                />
+              ) : (
+                <div
+                  className="w-32 h-32 rounded-xl border border-dashed flex items-center justify-center text-sm text-[var(--text-muted)]"
+                  style={{ borderColor: "var(--border)" }}
+                >
+                  No image
+                </div>
+              )}
+              <div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/jpg,image/png,image/webp"
+                  className="hidden"
+                  onChange={handlePosterChange}
+                  disabled={isSubmitting}
+                />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isSubmitting}
+                >
+                  Choose poster
+                </Button>
+                <p className="text-xs mt-1 text-[var(--text-muted)]">JPG, PNG, WebP. Max 10MB.</p>
+              </div>
+            </div>
+          </div>
+
           <Input
             label="Start"
             type="datetime-local"
@@ -142,6 +240,35 @@ export default function AdminCreateEventPage() {
             min={new Date().toISOString().slice(0, 16)}
             data-testid="create-event-start-at"
           />
+
+          <Input
+            label="End (optional)"
+            type="datetime-local"
+            value={endAt}
+            onChange={(e) => setEndAt(e.target.value)}
+            disabled={isSubmitting}
+            min={startAt || new Date().toISOString().slice(0, 16)}
+            data-testid="create-event-end-at"
+          />
+
+          <div>
+            <label className="block text-sm font-medium text-[var(--text)] mb-2">
+              Category
+            </label>
+            <select
+              className="w-full px-4 py-2.5 bg-[var(--bg-panel)] border border-[var(--border)] rounded-xl text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-[var(--primary)]"
+              value={category}
+              onChange={(e) => setCategory(e.target.value as "friends" | "dating")}
+              disabled={isSubmitting}
+              data-testid="create-event-category"
+            >
+              {CATEGORIES.map((c) => (
+                <option key={c.value} value={c.value}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </div>
 
           <div>
             <label className="block text-sm font-medium text-[var(--text)] mb-2">
@@ -160,6 +287,20 @@ export default function AdminCreateEventPage() {
                 </option>
               ))}
             </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-[var(--text)] mb-2">
+              What&apos;s Included (optional, one line or bullet per line)
+            </label>
+            <textarea
+              className="w-full px-4 py-2.5 bg-[var(--bg-panel)] border border-[var(--border)] rounded-xl text-[var(--text)] placeholder:text-[var(--text-subtle)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-[var(--primary)] min-h-[80px]"
+              placeholder="e.g. Welcome drink&#10;Networking session&#10;Light bites"
+              value={whatsIncluded}
+              onChange={(e) => setWhatsIncluded(e.target.value)}
+              disabled={isSubmitting}
+              data-testid="create-event-whats-included"
+            />
           </div>
 
           <Input

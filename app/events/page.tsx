@@ -2,12 +2,10 @@ import Link from "next/link";
 import { requireApprovedUser } from "@/lib/auth/requireApprovedUser";
 import { getServiceSupabaseClient } from "@/lib/supabase/serverClient";
 import { cityForFilter } from "@/lib/constants/profileOptions";
-import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { Badge } from "@/components/ui/Badge";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { PayToConfirmButton } from "@/app/events/PayToConfirmButton";
+import { EventsListClient } from "@/app/events/EventsListClient";
 
 type DbEvent = {
   id: string;
@@ -15,6 +13,7 @@ type DbEvent = {
   status: string;
   city?: string | null;
   created_at?: string | null;
+  start_at?: string | null;
 };
 
 type EventsPageData = {
@@ -36,6 +35,7 @@ type EventsPageData = {
 
 async function getEventsPageData(profileId: string, role: string): Promise<EventsPageData> {
   const supabase = getServiceSupabaseClient();
+  const now = new Date().toISOString();
 
   let userCity: string | null = null;
   const { data: profile } = await supabase
@@ -63,7 +63,7 @@ async function getEventsPageData(profileId: string, role: string): Promise<Event
   if (filterCity) {
     const res = await supabase
       .from("events")
-      .select("id, title, status, city, created_at, payment_required, price_cents")
+      .select("id, title, status, city, created_at, start_at, payment_required, price_cents")
       .eq("status", "live")
       .or(`city.eq.${filterCity},city.is.null`)
       .order("created_at", { ascending: true });
@@ -82,7 +82,7 @@ async function getEventsPageData(profileId: string, role: string): Promise<Event
   } else {
     const res = await supabase
       .from("events")
-      .select("id, title, status, city, created_at, payment_required, price_cents")
+      .select("id, title, status, city, created_at, start_at, payment_required, price_cents")
       .eq("status", "live")
       .order("created_at", { ascending: true });
     events = res.data;
@@ -192,7 +192,10 @@ async function getEventsPageData(profileId: string, role: string): Promise<Event
   });
 
   return {
-    events: enrichedEvents,
+    events: enrichedEvents.filter((event) => {
+      const sortDate = (event.start_at || event.created_at || now) as string;
+      return sortDate >= now;
+    }),
     isAdmin: role === "admin",
   };
 }
@@ -230,101 +233,7 @@ export default async function EventsPage() {
           description="Check back soon for upcoming gatherings in your city."
         />
       ) : (
-        <div className="space-y-4" data-testid="events-list-container">
-          {events.map((event) => {
-            const { joined, completed, answerCount, totalQuestions, matchesRun, paymentRequired, paid, canViewMatches } = event;
-
-            let primaryLabel = "Enter Event";
-            let primaryHref = `/events/${event.id}/questions`;
-            let showPrimary = true;
-
-            if (joined && !completed) {
-              primaryLabel = "Complete Questions";
-            } else if (joined && completed && paymentRequired && !paid) {
-              primaryLabel = "Pay to confirm";
-              primaryHref = ""; // use PayToConfirmButton instead of link
-            } else if (joined && completed) {
-              if (canViewMatches) {
-                primaryLabel = "View Matches";
-                primaryHref = "/match";
-              } else {
-                primaryLabel = "Matches pending";
-                primaryHref = "#";
-                showPrimary = false;
-              }
-            }
-
-            return (
-              <Card key={event.id} variant="elevated" padding="md">
-                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
-                  <div className="flex-1">
-                    <h2
-                      className="text-xl font-semibold mb-2"
-                      style={{ color: "var(--text)" }}
-                    >
-                      {event.title}
-                    </h2>
-                    <p
-                      className="text-sm mb-1"
-                      style={{ color: "var(--text-muted)" }}
-                    >
-                      {event.created_at
-                        ? (() => {
-                            const d = new Date(event.created_at);
-                            const today = new Date();
-                            const isToday =
-                              d.getDate() === today.getDate() &&
-                              d.getMonth() === today.getMonth() &&
-                              d.getFullYear() === today.getFullYear();
-                            return isToday
-                              ? "Today"
-                              : d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
-                          })()
-                        : "Live event"}
-                      {event.created_at ? " · Live event" : ""}
-                    </p>
-                    <div className="flex flex-wrap gap-2 mt-1">
-                      {joined && <Badge variant="success">Joined</Badge>}
-                      {completed && (
-                        <Badge variant="info">Questionnaire Complete</Badge>
-                      )}
-                      {joined && completed && paymentRequired && paid && (
-                        <Badge variant="success">Paid</Badge>
-                      )}
-                      {joined && !completed && totalQuestions > 0 && (
-                        <Badge variant="warning">
-                          {answerCount}/{totalQuestions} answered
-                        </Badge>
-                      )}
-                      {joined && completed && !matchesRun && (
-                        <Badge variant="warning">Matches pending</Badge>
-                      )}
-                    </div>
-                    {joined && completed && !matchesRun && (
-                      <p
-                        className="text-sm mt-2"
-                        style={{ color: "var(--text-muted)" }}
-                      >
-                        Matches will appear after the host runs matching.
-                      </p>
-                    )}
-                  </div>
-                  {showPrimary && (
-                    <div className="flex flex-col sm:flex-row gap-2 sm:ml-4">
-                      {primaryLabel === "Pay to confirm" ? (
-                        <PayToConfirmButton eventId={event.id} />
-                      ) : (
-                        <Link href={primaryHref}>
-                          <Button size="md">{primaryLabel}</Button>
-                        </Link>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </Card>
-            );
-          })}
-        </div>
+        <EventsListClient events={events} />
       )}
     </div>
   );

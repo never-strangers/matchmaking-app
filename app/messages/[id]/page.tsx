@@ -10,7 +10,8 @@ import { listUsersAsync } from "@/lib/demo/userStore";
 export default function ConversationPage() {
   const params = useParams();
   const router = useRouter();
-  const conversationId = params.id as string;
+  const rawId = params?.id;
+  const conversationId = (Array.isArray(rawId) ? rawId[0] : rawId) ?? "";
   const { user, isLoggedIn, isLoading } = useSession();
   const { getConversation, getMessages, addMessage, hasMutualLike } = useDemoStore();
   const [conversation, setConversation] = useState(

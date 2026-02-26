@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { requireApprovedUser } from "@/lib/auth/requireApprovedUser";
 import { getServiceSupabaseClient } from "@/lib/supabase/serverClient";
-import { getMatchesForUser } from "@/lib/matching/questionnaireMatch";
 import type {
   QuestionnaireAnswers,
   MatchUser,
@@ -10,19 +9,8 @@ import type {
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { MatchCard } from "@/components/match/MatchCard";
 import { MatchRealtimeSubscriber } from "@/components/match/MatchRealtimeSubscriber";
-
-type MatchRow = {
-  otherProfileId: string;
-  displayName: string;
-  score: number;
-  aligned: string[];
-  mismatched: string[];
-  likedByMe: boolean;
-  mutual: boolean;
-  whatsappUrl: string | null;
-};
+import { MatchRevealView } from "@/components/match/MatchRevealView";
 
 export default async function MatchPage() {
   const session = await requireApprovedUser();
@@ -236,70 +224,7 @@ export default async function MatchPage() {
     );
   }
 
-  const currentUser: MatchUser = {
-    id: session.profile_id,
-    name: session.display_name,
-    city: "",
-    answers: currentAnswers,
-  };
-
-  const computed = getMatchesForUser(currentUser, others, questions);
-
-  // Load likes for this event (from or to current user)
-  const { data: likeRows } = await supabase
-    .from("likes")
-    .select("from_profile_id, to_profile_id")
-    .eq("event_id", event.id)
-    .or(
-      `from_profile_id.eq.${session.profile_id},to_profile_id.eq.${session.profile_id}`
-    );
-
-  const likedByMe = new Set<string>();
-  const likedByThem = new Set<string>();
-  (likeRows || []).forEach((r: { from_profile_id: string; to_profile_id: string }) => {
-    if (r.from_profile_id === session.profile_id) likedByMe.add(r.to_profile_id);
-    if (r.to_profile_id === session.profile_id) likedByThem.add(r.from_profile_id);
-  });
-
-  // Load display_name and phone_e164 for other profiles
-  const otherIds = [...new Set(others.map((o) => o.id))];
-  const { data: profileRows } = await supabase
-    .from("profiles")
-    .select("id, display_name, phone_e164")
-    .in("id", otherIds.length ? otherIds : ["__none__"]);
-
-  const profileMap = new Map<
-    string,
-    { display_name: string | null; phone_e164: string | null }
-  >();
-  (profileRows || []).forEach((p: { id: string; display_name: string | null; phone_e164: string | null }) => {
-    profileMap.set(p.id, { display_name: p.display_name, phone_e164: p.phone_e164 });
-  });
-
-  function buildWhatsAppUrl(phoneE164: string): string {
-    const digits = phoneE164.replace(/\D/g, "");
-    return `https://wa.me/${digits}`;
-  }
-
-  const matches: MatchRow[] = computed.map((m) => {
-    const otherId = m.user.id;
-    const info = profileMap.get(otherId);
-    const displayName = info?.display_name || m.user.name || otherId;
-    const mutual = likedByMe.has(otherId) && likedByThem.has(otherId);
-    const phone = info?.phone_e164;
-    const whatsappUrl = mutual && phone ? buildWhatsAppUrl(phone) : null;
-    return {
-      otherProfileId: otherId,
-      displayName,
-      score: m.score,
-      aligned: m.aligned,
-      mismatched: m.mismatched,
-      likedByMe: likedByMe.has(otherId),
-      mutual,
-      whatsappUrl,
-    };
-  });
-
+  // One-by-one reveal: client fetches reveal-state and reveal-next
   return (
     <div className="max-w-5xl mx-auto px-4 py-8 sm:py-12">
       <MatchRealtimeSubscriber eventId={event.id} />
@@ -311,31 +236,7 @@ export default async function MatchPage() {
         Your Matches
       </h2>
 
-      {matches.length === 0 ? (
-        <Card padding="lg" data-testid="matches-list-container">
-          <EmptyState
-            title="No matches yet"
-            description="Once matching is run, your top matches will appear here."
-          />
-        </Card>
-      ) : (
-        <div className="space-y-4" data-testid="matches-list-container">
-          {matches.map((m) => (
-            <MatchCard
-              key={m.otherProfileId}
-              eventId={event.id}
-              otherProfileId={m.otherProfileId}
-              displayName={m.displayName}
-              score={m.score}
-              aligned={m.aligned}
-              mismatched={m.mismatched}
-              likedByMe={m.likedByMe}
-              mutual={m.mutual}
-              whatsappUrl={m.whatsappUrl}
-            />
-          ))}
-        </div>
-      )}
+      <MatchRevealView eventId={event.id} eventTitle={event.title} />
 
       <div className="mt-8">
         <Link

@@ -9,11 +9,11 @@ export const config = {
   matcher: [
     /*
      * Match all request paths except:
-     * - _next/static (static files)
-     * - _next/image (image optimization)
+     * - _next (entire tree: static, image, Turbopack chunks, etc.)
      * - favicon.ico
-     * - static assets (images, etc.)
+     * - static assets (images, js, css, etc.)
+     * Excluding .js avoids middleware running on Next dev chunks (e.g. main-app.js, app-pages-internals.js).
      */
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|js|css|ico)$).*)",
   ],
 };

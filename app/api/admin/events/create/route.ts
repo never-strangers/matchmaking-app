@@ -6,7 +6,10 @@ export type CreateEventBody = {
   name: string;
   description?: string;
   start_at?: string;
+  end_at?: string;
   city?: string;
+  category?: "friends" | "dating";
+  whats_included?: string;
   price_cents?: number;
   payment_required?: boolean;
 };
@@ -39,7 +42,10 @@ async function createEventWithDirectInserts(
   name: string,
   description: string | null,
   start_at: string | null,
+  end_at: string | null,
   city: string | null,
+  category: "friends" | "dating",
+  whats_included: string | null,
   price_cents: number = 0,
   payment_required: boolean = true
 ): Promise<string | null> {
@@ -49,7 +55,10 @@ async function createEventWithDirectInserts(
       title: name,
       description: description || null,
       start_at: start_at || null,
+      end_at: end_at || null,
       city: city || null,
+      category: category,
+      whats_included: whats_included,
       status: "live",
       price_cents: price_cents,
       currency: "sgd",
@@ -118,7 +127,10 @@ export async function POST(req: NextRequest) {
   const supabase = getServiceSupabaseClient();
   const description = body.description?.trim() || null;
   const startAt = body.start_at || null;
+  const endAt = body.end_at || null;
   const city = body.city?.trim() || null;
+  const category = body.category === "dating" ? "dating" : "friends";
+  const whatsIncluded = body.whats_included?.trim() || null;
 
   const priceCents = typeof body.price_cents === "number" && body.price_cents >= 0 ? body.price_cents : 0;
   const paymentRequired = body.payment_required !== false;
@@ -130,6 +142,9 @@ export async function POST(req: NextRequest) {
     p_city: city,
     p_price_cents: priceCents,
     p_payment_required: paymentRequired,
+    p_end_at: endAt,
+    p_category: category,
+    p_whats_included: whatsIncluded,
   });
 
   if (!error) {
@@ -137,7 +152,7 @@ export async function POST(req: NextRequest) {
   }
 
   if (error?.code === "PGRST202" || (error && String(error.message).includes("function"))) {
-    const id = await createEventWithDirectInserts(supabase, name, description, startAt, city, priceCents, paymentRequired);
+    const id = await createEventWithDirectInserts(supabase, name, description, startAt, endAt, city, category, whatsIncluded, priceCents, paymentRequired);
     if (id) {
       return Response.json({ ok: true, event_id: id });
     }

@@ -50,28 +50,16 @@ export async function POST(req: NextRequest) {
   const priceCents = Number((event as { price_cents?: number }).price_cents ?? 0);
   const paymentRequired = (event as { payment_required?: boolean }).payment_required !== false;
 
-  if (!paymentRequired || priceCents <= 0) {
+  if (!paymentRequired) {
     return new Response(
-      JSON.stringify({ error: "This event does not require payment or has no price" }),
-      { status: 400, headers: { "Content-Type": "application/json" } }
-    );
-  }
-
-  // Stripe requires minimum amount (e.g. 50 cents for SGD/USD)
-  const currency = ((event as { currency?: string }).currency || "sgd").toLowerCase();
-  const minCents = currency === "sgd" || currency === "usd" ? 50 : 50;
-  if (priceCents < minCents) {
-    return new Response(
-      JSON.stringify({
-        error: `Event price must be at least ${minCents / 100} ${currency.toUpperCase()} (Stripe minimum). Update the event price in admin.`,
-      }),
+      JSON.stringify({ error: "This event does not require payment" }),
       { status: 400, headers: { "Content-Type": "application/json" } }
     );
   }
 
   const { data: attendee, error: attendeeError } = await supabase
     .from("event_attendees")
-    .select("event_id, profile_id, payment_status")
+    .select("event_id, profile_id, payment_status, ticket_type_id")
     .eq("event_id", eventId)
     .eq("profile_id", profileId)
     .single();
@@ -91,21 +79,36 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { count: answerCount } = await supabase
-    .from("answers")
-    .select("question_id", { count: "exact", head: true })
-    .eq("event_id", eventId)
-    .eq("profile_id", profileId);
-
-  const { count: questionCount } = await supabase
-    .from("questions")
-    .select("id", { count: "exact", head: true })
-    .eq("event_id", eventId);
-
-  if (answerCount === null || questionCount === null || answerCount < questionCount) {
+  let chargeCents = priceCents;
+  const ticketTypeId = (attendee as { ticket_type_id?: string | null }).ticket_type_id;
+  if (ticketTypeId) {
+    const { data: ticketType } = await supabase
+      .from("event_ticket_types")
+      .select("price_cents, currency")
+      .eq("id", ticketTypeId)
+      .single();
+    if (ticketType) {
+      chargeCents = Number((ticketType as { price_cents?: number }).price_cents ?? 0);
+      const ticketCurrency = (ticketType as { currency?: string }).currency;
+      if (ticketCurrency) {
+        (event as { currency?: string }).currency = ticketCurrency;
+      }
+    }
+  }
+  const currency = ((event as { currency?: string }).currency || "sgd").toLowerCase();
+  if (chargeCents <= 0) {
     return new Response(
-      JSON.stringify({ error: "Complete all event questions before paying" }),
-      { status: 403, headers: { "Content-Type": "application/json" } }
+      JSON.stringify({ error: "No price set for your ticket. Contact support." }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
+    );
+  }
+  const minCents = currency === "sgd" || currency === "usd" ? 50 : 50;
+  if (chargeCents < minCents) {
+    return new Response(
+      JSON.stringify({
+        error: `Amount must be at least ${minCents / 100} ${currency.toUpperCase()} (Stripe minimum).`,
+      }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
     );
   }
 
@@ -122,7 +125,7 @@ export async function POST(req: NextRequest) {
         {
           price_data: {
             currency: currency,
-            unit_amount: priceCents,
+            unit_amount: chargeCents,
             product_data: {
               name: `Event: ${(event as { title?: string }).title || "Event"}`,
               description: "Confirm your seat",

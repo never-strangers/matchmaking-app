@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { AdminEventsClient, type AdminEventSummary } from "@/app/admin/AdminEventsClient";
 import { getAttendeesByEvent } from "@/lib/admin/getAttendeesByEvent";
+import { AttendeeCheckInButton } from "@/components/admin/AttendeeCheckInButton";
 
 type MatchRowData = {
   aProfileId: string;
@@ -29,7 +30,7 @@ export default async function AdminEventDetailPage({
 
   const { data: event, error: eventError } = await supabase
     .from("events")
-    .select("id, title, status, created_at, start_at")
+    .select("id, title, status, created_at, start_at, end_at, category, poster_path, whats_included")
     .eq("id", eventId)
     .maybeSingle();
 
@@ -110,47 +111,60 @@ export default async function AdminEventDetailPage({
         subtitle={`${dateLabel} · ${event.status}`}
       />
 
+      <div className="mb-4">
+        <Link
+          href={`/admin/events/${eventId}/edit`}
+          className="text-sm hover:underline py-2 inline-block touch-manipulation"
+          style={{ color: "var(--text-muted)" }}
+        >
+          Edit event →
+        </Link>
+      </div>
+
       <div className="space-y-6">
         <AdminEventsClient events={[eventSummary]} showCreateButton={false} />
 
         <Card padding="lg">
           <h3 className="text-base font-semibold mb-3" style={{ color: "var(--text)" }}>
-            Attendees
+            Guest list
           </h3>
+          <p className="text-sm mb-3" style={{ color: "var(--text-muted)" }}>
+            Only checked-in attendees are included when you run matching. Check in guests who are present.
+          </p>
           {attendees.length === 0 ? (
             <p className="text-sm" style={{ color: "var(--text-muted)" }}>
               No one has joined this event yet.
             </p>
           ) : (
             <div className="overflow-x-auto -mx-1 sm:mx-0" style={{ minHeight: "1px" }}>
-              <table className="w-full text-sm min-w-[280px]">
+              <table className="w-full text-sm min-w-[320px]">
                 <thead>
                   <tr style={{ borderBottom: "1px solid var(--border)", color: "var(--text-muted)" }}>
                     <th className="text-left py-2 pr-2 sm:pr-4 font-medium">Name</th>
                     <th className="text-left py-2 pr-2 sm:pr-4 font-medium">Phone</th>
-                    <th className="text-left py-2 pr-2 sm:pr-4 font-medium">Joined</th>
-                    <th className="text-left py-2 font-medium">Questions</th>
+                    <th className="text-left py-2 pr-2 sm:pr-4 font-medium">Payment</th>
+                    <th className="text-left py-2 pr-2 sm:pr-4 font-medium">Ticket</th>
+                    <th className="text-left py-2 pr-2 sm:pr-4 font-medium">Questions</th>
+                    <th className="text-left py-2 pr-2 sm:pr-4 font-medium">Check-in</th>
+                    <th className="text-left py-2 font-medium">Action</th>
                   </tr>
                 </thead>
                 <tbody>
                   {attendees.map((a) => (
-                    <tr key={a.profileId} style={{ borderBottom: "1px solid var(--border)" }}>
+                    <tr key={a.id} style={{ borderBottom: "1px solid var(--border)" }}>
                       <td className="py-2 pr-2 sm:pr-4" style={{ color: "var(--text)" }}>
                         {a.displayName}
                       </td>
                       <td className="py-2 pr-2 sm:pr-4 font-mono text-xs" style={{ color: "var(--text-muted)" }}>
                         {a.phoneLast4}
                       </td>
-                      <td className="py-2 pr-2 sm:pr-4 whitespace-nowrap" style={{ color: "var(--text-muted)" }}>
-                        {a.joinedAt
-                          ? new Date(a.joinedAt).toLocaleDateString(undefined, {
-                              month: "short",
-                              day: "numeric",
-                              year: "numeric",
-                            })
-                          : "—"}
+                      <td className="py-2 pr-2 sm:pr-4" style={{ color: "var(--text-muted)" }}>
+                        {a.paymentStatus}
                       </td>
-                      <td className="py-2" style={{ color: "var(--text)" }}>
+                      <td className="py-2 pr-2 sm:pr-4" style={{ color: "var(--text-muted)" }}>
+                        {a.ticketStatus}
+                      </td>
+                      <td className="py-2 pr-2 sm:pr-4" style={{ color: "var(--text)" }}>
                         {a.totalQuestions > 0 ? (
                           <span className={a.answersCount >= a.totalQuestions ? "text-green-600" : ""}>
                             {a.answersCount}/{a.totalQuestions}
@@ -160,11 +174,26 @@ export default async function AdminEventDetailPage({
                           "—"
                         )}
                       </td>
+                      <td className="py-2 pr-2 sm:pr-4" style={{ color: "var(--text-muted)" }}>
+                        {a.checkedIn ? "✓ Checked in" : "—"}
+                      </td>
+                      <td className="py-2">
+                        <AttendeeCheckInButton
+                          eventId={eventId}
+                          attendeeId={a.id}
+                          checkedIn={a.checkedIn}
+                        />
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
+          )}
+          {attendees.length > 0 && attendees.filter((a) => a.checkedIn).length < 4 && (
+            <p className="text-sm mt-3" style={{ color: "var(--text-muted)" }}>
+              Fewer than 4 guests are checked in. Run matching will only include checked-in (and paid) attendees.
+            </p>
           )}
         </Card>
 

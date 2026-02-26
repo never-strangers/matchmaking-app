@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -9,9 +9,12 @@ import { PageHeader } from "@/components/ui/PageHeader";
 export default function PaymentSuccessPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const eventId = params?.id as string;
+  const sessionId = searchParams?.get("session_id") ?? null;
   const [status, setStatus] = useState<string | null>(null);
   const [polling, setPolling] = useState(true);
+  const confirmSent = useRef(false);
 
   const poll = useCallback(async () => {
     if (!eventId) return;
@@ -24,12 +27,29 @@ export default function PaymentSuccessPage() {
       setStatus(data.payment_status ?? null);
       if (data.payment_status === "paid") {
         setPolling(false);
-        router.replace("/events");
+        router.replace(`/events/${eventId}/questions`);
       }
     } catch {
       // ignore
     }
   }, [eventId, router]);
+
+  // If we have a checkout session_id, confirm payment server-side once (so we get
+  // marked paid even when the Stripe webhook hasn't run yet, e.g. local dev).
+  useEffect(() => {
+    if (!eventId || !sessionId || sessionId.length < 10 || confirmSent.current) return;
+    confirmSent.current = true;
+    const url = `/api/events/${eventId}/payment/confirm?session_id=${encodeURIComponent(sessionId)}`;
+    fetch(url, { credentials: "include" })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.payment_status === "paid") {
+          setPolling(false);
+          router.replace(`/events/${eventId}/questions`);
+        }
+      })
+      .catch(() => {});
+  }, [eventId, sessionId, router]);
 
   useEffect(() => {
     if (!eventId) return;
