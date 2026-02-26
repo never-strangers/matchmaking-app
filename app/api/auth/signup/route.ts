@@ -57,9 +57,42 @@ export async function POST(request: Request) {
     }
 
     const supabase = createAdminClient();
+
+    // Prevent re-application with the same email or Instagram if a profile
+    // has already been explicitly rejected.
+    const normalizedEmail = email.trim().toLowerCase();
+    const instagramValue =
+      typeof instagram === "string" ? instagram.trim() : "";
+
+    const rejectionFilters: string[] = [];
+    if (normalizedEmail) {
+      rejectionFilters.push(`email.eq.${normalizedEmail}`);
+    }
+    if (instagramValue) {
+      rejectionFilters.push(`instagram.eq.${instagramValue}`);
+    }
+
+    if (rejectionFilters.length > 0) {
+      const { data: rejectedExisting } = await supabase
+        .from("profiles")
+        .select("id, status")
+        .eq("status", "rejected")
+        .or(rejectionFilters.join(","))
+        .maybeSingle();
+
+      if (rejectedExisting) {
+        return NextResponse.json(
+          {
+            error:
+              "This account was previously rejected. You can’t reapply with the same email or Instagram handle.",
+          },
+          { status: 409 }
+        );
+      }
+    }
     const { data: authData, error: authError } =
       await supabase.auth.admin.createUser({
-        email: email.trim().toLowerCase(),
+        email: normalizedEmail,
         password,
         email_confirm: true,
       });

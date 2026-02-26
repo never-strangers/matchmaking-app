@@ -10,7 +10,6 @@ type Props = { searchParams: Promise<{ registered?: string }> };
 export default async function PendingPage({ searchParams }: Props) {
   const params = await searchParams;
   const justRegistered = params.registered === "1";
-
   const auth = await getAuthUser();
 
   if (!auth && !justRegistered) {
@@ -33,6 +32,35 @@ export default async function PendingPage({ searchParams }: Props) {
           <Link href="/login">
             <Button size="lg" fullWidth>
               Go to Login
+            </Button>
+          </Link>
+        </Card>
+      </div>
+    );
+  }
+
+  const status = auth?.status ?? "pending_verification";
+
+  if (status === "rejected") {
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-8 sm:py-12">
+        <PageHeader
+          title="Account Rejected"
+          subtitle="Your application was not approved"
+        />
+        <h2 className="sr-only" data-testid="rejected-headline">
+          Account Rejected
+        </h2>
+
+        <Card padding="lg">
+          <p className="mb-6" style={{ color: "var(--text-muted)" }}>
+            Your application was reviewed and was not approved. You won&apos;t be
+            able to access events or matches with this account. If you believe
+            this is an error, please contact the Never Strangers team.
+          </p>
+          <Link href="/profile">
+            <Button size="lg" fullWidth>
+              View Profile
             </Button>
           </Link>
         </Card>

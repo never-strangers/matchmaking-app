@@ -81,6 +81,36 @@ export async function POST(req: NextRequest) {
 
   const supabase = getServiceSupabaseClient();
 
+  // Prevent re-application with the same email or Instagram if a profile
+  // has already been explicitly rejected.
+  const realEmail = (body.email ?? "").trim().toLowerCase();
+  const rejectionFilters: string[] = [];
+  if (realEmail) {
+    rejectionFilters.push(`email.eq.${realEmail}`);
+  }
+  if (instagram) {
+    rejectionFilters.push(`instagram.eq.${instagram}`);
+  }
+
+  if (rejectionFilters.length > 0) {
+    const { data: rejectedExisting } = await supabase
+      .from("profiles")
+      .select("id, status")
+      .eq("status", "rejected")
+      .or(rejectionFilters.join(","))
+      .maybeSingle();
+
+    if (rejectedExisting) {
+      return new Response(
+        JSON.stringify({
+          error:
+            "This account was previously rejected. You can’t reapply with the same email or Instagram handle.",
+        }),
+        { status: 409, headers: { "Content-Type": "application/json" } }
+      );
+    }
+  }
+
   const { data: existingProfile } = await supabase
     .from("profiles")
     .select("id")
@@ -155,7 +185,6 @@ export async function POST(req: NextRequest) {
 
   const profileId = crypto.randomUUID();
   const safeDigits = phoneE164.replace(/\D/g, "").slice(-12);
-  const realEmail = (body.email ?? "").trim();
   const syntheticEmail =
     realEmail || (safeDigits.length > 0 ? `invite_${safeDigits}@demo.local` : `invite_${profileId}@demo.local`);
 

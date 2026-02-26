@@ -82,6 +82,7 @@ async function main() {
                 email: email,
                 city: "sg",
                 status: user.status,
+                instagram: label === "rejected" ? "e2e_rejected" : null,
                 updated_at: new Date().toISOString(),
               },
               { onConflict: "id" }
@@ -115,6 +116,7 @@ async function main() {
         email,
         city: "sg",
         status: user.status,
+        instagram: label === "rejected" ? "e2e_rejected" : null,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "id" }

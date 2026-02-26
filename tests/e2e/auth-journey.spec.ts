@@ -15,14 +15,29 @@ test.describe("auth journey", () => {
     await assertPendingGating(page);
   });
 
-  test("rejected user: login → /pending (same gating as pending)", async ({
+  test("rejected user: login → /pending with rejected messaging", async ({
     page,
   }) => {
     await loginUser(page, E2E_REJECTED_USER);
     await expect(page).toHaveURL(/\/pending/);
-    await expect(page.getByTestId("pending-headline")).toBeVisible();
+    await expect(page.getByTestId("rejected-headline")).toBeVisible();
     await page.goto("/events");
     await expect(page).toHaveURL(/\/pending/);
+  });
+
+  test("rejected user cannot sign up again with same email", async ({ page }) => {
+    await page.goto("/register");
+    await page.getByTestId("register-email").fill(E2E_REJECTED_USER.email);
+    await page.getByTestId("register-password").fill(E2E_REJECTED_USER.password);
+    await page.getByTestId("register-city").selectOption("sg");
+    await page.getByTestId("register-dob").fill("1990-01-01");
+    await page.getByTestId("register-agreement-accurate").check();
+    await page.getByTestId("register-submit").click();
+
+    const errorAlert = page
+      .getByRole("alert")
+      .filter({ hasText: "previously rejected. You can’t reapply with the same email or Instagram handle." });
+    await expect(errorAlert).toBeVisible();
   });
 
   test("approved user: events + matches + profile update + logout", async ({

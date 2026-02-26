@@ -185,7 +185,7 @@ The demo version now enforces all business rules end-to-end using localStorage a
 ### ✅ Demo Features Implemented
 
 - **Registration & OTP**: Mock email OTP verification (code: `123456`)
-- **User Status**: PENDING → APPROVED/REJECTED workflow with 24h cooldown
+- **User Status**: PENDING → APPROVED/REJECTED workflow with 24h cooldown. In the Supabase-backed flows, rejected users see an explicit rejected state (not “pending”) and cannot reapply with the same email or Instagram handle.
 - **City Locking**: City locked after approval; change requires admin approval
 - **Event Filtering**: Approved users only see events in their city
 - **Per-Event Questionnaire**: Answers stored per event; >=10 answers required for RSVP
