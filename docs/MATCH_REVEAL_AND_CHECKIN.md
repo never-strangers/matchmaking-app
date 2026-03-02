@@ -1,74 +1,55 @@
-# Match reveal (one-by-one) and admin check-in
+# Match reveal (3 rounds) and admin check-in
 
-## Match reveal (one-by-one, admin-controlled)
+## Match reveal (exactly 3 rounds, admin-controlled)
 
-Matches are revealed sequentially on the user **Matches** view (`/match`), **but the trigger lives on the Admin event page**, not with users.
+Matches are revealed in **exactly 3 rounds** on the user **Matches** view (`/match`). Each round gives every eligible attendee **at most one match** (no repeat partners across rounds). The **trigger is on the Admin event page**: Reveal Round 1, then Round 2, then Round 3.
 
 ### Behaviour
 
-- Admin clicks **Reveal next match** on the Admin event detail page.
-- Eligible attendees in that event who are part of the next pair see a **full-screen countdown overlay 3 → 2 → 1** (~1s each).
-- After the countdown, the match card is shown to both people in the pair, with score + explanations and a CTA to start chat (when enabled).
-- Unmatched attendees (not in that pair) see nothing new.
-- Revealed matches persist across refresh: only matches whose pair has been revealed by admin are shown; unrevealed pairs stay hidden until the host reveals them.
-- **Reset event** (admin) clears match results and the reveal queue for that event.
+- **Run Matching** (admin): Computes Round 1, 2, and 3 pairings using a greedy disjoint matching (highest score first; no attendee paired twice in the same round; no pair repeated across rounds). Persists `match_results` with `round` 1–3 and resets `match_rounds` (nothing revealed yet).
+- Admin clicks **Reveal Round 1** (then **Reveal Round 2**, then **Reveal Round 3**). Each action is idempotent (already revealed returns 200).
+- When a round is revealed, attendees who have a match in that round see a **full-screen countdown 3 → 2 → 1**, then their match card (score, aligned/mismatched reasons).
+- Users have **no reveal buttons**; they only see “Waiting for host to reveal Round N” until the admin reveals.
+- **Reset event** clears `match_results`, `match_rounds`, and `match_reveal_queue` for that event.
 
 ### Data model
 
-- **`match_results`** (existing):  
-  - `event_id`, `a_profile_id`, `b_profile_id`, `score`, `id` (PK, see migration `019_match_reveals_and_checkin.sql`).
-  - One row per unique pair in an event.
-- **`match_reveal_queue`** (see migration `20260227000000_match_reveal_queue.sql`):  
-  - `event_id` – event the match belongs to  
-  - `match_result_id` – FK to `match_results(id)`  
-  - `reveal_order` – integer ordering for this event (highest score first by default)  
-  - `revealed_at` – `NULL` until revealed by admin  
-  - `revealed_by` – admin profile id who triggered the reveal  
-  - Unique per `(event_id, match_result_id)`; indexed by `(event_id, reveal_order)` and `(event_id, revealed_at)`.
-- When admin runs matching, `match_results` are (upserted) and `match_reveal_queue` is **fully regenerated** for that event (old queue rows for the event are deleted and re-inserted in score order).
+- **`match_results`** (migration `20260227100000_match_rounds.sql`):  
+  - `event_id`, `a_profile_id`, `b_profile_id`, `score`, **`round`** (1, 2, or 3).  
+  - One row per pair per round; each (event, a, b) appears in exactly one round.
+- **`match_rounds`** (same migration):  
+  - `event_id` (PK), `round1_revealed_at`, `round2_revealed_at`, `round3_revealed_at`, `last_revealed_round` (0–3), `updated_at`.  
+  - Tracks which rounds have been revealed per event.
 
 ### APIs
 
 **Admin**
 
-- **`POST /api/admin/events/[eventId]/reveal-next-match`**  
-  - Auth: admin only (checked via `getAuthUser()` + `role === "admin"`).  
-  - Behaviour:
-    - Uses PostgreSQL function `public.reveal_next_match_for_event(event_id, admin_profile_id)` to:
-      - Lock the reveal queue for that event (`FOR UPDATE SKIP LOCKED` + advisory lock).
-      - Select the next unrevealed row (`revealed_at IS NULL`, smallest `reveal_order`).
-      - Mark it revealed (`revealed_at = now()`, `revealed_by = admin_profile_id`).
-      - Return the pair (`a_profile_id`, `b_profile_id`, `score`, `reveal_order`).
-  - Response:
-    - `{ revealed: { matchResultId, aProfileId, bProfileId, revealOrder, score } }` when a match is revealed.
-    - `{ revealed: null, message: "No more matches to reveal for this event" }` when queue is exhausted.
+- **`POST /api/admin/events/[eventId]/run-matching`**  
+  - Computes rounds 1–3 (greedy disjoint pairing), deletes existing `match_results` for the event, inserts new rows with `round` 1/2/3, resets `match_rounds`.  
+  - Response: `{ ok, run_id, round1Pairs, round2Pairs, round3Pairs, attendees }`.
+
+- **`POST /api/admin/events/[eventId]/reveal-round`**  
+  - Body: `{ round: 1 | 2 | 3 }`. Admin only.  
+  - Idempotent: if that round already revealed, returns 200 with `alreadyRevealed: true`.  
+  - Otherwise sets `match_rounds.round{N}_revealed_at = now()` and `last_revealed_round = max(last, N)`.  
+  - Response: `{ ok, round, alreadyRevealed?, pairsInRound, lastRevealedRound }`.
 
 **User**
 
-- **`GET /api/events/[eventId]/revealed-matches`**  
-  - Auth: approved user; must be an attendee of this event.  
-  - Behaviour:
-    - Returns all matches from the reveal queue that:
-      - Have `revealed_at IS NOT NULL`, and
-      - Involve the current user (they are either `a_profile_id` or `b_profile_id`).
-    - Includes aligned/mismatched explanation text based on questionnaire answers.  
-  - Response shape:
-    - `{ matches: RevealMatchPayload[], lastSeenOrder: number }`  
-    - When called **without** `?since`, `matches` contains **all** already-revealed matches for this user in that event, ordered by `reveal_order` ascending.
-
-- **`GET /api/events/[eventId]/revealed-matches?since=<order>`**  
-  - Same auth as above.  
-  - Behaviour:
-    - Only returns matches for this user where `reveal_order > since`.  
-    - `lastSeenOrder` reflects the highest `reveal_order` seen for this user (regardless of filter).  
-  - Used by the `/match` page to **poll** every few seconds for new reveals in a simple, RLS-safe way (all filtering happens in a server-side API using the service role client).
+- **`GET /api/events/[eventId]/my-matches`**  
+  - Auth: approved user; must be an attendee.  
+  - Returns matches for the current user **only for rounds that have been revealed** (`round <= last_revealed_round`).  
+  - Response: `{ rounds: { 1?: RevealMatchPayload, 2?: RevealMatchPayload, 3?: RevealMatchPayload }, lastRevealedRound, nextRoundToWaitFor }`.  
+  - Used by `/match` with polling to show Round 1/2/3 sections and to trigger the countdown when a new round is revealed.
 
 ### UI test ids
 
 - `match-countdown-overlay` – countdown overlay
-- `match-card` – wrapper for an individual revealed match card
-- `matches-list-container` – container for matches list on `/match`
-- `admin-reveal-next-match` – **Admin** “Reveal next match” button on event detail page
+- `match-card` – first revealed match card (Round 1)
+- `match-card-round-2`, `match-card-round-3` – round-specific cards
+- `matches-list-container` – container for matches list
+- `admin-reveal-round-1`, `admin-reveal-round-2`, `admin-reveal-round-3` – admin reveal buttons
 
 ---
 
@@ -121,4 +102,4 @@ To target specific events instead of the first two, edit the script and replace 
 ## Compatibility
 
 - Pending verification gating, questionnaire completion, and payment flow are unchanged.
-- Run Matching and Reset event semantics are unchanged except: Run Matching now filters by checked-in (and paid, questionnaire complete) and populates `match_reveals`; Reset clears reveal state via CASCADE.
+- Run Matching computes 3 rounds (greedy disjoint pairs) and resets `match_rounds`. Reset event deletes `match_results`, `match_rounds`, and `match_reveal_queue` for the event.

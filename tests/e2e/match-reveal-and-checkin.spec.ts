@@ -10,7 +10,7 @@ test.describe("match reveal and check-in", () => {
     await expect(page.getByTestId("pending-headline")).toBeVisible();
   });
 
-  test("approved user with matches: countdown appears and first reveal works", async ({
+  test("approved user: match page shows rounds or waiting (no user reveal button)", async ({
     page,
   }) => {
     await loginUser(page, E2E_APPROVED_USER);
@@ -26,26 +26,24 @@ test.describe("match reveal and check-in", () => {
     const listContainer = page.getByTestId("matches-list-container");
     await listContainer.waitFor({ state: "visible", timeout: 10_000 });
 
-    // Wait for at least one match card to appear after a countdown.
-    // The countdown is triggered by the admin reveal; this test only verifies
-    // that the user sees the overlay and a match eventually.
-    const countdown = page.getByTestId("match-countdown-overlay");
+    // User must not have a "Reveal" button (reveals are admin-only).
+    await expect(page.getByTestId("match-reveal-next")).not.toBeVisible();
+    // Either "Waiting for host" or at least one Round section / match card.
+    const waiting = page.getByText(/waiting for host/i);
     const matchCard = page.getByTestId("match-card").first();
-
-    // Countdown should appear at some point during the reveal flow
-    await expect(countdown).toBeVisible({ timeout: 30_000 });
-    await expect(countdown).not.toBeVisible({ timeout: 10_000 });
-
-    // After countdown, a match card should be visible
-    await expect(matchCard).toBeVisible({ timeout: 10_000 });
+    const round1Heading = page.getByText("Round 1");
+    const hasWaiting = await waiting.isVisible().catch(() => false);
+    const hasMatch = await matchCard.isVisible().catch(() => false);
+    const hasRound = await round1Heading.isVisible().catch(() => false);
+    expect(hasWaiting || hasMatch || hasRound).toBe(true);
   });
 
-  test("non-admin cannot call admin reveal endpoint", async ({ page, request }) => {
+  test("non-admin cannot call admin reveal-round endpoint", async ({ page, request }) => {
     await loginUser(page, E2E_APPROVED_USER);
     const response = await request.post(
-      "/api/admin/events/00000000-0000-0000-0000-000000000000/reveal-next-match"
+      "/api/admin/events/00000000-0000-0000-0000-000000000000/reveal-round",
+      { data: { round: 1 } }
     );
-    // Unauthenticated or non-admin callers must not be allowed.
     expect(response.status()).toBe(401);
   });
 

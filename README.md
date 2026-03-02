@@ -50,9 +50,9 @@ This repo hosts the new **Matching Core** — a lightweight, AI-powered system r
 
 ### 🎯 Matching System
 - **Match Preview** (`/match`)
-  - Matches revealed **one-by-one**: full-screen 3→2→1 countdown before each reveal, **triggered by the admin** from the event dashboard.
+  - Matches revealed in **exactly 3 rounds** (Round 1, 2, 3); full-screen 3→2→1 countdown when each round is revealed, **triggered by the admin** (Reveal Round 1 / 2 / 3).
   - Display potential matches with profile information (name, score, aligned/mismatched reasons).
-  - Card-based match presentation; attendees passively receive matches when the host clicks **Reveal next match** on the admin side. See `docs/MATCH_REVEAL_AND_CHECKIN.md`.
+  - Card-based match presentation; attendees passively receive one match per round when the host reveals each round. See `docs/MATCH_REVEAL_AND_CHECKIN.md`.
 
 ### 🧮 Admin Dashboard
 - **Main Dashboard** (`/admin`)

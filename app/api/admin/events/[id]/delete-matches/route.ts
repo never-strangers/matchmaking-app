@@ -21,7 +21,9 @@ export async function POST(
   await supabase.from("likes").delete().eq("event_id", eventId);
   await supabase.from("answers").delete().eq("event_id", eventId);
   await supabase.from("event_attendees").delete().eq("event_id", eventId);
+  await supabase.from("match_reveal_queue").delete().eq("event_id", eventId);
   await supabase.from("match_results").delete().eq("event_id", eventId);
+  await supabase.from("match_rounds").delete().eq("event_id", eventId);
   await supabase.from("match_runs").delete().eq("event_id", eventId);
 
   return Response.json({ ok: true });

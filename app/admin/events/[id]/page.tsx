@@ -39,26 +39,40 @@ export default async function AdminEventDetailPage({
     notFound();
   }
 
-  const [attendeesRes, matchRowsRes, revealQueueRes] = await Promise.all([
+  const [attendeesRes, matchRowsRes, matchRoundsRes, roundCountsRes] = await Promise.all([
     getAttendeesByEvent(supabase, [eventId]),
     supabase
       .from("match_results")
-      .select("a_profile_id, b_profile_id, score")
+      .select("a_profile_id, b_profile_id, score, round")
       .eq("event_id", eventId)
       .order("score", { ascending: false }),
     supabase
-      .from("match_reveal_queue")
-      .select("reveal_order, revealed_at")
+      .from("match_rounds")
+      .select("round1_revealed_at, round2_revealed_at, round3_revealed_at, last_revealed_round")
       .eq("event_id", eventId)
-      .order("reveal_order", { ascending: true }),
+      .maybeSingle(),
+    supabase
+      .from("match_results")
+      .select("round")
+      .eq("event_id", eventId),
   ]);
 
   const attendees = attendeesRes[eventId] || [];
   const matchRows = matchRowsRes.data || [];
-  const revealQueue = (revealQueueRes.data || []) as {
-    reveal_order: number;
-    revealed_at: string | null;
-  }[];
+  const matchRounds = matchRoundsRes.data as {
+    round1_revealed_at: string | null;
+    round2_revealed_at: string | null;
+    round3_revealed_at: string | null;
+    last_revealed_round: number;
+  } | null;
+  const roundCounts = (roundCountsRes.data || []).reduce(
+    (acc: Record<number, number>, r: { round: number }) => {
+      const n = Number(r.round);
+      acc[n] = (acc[n] || 0) + 1;
+      return acc;
+    },
+    {} as Record<number, number>
+  );
 
   const profileIds = new Set<string>();
   matchRows.forEach((r: { a_profile_id: string; b_profile_id: string }) => {
@@ -86,6 +100,11 @@ export default async function AdminEventDetailPage({
       score: Number(r.score),
     })
   );
+
+  const round1Count = roundCounts[1] ?? 0;
+  const round2Count = roundCounts[2] ?? 0;
+  const round3Count = roundCounts[3] ?? 0;
+  const lastRevealedRound = matchRounds?.last_revealed_round ?? 0;
 
   const eventSummary: AdminEventSummary = {
     id: String(event.id),
@@ -142,18 +161,19 @@ export default async function AdminEventDetailPage({
             Live match reveal control
           </h3>
           <p className="text-sm mb-3" style={{ color: "var(--text-muted)" }}>
-            Each click reveals the next match pair in the queue to both people
-            at the event. Attendees will see a full-screen countdown before
-            their match appears.
+            Reveal Round 1, then Round 2, then Round 3. Each round reveals one
+            match per attendee (no repeat partners across rounds). Attendees
+            see a full-screen countdown before each round’s match.
           </p>
           <MatchRevealControl
             eventId={eventId}
-            revealedCount={revealQueue.filter((r) => r.revealed_at).length}
-            totalCount={revealQueue.length}
-            lastRevealedAt={
-              revealQueue.filter((r) => r.revealed_at).slice(-1)[0]?.revealed_at ??
-              null
-            }
+            round1RevealedAt={matchRounds?.round1_revealed_at ?? null}
+            round2RevealedAt={matchRounds?.round2_revealed_at ?? null}
+            round3RevealedAt={matchRounds?.round3_revealed_at ?? null}
+            lastRevealedRound={lastRevealedRound}
+            round1Count={round1Count}
+            round2Count={round2Count}
+            round3Count={round3Count}
           />
         </Card>
 

@@ -6,101 +6,134 @@ import { Button } from "@/components/ui/Button";
 
 type Props = {
   eventId: string;
-  revealedCount: number;
-  totalCount: number;
-  lastRevealedAt: string | null;
+  round1RevealedAt: string | null;
+  round2RevealedAt: string | null;
+  round3RevealedAt: string | null;
+  lastRevealedRound: number;
+  round1Count: number;
+  round2Count: number;
+  round3Count: number;
 };
 
 export function MatchRevealControl({
   eventId,
-  revealedCount,
-  totalCount,
-  lastRevealedAt,
+  round1RevealedAt,
+  round2RevealedAt,
+  round3RevealedAt,
+  lastRevealedRound,
+  round1Count,
+  round2Count,
+  round3Count,
 }: Props) {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
+  const [loadingRound, setLoadingRound] = useState<number | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  const handleRevealNext = async () => {
-    setLoading(true);
+  const handleRevealRound = async (round: 1 | 2 | 3) => {
+    setLoadingRound(round);
     setMessage(null);
     try {
-      const res = await fetch(`/api/admin/events/${eventId}/reveal-next-match`, {
+      const res = await fetch(`/api/admin/events/${eventId}/reveal-round`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
         credentials: "include",
+        body: JSON.stringify({ round }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        const errorMessage =
-          typeof body?.error === "string"
-            ? body.error
-            : "Failed to reveal next match";
-        setMessage(errorMessage);
+        setMessage(
+          typeof body?.error === "string" ? body.error : "Failed to reveal round"
+        );
         return;
       }
       const data = (await res.json()) as {
-        revealed: {
-          matchResultId: string;
-          aProfileId: string;
-          bProfileId: string;
-          revealOrder: number;
-          score: number;
-        } | null;
-        message?: string;
+        ok: boolean;
+        round: number;
+        alreadyRevealed?: boolean;
+        pairsInRound: number;
       };
-      if (!data.revealed) {
-        setMessage(data.message || "No more matches to reveal for this event.");
+      if (data.alreadyRevealed) {
+        setMessage(`Round ${round} was already revealed.`);
       } else {
         setMessage(
-          `Revealed match #${data.revealed.revealOrder} (score ${data.revealed.score.toFixed(
-            1
-          )}%).`
+          `Round ${round} revealed (${data.pairsInRound} pair${data.pairsInRound === 1 ? "" : "s"}).`
         );
       }
       router.refresh();
     } catch (err) {
       console.error(err);
-      setMessage("Failed to reveal next match");
+      setMessage("Failed to reveal round");
     } finally {
-      setLoading(false);
+      setLoadingRound(null);
     }
   };
 
-  const allRevealed = totalCount > 0 && revealedCount >= totalCount;
+  const totalPairs = round1Count + round2Count + round3Count;
 
   return (
-    <div className="space-y-2">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-        <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-          Revealed{" "}
-          <span className="font-semibold">
-            {revealedCount}/{totalCount}
-          </span>{" "}
-          match{totalCount === 1 ? "" : "es"} in this event.
-          {lastRevealedAt
-            ? ` Last revealed at ${new Date(
-                lastRevealedAt
-              ).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}.`
-            : ""}
-        </p>
+    <div className="space-y-3">
+      <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+        Revealed: Round <span className="font-semibold">{lastRevealedRound}/3</span>
+        {totalPairs > 0 && (
+          <> · Round 1: {round1Count} · Round 2: {round2Count} · Round 3: {round3Count}</>
+        )}{" "}
+        pair{totalPairs === 1 ? "" : "s"}
+      </p>
+      <div className="flex flex-wrap gap-2">
         <Button
           size="sm"
-          onClick={handleRevealNext}
-          disabled={loading || totalCount === 0 || allRevealed}
-          data-testid="admin-reveal-next-match"
+          onClick={() => handleRevealRound(1)}
+          disabled={
+            loadingRound !== null ||
+            !!round1RevealedAt ||
+            round1Count === 0
+          }
+          data-testid="admin-reveal-round-1"
         >
-          {loading
+          {loadingRound === 1
             ? "Revealing…"
-            : allRevealed
-            ? "All matches revealed"
-            : revealedCount === 0
-            ? "Reveal first match"
-            : "Reveal next match"}
+            : round1RevealedAt
+            ? "Round 1 revealed"
+            : `Reveal Round 1${round1Count > 0 ? ` (${round1Count})` : ""}`}
+        </Button>
+        <Button
+          size="sm"
+          onClick={() => handleRevealRound(2)}
+          disabled={
+            loadingRound !== null ||
+            !!round2RevealedAt ||
+            round2Count === 0 ||
+            !round1RevealedAt
+          }
+          data-testid="admin-reveal-round-2"
+        >
+          {loadingRound === 2
+            ? "Revealing…"
+            : round2RevealedAt
+            ? "Round 2 revealed"
+            : `Reveal Round 2${round2Count > 0 ? ` (${round2Count})` : ""}`}
+        </Button>
+        <Button
+          size="sm"
+          onClick={() => handleRevealRound(3)}
+          disabled={
+            loadingRound !== null ||
+            !!round3RevealedAt ||
+            round3Count === 0 ||
+            !round2RevealedAt
+          }
+          data-testid="admin-reveal-round-3"
+        >
+          {loadingRound === 3
+            ? "Revealing…"
+            : round3RevealedAt
+            ? "Round 3 revealed"
+            : `Reveal Round 3${round3Count > 0 ? ` (${round3Count})` : ""}`}
         </Button>
       </div>
-      {totalCount === 0 && (
+      {totalPairs === 0 && (
         <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-          Run matching first to populate the reveal queue for this event.
+          Run matching first to compute Round 1–3 pairs for this event.
         </p>
       )}
       {message && (
@@ -111,4 +144,3 @@ export function MatchRevealControl({
     </div>
   );
 }
-

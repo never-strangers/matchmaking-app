@@ -1,8 +1,8 @@
 import { NextRequest } from "next/server";
 import { getAuthUser } from "@/lib/auth/getAuthUser";
 import { getServiceSupabaseClient } from "@/lib/supabase/serverClient";
-import { getMatchesForUser } from "@/lib/matching/questionnaireMatch";
 import type { QuestionnaireAnswers, MatchUser, Question } from "@/types/questionnaire";
+import { computeRoundPairings } from "@/lib/matching/roundPairing";
 
 export async function POST(
   _req: NextRequest,
@@ -29,7 +29,6 @@ export async function POST(
   }
   const paymentRequired = (event as { payment_required?: boolean }).payment_required !== false;
 
-  // Load attendees: checked_in = true, and if payment_required then payment_status = 'paid'
   let query = supabase
     .from("event_attendees")
     .select("profile_id")
@@ -56,7 +55,6 @@ export async function POST(
     console.warn(`Run matching: only ${attendeeIds.length} checked-in attendees for event ${eventId}`);
   }
 
-  // Load questions for this event
   const { data: dbQuestions, error: questionsError } = await supabase
     .from("questions")
     .select("id, prompt, weight")
@@ -80,7 +78,6 @@ export async function POST(
     return new Response("No questions configured for this event", { status: 400 });
   }
 
-  // Load all answers for this event
   const { data: dbAnswers, error: answersError } = await supabase
     .from("answers")
     .select("profile_id, question_id, answer")
@@ -122,7 +119,6 @@ export async function POST(
     });
   }
 
-  // Build MatchUser objects (minimal: id + answers)
   const matchUsers: MatchUser[] = profilesWithAnswers.map((id) => ({
     id,
     name: id,
@@ -130,7 +126,6 @@ export async function POST(
     answers: answersByProfile.get(id)!,
   }));
 
-  // Create a new match_run record
   const now = new Date().toISOString();
   const { data: runRow, error: runError } = await supabase
     .from("match_runs")
@@ -147,80 +142,76 @@ export async function POST(
     return new Response("Failed to start matching", { status: 500 });
   }
 
-  // Compute pairwise matches
-  const createdPairs = new Set<string>();
-  const resultsToUpsert: Array<{
+  const { round1, round2, round3 } = computeRoundPairings(matchUsers, questions);
+
+  const resultsToInsert: Array<{
     event_id: string;
     a_profile_id: string;
     b_profile_id: string;
     score: number;
+    round: number;
   }> = [];
 
-  for (const user of matchUsers) {
-    const candidates = matchUsers.filter((u) => u.id !== user.id);
-    const matches = getMatchesForUser(user, candidates, questions);
-
-    for (const match of matches) {
-      const other = match.user;
-      const [a, b] = [user.id, other.id].sort();
-      const key = `${a}_${b}`;
-      if (createdPairs.has(key)) continue;
-      createdPairs.add(key);
-
-      resultsToUpsert.push({
-        event_id: eventId,
-        a_profile_id: a,
-        b_profile_id: b,
-        score: match.score,
-      });
-    }
+  for (const p of round1) {
+    resultsToInsert.push({
+      event_id: eventId,
+      a_profile_id: p.a,
+      b_profile_id: p.b,
+      score: p.score,
+      round: 1,
+    });
+  }
+  for (const p of round2) {
+    resultsToInsert.push({
+      event_id: eventId,
+      a_profile_id: p.a,
+      b_profile_id: p.b,
+      score: p.score,
+      round: 2,
+    });
+  }
+  for (const p of round3) {
+    resultsToInsert.push({
+      event_id: eventId,
+      a_profile_id: p.a,
+      b_profile_id: p.b,
+      score: p.score,
+      round: 3,
+    });
   }
 
-  let upsertedRows: Array<{ id: string; a_profile_id: string; b_profile_id: string; score: number }> = [];
-  if (resultsToUpsert.length > 0) {
-    const { data: upserted, error: upsertError } = await supabase
+  await supabase.from("match_results").delete().eq("event_id", eventId);
+  if (resultsToInsert.length > 0) {
+    const { error: insertError } = await supabase
       .from("match_results")
-      .upsert(resultsToUpsert, {
-        onConflict: "event_id,a_profile_id,b_profile_id",
-      })
-      .select("id, a_profile_id, b_profile_id, score");
+      .insert(resultsToInsert);
 
-    if (upsertError) {
-      console.error("Error upserting match_results:", upsertError);
+    if (insertError) {
+      console.error("Error inserting match_results:", insertError);
       await supabase
         .from("match_runs")
         .update({ status: "failed", finished_at: new Date().toISOString() })
         .eq("id", runRow.id);
       return new Response("Failed to save matches", { status: 500 });
     }
-    upsertedRows = upserted || [];
   }
 
-  // Reset any previous reveal progress for this event and enqueue pairs
   await supabase.from("match_reveal_queue").delete().eq("event_id", eventId);
 
-  if (upsertedRows.length > 0) {
-    // One row per match_result, ordered by score (highest score revealed first)
-    const sorted = [...upsertedRows].sort(
-      (a, b) => Number(b.score) - Number(a.score)
+  await supabase
+    .from("match_rounds")
+    .upsert(
+      {
+        event_id: eventId,
+        round1_revealed_at: null,
+        round2_revealed_at: null,
+        round3_revealed_at: null,
+        last_revealed_round: 0,
+        updated_at: now,
+      },
+      { onConflict: "event_id" }
     );
-    const queueInserts = sorted.map((row, idx) => ({
-      event_id: eventId,
-      match_result_id: String(row.id),
-      reveal_order: idx + 1,
-      revealed_at: null as null,
-      revealed_by: null as null,
-    }));
 
-    const { error: queueErr } = await supabase
-      .from("match_reveal_queue")
-      .insert(queueInserts);
-    if (queueErr) {
-      console.error("Error inserting match_reveal_queue:", queueErr);
-    }
-  }
-
-  // Mark run as completed
   await supabase
     .from("match_runs")
     .update({ status: "done", finished_at: new Date().toISOString() })
@@ -229,8 +220,9 @@ export async function POST(
   return Response.json({
     ok: true,
     run_id: runRow.id,
-    pairs: resultsToUpsert.length,
+    round1Pairs: round1.length,
+    round2Pairs: round2.length,
+    round3Pairs: round3.length,
     attendees: profilesWithAnswers.length,
   });
 }
-

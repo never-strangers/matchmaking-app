@@ -53,8 +53,10 @@ export function AdminEventsClient({ events, showCreateButton = true }: Props) {
         alert(text || "Failed to run matching");
       } else {
         const data = await res.json().catch(() => null);
-        if (data?.pairs != null) {
-          alert(`Matching completed with ${data.pairs} pairs.`);
+        if (data?.round1Pairs != null) {
+          alert(
+            `Matching completed: Round 1: ${data.round1Pairs} pairs, Round 2: ${data.round2Pairs ?? 0}, Round 3: ${data.round3Pairs ?? 0}.`
+          );
         } else {
           alert("Matching completed.");
         }
