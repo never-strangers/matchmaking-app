@@ -26,15 +26,23 @@
 
 ### 1. Clear Demo Data
 ```bash
-# Option 1: Use Admin Panel
-1. Go to /admin
-2. Click "Reset & Re-seed" button
-
-# Option 2: Browser Console
+# Option 1: Browser Console (demo-mode localStorage)
 1. Open DevTools (F12)
 2. Application tab → Local Storage
 3. Delete all keys starting with "ns_"
 4. Refresh page
+
+# Option 2: Supabase test data reset (auth + events + attendees)
+# (Only when running against a Supabase-backed environment with service role configured.)
+
+# Dry-run: see what would be deleted for a given seed label (no changes)
+npm run cleanup:test-data -- --label "e2e-demo-2026-02-27" --dry-run
+
+# Actual cleanup for that label
+SEED_CONFIRM=true npm run cleanup:test-data -- --label "e2e-demo-2026-02-27"
+
+# Full reset (cleanup + re-seed) for multi-city QA data
+SEED_CONFIRM=true SEED_USER_PASSWORD="ChangeMe123!" npm run reset:test-data -- --label "e2e-demo-2026-02-27"
 ```
 
 ### 2. Verify Environment

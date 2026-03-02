@@ -1,0 +1,73 @@
+{
+  "runIds": [
+    "847cd1fd-b6d3-4844-acd5-b9aaa293ee52"
+  ],
+  "byTable": [
+    {
+      "table": "answers",
+      "deleted": 0
+    },
+    {
+      "table": "event_attendees",
+      "deleted": 0
+    },
+    {
+      "table": "invited_users",
+      "deleted": 0
+    },
+    {
+      "table": "auth.users",
+      "deleted": 0
+    },
+    {
+      "table": "profiles",
+      "deleted": 0
+    },
+    {
+      "table": "match_reveal_queue",
+      "deleted": 0
+    },
+    {
+      "table": "match_reveals",
+      "deleted": 0
+    },
+    {
+      "table": "match_results",
+      "deleted": 0
+    },
+    {
+      "table": "likes",
+      "deleted": 0
+    },
+    {
+      "table": "match_runs",
+      "deleted": 0
+    },
+    {
+      "table": "answers",
+      "deleted": 0
+    },
+    {
+      "table": "event_attendees",
+      "deleted": 0
+    },
+    {
+      "table": "questions",
+      "deleted": 160
+    },
+    {
+      "table": "event_ticket_types",
+      "deleted": 0
+    },
+    {
+      "table": "events",
+      "deleted": 8
+    },
+    {
+      "table": "seed_runs",
+      "deleted": 1
+    }
+  ],
+  "dryRun": false,
+  "timestamp": "2026-03-02T04:57:02.646Z"
+}

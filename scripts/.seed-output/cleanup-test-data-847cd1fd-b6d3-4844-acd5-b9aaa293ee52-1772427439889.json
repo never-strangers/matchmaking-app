@@ -1,0 +1,33 @@
+{
+  "runIds": [
+    "847cd1fd-b6d3-4844-acd5-b9aaa293ee52"
+  ],
+  "byTable": [
+    {
+      "table": "answers",
+      "deleted": 0
+    },
+    {
+      "table": "event_attendees",
+      "deleted": 0
+    },
+    {
+      "table": "invited_users",
+      "deleted": 0
+    },
+    {
+      "table": "auth.users",
+      "deleted": 0
+    },
+    {
+      "table": "profiles",
+      "deleted": 0
+    },
+    {
+      "table": "seed_runs",
+      "deleted": 0
+    }
+  ],
+  "dryRun": false,
+  "timestamp": "2026-03-02T04:57:19.886Z"
+}

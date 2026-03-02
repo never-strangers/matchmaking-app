@@ -50,9 +50,9 @@ This repo hosts the new **Matching Core** — a lightweight, AI-powered system r
 
 ### 🎯 Matching System
 - **Match Preview** (`/match`)
-  - Matches revealed **one-by-one**: full-screen 3→2→1 countdown before each reveal; progress persists across refresh.
+  - Matches revealed **one-by-one**: full-screen 3→2→1 countdown before each reveal, **triggered by the admin** from the event dashboard.
   - Display potential matches with profile information (name, score, aligned/mismatched reasons).
-  - Card-based match presentation; “Next match” to reveal more. See `docs/MATCH_REVEAL_AND_CHECKIN.md`.
+  - Card-based match presentation; attendees passively receive matches when the host clicks **Reveal next match** on the admin side. See `docs/MATCH_REVEAL_AND_CHECKIN.md`.
 
 ### 🧮 Admin Dashboard
 - **Main Dashboard** (`/admin`)
@@ -60,6 +60,7 @@ This repo hosts the new **Matching Core** — a lightweight, AI-powered system r
   - Community members list with join dates
   - Past events timeline
 - **Event detail** (`/admin/events/[id]`): **Guest list** with Payment, Ticket, **Check-in** / **Undo check-in** per attendee; **Run Matching** includes only checked-in (and paid, questionnaire-complete) attendees. See `docs/MATCH_REVEAL_AND_CHECKIN.md`.
+- **Users** (`/admin/users`): Search and filter users by keyword (name, email, username, Instagram, phone), status (Pending/Approved/Rejected), city, gender, attracted_to; sort by registered date, status, or city; server-side pagination (25 per page). Approve/Reject/View per row without losing filters. API: `GET /api/admin/users` (query params: `q`, `status`, `city`, `gender`, `attracted_to`, `sort`, `page`, `page_size`). Admin-only; phone/email are never exposed to non-admin.
 - **Matches Management** (`/admin/matches`)
   - **Step 1: Signups**
     - View and manage event signups
@@ -612,6 +613,91 @@ The seeding script creates:
 - Dating Night (Paid Single Price)
 - Friends Mixer (Paid Single Price)
 - Big Event (Tiered Tickets) with Early Bird/Wave 1/Wave 2/VIP ticket types
+
+### Supabase test/demo user + event seeding (multi-city QA)
+
+For QA and manual E2E against the **Supabase-backed flows**, you can seed realistic users, profiles, events, attendees, and questionnaire answers that respect the existing gating rules (pending/approved/rejected, payment, check-in, questionnaire-complete).
+
+```bash
+# Seed multi-city test data (default cities: Singapore, Bangkok, Manila)
+# NOTE: requires:
+#   - NEXT_PUBLIC_SUPABASE_URL
+#   - SUPABASE_SERVICE_ROLE_KEY
+#   - SEED_USER_PASSWORD (password for all seeded auth users)
+SEED_CONFIRM=true SEED_USER_PASSWORD="ChangeMe123!" npm run seed:test-data
+
+# Examples:
+# - Custom label (shows up in seed_runs.label + output JSON filename)
+SEED_CONFIRM=true SEED_USER_PASSWORD="ChangeMe123!" npm run seed:test-data -- --label "e2e-demo-2026-02-27"
+
+# - Custom cities + users per city (10 approved is the default)
+SEED_CONFIRM=true SEED_USER_PASSWORD="ChangeMe123!" npm run seed:test-data -- --cities "Singapore,Bangkok,Manila" --users-per-city 12
+
+# Dry-run (no DB writes, prints what would happen)
+npm run seed:test-data -- --dry-run --cities "Singapore,Bangkok"
+```
+
+What this script does (per seed run):
+
+- Creates a `seed_runs` row (`public.seed_runs`) and tags data via `seed_run_id`.
+- Per city:
+  - 10 **approved** users (eligible for matching)
+  - 2 **pending_approval** users (can log in but remain gated)
+  - 2 **rejected** users (remain blocked)
+- Users have realistic profile fields filled (full name, dob ≥ 21, gender, attracted_to, instagram, reason text, phone, `preferred_language`).
+- Events:
+  - A past free **friends** mixer (primary city, e.g. Singapore)
+  - A future **tiered paid** flagship event with Early Bird/Wave1/Wave2/VIP tiers (primary city)
+  - For **each city**:
+    - 1 upcoming free **friends** mixer
+    - 1 upcoming **paid** dating event
+- Attendees (per upcoming event in each city):
+  - 8–10 approved users from that city
+  - Payment:
+    - Free events: treated as paid/bypass
+    - Paid events: ~70–80% `payment_status='paid'`, remaining `unpaid` to exercise gating
+  - Check-in:
+    - ~70% `checked_in = true`, ~30% `false` (matching only ever uses checked-in + paid + questionnaire-complete)
+  - Questionnaire:
+    - Answers inserted for **all event questions** so questionnaire is complete and matching-ready
+    - Answer patterns use 2–3 clusters per city (extrovert / introvert / balanced) with small noise so match scores look realistic instead of random.
+
+Importantly:
+
+- The script **does NOT** create any `match_results` / `match_reveals` rows.
+- Matching still only happens when an **admin clicks “Run Matching”** on the existing `/admin/events/[id]` page.
+- Pending/rejected users remain fully gated; only approved users are joined as attendees.
+
+All created data is tagged by `seed_run_id` for safe cleanup later.
+
+### Cleanup seeded test data
+
+You can clean up seeded data by `seed_run_id` using:
+
+```bash
+# Dry-run cleanup (recommended first) – shows how many rows would be removed per table
+npm run cleanup:test-data -- --label "e2e-demo-2026-02-27" --dry-run
+
+# Actual cleanup by label (ILike match on seed_runs.label)
+SEED_CONFIRM=true npm run cleanup:test-data -- --label "e2e-demo-2026-02-27"
+
+# Or cleanup by explicit seed_run id
+SEED_CONFIRM=true npm run cleanup:test-data -- --run-id "<uuid-from-seed_runs>"
+```
+
+Safety and behaviour:
+
+- Refuses to run destructive cleanup unless `SEED_CONFIRM=true`.
+- Refuses to run in `NODE_ENV=production` without `SEED_CONFIRM=true`.
+- Uses `public.seed_runs` + `seed_run_id` tags on:
+  - `profiles`, `invited_users`, `events`, `event_attendees`, `answers`
+- Cleanup script removes, in a safe order:
+  - `answers`, `event_attendees`, `events`, `invited_users` tagged with the run
+  - Per-event data for those events: `match_reveal_queue`, `match_reveals`, `match_results`, `likes`, `match_runs`, `event_ticket_types`
+  - `profiles` tagged with the run
+  - Supabase **auth users** corresponding to those profiles (via `auth.admin.deleteUser`)
+  - Finally, the `seed_runs` rows themselves
+- A JSON summary is written to `scripts/.seed-output/cleanup-test-data-*.json` for audit trails when not in dry-run mode.
 
 ---
 

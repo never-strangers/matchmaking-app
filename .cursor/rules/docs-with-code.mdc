@@ -1,0 +1,54 @@
+---
+description: 
+alwaysApply: true
+---
+
+# docs-with-code.mdc
+
+---
+alwaysApply: true
+---
+
+## Always-on rule: Docs + Build Gate
+
+### Trigger
+Any change to:
+- user flows, onboarding, profile, pending gating
+- admin flows
+- API routes (/api/*)
+- DB schema/migrations (supabase/*)
+- payments/webhooks
+- permissions/RLS/middleware/auth
+- tests (playwright/*, e2e, unit tests)
+
+### Requirements (same PR)
+1) **Docs update**
+- Update README.md and/or /docs/* in the same PR when changes affect routes, flows, env vars, migrations, or local dev/testing.
+
+2) **Build must be green**
+- Before finalizing the response, you MUST ensure the project builds and tests pass.
+- Run the following locally (or instruct exactly how to run them if execution isn’t possible):
+  - `npm run lint` (if exists)
+  - `npm run typecheck` (if exists)
+  - `npm run build`
+  - `npm test` (if exists)
+  - `npx playwright test` (if E2E was touched or new flows were added)
+
+### If build/tests fail
+- Do NOT stop at reporting the failure.
+- Immediately debug and propose the minimal fix.
+- Update the code and re-run the relevant checks until passing.
+- If a fix requires a product decision, apply the safest default and note it.
+
+### Output contract (mandatory)
+Every response must end with:
+
+**Docs updated:** <file list> OR “Docs update: not needed because …”  
+**Build status:** PASS ✅ (include commands run) OR FAIL ❌ (include error summary + fix applied + next command to verify)
+
+### README checklist (when docs update required)
+- New/changed routes (pages + APIs)
+- Flow changes (happy paths + gating)
+- Env vars added/changed
+- Local dev/testing steps (Stripe CLI, Playwright, etc.)
+- Migration notes / breaking changes

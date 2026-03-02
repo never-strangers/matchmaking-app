@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { AdminEventsClient, type AdminEventSummary } from "@/app/admin/AdminEventsClient";
 import { getAttendeesByEvent } from "@/lib/admin/getAttendeesByEvent";
 import { AttendeeCheckInButton } from "@/components/admin/AttendeeCheckInButton";
+import { MatchRevealControl } from "@/components/admin/MatchRevealControl";
 
 type MatchRowData = {
   aProfileId: string;
@@ -38,17 +39,26 @@ export default async function AdminEventDetailPage({
     notFound();
   }
 
-  const [attendeesRes, matchRowsRes] = await Promise.all([
+  const [attendeesRes, matchRowsRes, revealQueueRes] = await Promise.all([
     getAttendeesByEvent(supabase, [eventId]),
     supabase
       .from("match_results")
       .select("a_profile_id, b_profile_id, score")
       .eq("event_id", eventId)
       .order("score", { ascending: false }),
+    supabase
+      .from("match_reveal_queue")
+      .select("reveal_order, revealed_at")
+      .eq("event_id", eventId)
+      .order("reveal_order", { ascending: true }),
   ]);
 
   const attendees = attendeesRes[eventId] || [];
   const matchRows = matchRowsRes.data || [];
+  const revealQueue = (revealQueueRes.data || []) as {
+    reveal_order: number;
+    revealed_at: string | null;
+  }[];
 
   const profileIds = new Set<string>();
   matchRows.forEach((r: { a_profile_id: string; b_profile_id: string }) => {
@@ -123,6 +133,29 @@ export default async function AdminEventDetailPage({
 
       <div className="space-y-6">
         <AdminEventsClient events={[eventSummary]} showCreateButton={false} />
+
+        <Card padding="lg">
+          <h3
+            className="text-base font-semibold mb-3"
+            style={{ color: "var(--text)" }}
+          >
+            Live match reveal control
+          </h3>
+          <p className="text-sm mb-3" style={{ color: "var(--text-muted)" }}>
+            Each click reveals the next match pair in the queue to both people
+            at the event. Attendees will see a full-screen countdown before
+            their match appears.
+          </p>
+          <MatchRevealControl
+            eventId={eventId}
+            revealedCount={revealQueue.filter((r) => r.revealed_at).length}
+            totalCount={revealQueue.length}
+            lastRevealedAt={
+              revealQueue.filter((r) => r.revealed_at).slice(-1)[0]?.revealed_at ??
+              null
+            }
+          />
+        </Card>
 
         <Card padding="lg">
           <h3 className="text-base font-semibold mb-3" style={{ color: "var(--text)" }}>

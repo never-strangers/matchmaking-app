@@ -196,47 +196,27 @@ export async function POST(
     upsertedRows = upserted || [];
   }
 
-  // Reset reveal progress and populate match_reveals for one-by-one reveal
-  await supabase.from("match_reveals").delete().eq("event_id", eventId);
+  // Reset any previous reveal progress for this event and enqueue pairs
+  await supabase.from("match_reveal_queue").delete().eq("event_id", eventId);
 
   if (upsertedRows.length > 0) {
-    const byViewer = new Map<string, Array<{ match_result_id: string; score: number }>>();
-    for (const row of upsertedRows) {
-      const a = String(row.a_profile_id);
-      const b = String(row.b_profile_id);
-      const id = String(row.id);
-      const score = Number(row.score);
-      if (!byViewer.has(a)) byViewer.set(a, []);
-      byViewer.get(a)!.push({ match_result_id: id, score });
-      if (a !== b) {
-        if (!byViewer.has(b)) byViewer.set(b, []);
-        byViewer.get(b)!.push({ match_result_id: id, score });
-      }
-    }
-    const revealInserts: Array<{
-      event_id: string;
-      viewer_user_id: string;
-      match_result_id: string;
-      reveal_order: number;
-      revealed_at: null;
-    }> = [];
-    for (const [viewerId, list] of byViewer.entries()) {
-      list.sort((x, y) => y.score - x.score);
-      list.forEach((item, idx) => {
-        revealInserts.push({
-          event_id: eventId,
-          viewer_user_id: viewerId,
-          match_result_id: item.match_result_id,
-          reveal_order: idx + 1,
-          revealed_at: null,
-        });
-      });
-    }
-    if (revealInserts.length > 0) {
-      const { error: revealErr } = await supabase.from("match_reveals").insert(revealInserts);
-      if (revealErr) {
-        console.error("Error inserting match_reveals:", revealErr);
-      }
+    // One row per match_result, ordered by score (highest score revealed first)
+    const sorted = [...upsertedRows].sort(
+      (a, b) => Number(b.score) - Number(a.score)
+    );
+    const queueInserts = sorted.map((row, idx) => ({
+      event_id: eventId,
+      match_result_id: String(row.id),
+      reveal_order: idx + 1,
+      revealed_at: null as null,
+      revealed_by: null as null,
+    }));
+
+    const { error: queueErr } = await supabase
+      .from("match_reveal_queue")
+      .insert(queueInserts);
+    if (queueErr) {
+      console.error("Error inserting match_reveal_queue:", queueErr);
     }
   }
 

@@ -1,0 +1,45 @@
+{
+  "generatedAt": "2026-02-26T07:23:11.552Z",
+  "events": [
+    {
+      "key": "past_friends_free",
+      "id": "5bb3ebe3-5900-4132-95db-a8602dbf9116",
+      "title": "Past Friends Mixer (Free)",
+      "category": "friends",
+      "payment_required": false,
+      "price_cents": 0
+    },
+    {
+      "key": "future_friends_free",
+      "id": "f5f85311-6598-4717-b29c-99dcd9c971b6",
+      "title": "Future Friends Mixer (Free)",
+      "category": "friends",
+      "payment_required": false,
+      "price_cents": 0
+    },
+    {
+      "key": "dating_single_price",
+      "id": "00ea8ac5-84a3-43a8-8a66-96c5294967ea",
+      "title": "Dating Night (Paid Single Price)",
+      "category": "dating",
+      "payment_required": true,
+      "price_cents": 3900
+    },
+    {
+      "key": "friends_single_price",
+      "id": "d8bfd3fd-06d7-454e-b519-0ca1cf0cb9e3",
+      "title": "Friends Mixer (Paid Single Price)",
+      "category": "friends",
+      "payment_required": true,
+      "price_cents": 3100
+    },
+    {
+      "key": "big_event_tiered",
+      "id": "51e6ddaa-0fa5-48de-a2a2-b654b26b1f89",
+      "title": "Big Event (Tiered Tickets)",
+      "category": "friends",
+      "payment_required": true,
+      "price_cents": 0
+    }
+  ]
+}

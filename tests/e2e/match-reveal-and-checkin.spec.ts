@@ -16,23 +16,37 @@ test.describe("match reveal and check-in", () => {
     await loginUser(page, E2E_APPROVED_USER);
     await page.goto("/match");
     await expect(page).toHaveURL(/\/match/);
-    await expect(page.getByTestId("matches-headline")).toBeVisible();
 
-    const revealBtn = page.getByTestId("match-reveal-next");
-    const countdown = page.getByTestId("match-countdown-overlay");
-    const matchCard = page.getByTestId("match-card");
+    const headline = page.getByTestId("matches-headline");
+    if (!(await headline.isVisible().catch(() => false))) {
+      test.skip(true, "No event with completed matching for approved E2E user");
+      return;
+    }
+
     const listContainer = page.getByTestId("matches-list-container");
-
     await listContainer.waitFor({ state: "visible", timeout: 10_000 });
 
-    if (await revealBtn.isVisible().catch(() => false)) {
-      await revealBtn.click();
-      await expect(countdown).toBeVisible({ timeout: 2000 });
-      await expect(countdown).not.toBeVisible({ timeout: 5000 });
-      await expect(matchCard.or(revealBtn)).toBeVisible({ timeout: 5000 });
-    } else {
-      expect(await listContainer.isVisible()).toBe(true);
-    }
+    // Wait for at least one match card to appear after a countdown.
+    // The countdown is triggered by the admin reveal; this test only verifies
+    // that the user sees the overlay and a match eventually.
+    const countdown = page.getByTestId("match-countdown-overlay");
+    const matchCard = page.getByTestId("match-card").first();
+
+    // Countdown should appear at some point during the reveal flow
+    await expect(countdown).toBeVisible({ timeout: 30_000 });
+    await expect(countdown).not.toBeVisible({ timeout: 10_000 });
+
+    // After countdown, a match card should be visible
+    await expect(matchCard).toBeVisible({ timeout: 10_000 });
+  });
+
+  test("non-admin cannot call admin reveal endpoint", async ({ page, request }) => {
+    await loginUser(page, E2E_APPROVED_USER);
+    const response = await request.post(
+      "/api/admin/events/00000000-0000-0000-0000-000000000000/reveal-next-match"
+    );
+    // Unauthenticated or non-admin callers must not be allowed.
+    expect(response.status()).toBe(401);
   });
 
   test("admin check-in toggles attendee and run matching uses checked-in only", async ({

@@ -1,0 +1,73 @@
+{
+  "runIds": [
+    "847cd1fd-b6d3-4844-acd5-b9aaa293ee52"
+  ],
+  "byTable": [
+    {
+      "table": "answers",
+      "deleted": 1260
+    },
+    {
+      "table": "event_attendees",
+      "deleted": 63
+    },
+    {
+      "table": "events",
+      "deleted": null
+    },
+    {
+      "table": "invited_users",
+      "deleted": 0
+    },
+    {
+      "table": "auth.users",
+      "deleted": 42
+    },
+    {
+      "table": "profiles",
+      "deleted": 42
+    },
+    {
+      "table": "match_reveal_queue",
+      "deleted": 59
+    },
+    {
+      "table": "match_reveals",
+      "deleted": 0
+    },
+    {
+      "table": "match_results",
+      "deleted": 59
+    },
+    {
+      "table": "likes",
+      "deleted": 0
+    },
+    {
+      "table": "match_runs",
+      "deleted": 3
+    },
+    {
+      "table": "answers",
+      "deleted": 0
+    },
+    {
+      "table": "event_attendees",
+      "deleted": 1
+    },
+    {
+      "table": "event_ticket_types",
+      "deleted": 4
+    },
+    {
+      "table": "events",
+      "deleted": null
+    },
+    {
+      "table": "seed_runs",
+      "deleted": null
+    }
+  ],
+  "dryRun": false,
+  "timestamp": "2026-02-27T09:55:53.646Z"
+}

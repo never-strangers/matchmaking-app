@@ -2,11 +2,11 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { MatchCountdownOverlay } from "@/components/match/MatchCountdownOverlay";
 import { MatchCard } from "@/components/match/MatchCard";
-import type { RevealStatePayload, RevealMatchPayload } from "@/app/api/events/[id]/matches/reveal-state/route";
+import type { RevealMatchPayload } from "@/app/api/events/[id]/matches/reveal-state/route";
+import type { RevealedMatchesResponse } from "@/app/api/events/[id]/revealed-matches/route";
 
 type Props = {
   eventId: string;
@@ -14,69 +14,88 @@ type Props = {
 };
 
 export function MatchRevealView({ eventId, eventTitle }: Props) {
-  const [revealState, setRevealState] = useState<RevealStatePayload | null>(null);
+  const [revealedMatches, setRevealedMatches] = useState<RevealMatchPayload[]>([]);
   const [loading, setLoading] = useState(true);
-  const [phase, setPhase] = useState<"idle" | "countdown" | "showing">("idle");
-  const [currentCard, setCurrentCard] = useState<RevealMatchPayload | null>(null);
+  const [phase, setPhase] = useState<"idle" | "countdown">("idle");
+  const [pendingMatch, setPendingMatch] = useState<RevealMatchPayload | null>(null);
+  const [lastSeenOrder, setLastSeenOrder] = useState<number>(0);
 
-  const fetchRevealState = useCallback(async () => {
-    const res = await fetch(`/api/events/${eventId}/matches/reveal-state`, { credentials: "include" });
+  const fetchInitialReveals = useCallback(async () => {
+    const res = await fetch(`/api/events/${eventId}/revealed-matches`, {
+      credentials: "include",
+    });
     if (!res.ok) return;
-    const data = (await res.json()) as RevealStatePayload;
-    setRevealState(data);
+    const data = (await res.json()) as RevealedMatchesResponse;
+    setRevealedMatches(data.matches);
+    setLastSeenOrder(data.lastSeenOrder);
   }, [eventId]);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      await fetchRevealState();
+      await fetchInitialReveals();
       if (!cancelled) setLoading(false);
     })();
-    return () => { cancelled = true; };
-  }, [fetchRevealState]);
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchInitialReveals]);
 
-  const runRevealNext = useCallback(async () => {
-    const res = await fetch(`/api/events/${eventId}/matches/reveal-next`, {
-      method: "POST",
-      credentials: "include",
-    });
-    if (!res.ok) return null;
-    const data = (await res.json()) as { revealed: RevealMatchPayload | null };
-    return data.revealed;
-  }, [eventId]);
+  // Poll for newly revealed matches for this attendee
+  useEffect(() => {
+    let cancelled = false;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
-  const startReveal = useCallback(() => {
-    setPhase("countdown");
-  }, []);
+    const poll = async () => {
+      try {
+        const res = await fetch(
+          `/api/events/${eventId}/revealed-matches?since=${lastSeenOrder}`,
+          { credentials: "include" }
+        );
+        if (!res.ok) return;
+        const data = (await res.json()) as RevealedMatchesResponse;
+        if (cancelled) return;
+        if (data.matches.length > 0) {
+          // For now we handle the first new match per poll and queue others for the next cycle
+          const [next] = data.matches;
+          setPendingMatch(next);
+          setLastSeenOrder(data.lastSeenOrder);
+        }
+      } catch {
+        // Ignore polling errors; will retry
+      } finally {
+        if (!cancelled) {
+          timeoutId = setTimeout(poll, 3000);
+        }
+      }
+    };
+
+    poll();
+
+    return () => {
+      cancelled = true;
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [eventId, lastSeenOrder]);
 
   const onCountdownComplete = useCallback(() => {
+    if (!pendingMatch) {
+      setPhase("idle");
+      return;
+    }
+    setRevealedMatches((prev) => [...prev, pendingMatch]);
+    setPendingMatch(null);
     setPhase("idle");
-    (async () => {
-      const revealed = await runRevealNext();
-      if (revealed) {
-        setCurrentCard(revealed);
-        setRevealState((prev) =>
-          prev
-            ? {
-                ...prev,
-                revealedCount: prev.revealedCount + 1,
-                nextMatch: prev.revealedCount + 2 <= prev.totalCount ? prev.nextMatch : null,
-                revealedMatches: [...prev.revealedMatches, revealed],
-              }
-            : null
-        );
-        setPhase("showing");
-      }
-    })();
-  }, [runRevealNext]);
+  }, [pendingMatch]);
 
-  const goToNext = useCallback(() => {
-    setCurrentCard(null);
-    setPhase("idle");
-    fetchRevealState();
-  }, [fetchRevealState]);
+  // When a new pending match arrives, start the countdown
+  useEffect(() => {
+    if (pendingMatch && phase === "idle") {
+      setPhase("countdown");
+    }
+  }, [pendingMatch, phase]);
 
-  if (loading || !revealState) {
+  if (loading) {
     return (
       <Card padding="lg">
         <p className="text-sm" style={{ color: "var(--text-muted)" }}>
@@ -86,16 +105,12 @@ export function MatchRevealView({ eventId, eventTitle }: Props) {
     );
   }
 
-  const { totalCount, revealedCount } = revealState;
-  const effectiveRevealed = revealedCount + (currentCard ? 1 : 0);
-  const hasMore = effectiveRevealed < totalCount;
-
-  if (totalCount === 0) {
+  if (revealedMatches.length === 0) {
     return (
       <Card padding="lg" data-testid="matches-list-container">
         <EmptyState
-          title="No matches yet"
-          description="Once matching is run, your top matches will appear here."
+          title="Waiting for host"
+          description="Matches will appear when the host reveals them. Keep this page open during the reveal."
         />
       </Card>
     );
@@ -108,70 +123,21 @@ export function MatchRevealView({ eventId, eventTitle }: Props) {
       )}
 
       <div className="space-y-4" data-testid="matches-list-container">
-        {revealState.revealedMatches.map((m) => (
-          <MatchCard
-            key={m.matchResultId}
-            eventId={eventId}
-            otherProfileId={m.otherProfileId}
-            displayName={m.displayName}
-            score={m.score}
-            aligned={m.aligned}
-            mismatched={m.mismatched}
-            likedByMe={false}
-            mutual={false}
-            whatsappUrl={null}
-          />
-        ))}
-
-        {phase === "showing" && currentCard && (
-          <div data-testid="match-card">
+        {revealedMatches.map((m) => (
+          <div key={m.matchResultId} data-testid="match-card">
             <MatchCard
               eventId={eventId}
-              otherProfileId={currentCard.otherProfileId}
-              displayName={currentCard.displayName}
-              score={currentCard.score}
-              aligned={currentCard.aligned}
-              mismatched={currentCard.mismatched}
+              otherProfileId={m.otherProfileId}
+              displayName={m.displayName}
+              score={m.score}
+              aligned={m.aligned}
+              mismatched={m.mismatched}
               likedByMe={false}
               mutual={false}
               whatsappUrl={null}
             />
-            <div className="mt-4">
-              {hasMore ? (
-                <Button
-                  onClick={goToNext}
-                  data-testid="match-reveal-next"
-                >
-                  Next match
-                </Button>
-              ) : (
-                <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-                  You&apos;re all caught up. No more matches to reveal.
-                </p>
-              )}
-            </div>
           </div>
-        )}
-
-        {phase === "idle" && !currentCard && hasMore && (
-          <Card padding="lg">
-            <p className="text-sm mb-4" style={{ color: "var(--text-muted)" }}>
-              You have {totalCount} match{totalCount !== 1 ? "es" : ""} to reveal.
-              {revealedCount > 0 && ` ${revealedCount} already revealed.`}
-            </p>
-            <Button onClick={startReveal} data-testid="match-reveal-next">
-              {revealedCount === 0 ? "Reveal first match" : "Next match"}
-            </Button>
-          </Card>
-        )}
-
-        {phase === "idle" && !currentCard && !hasMore && revealedCount > 0 && (
-          <Card padding="lg">
-            <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-              You&apos;ve seen all {totalCount} match{totalCount !== 1 ? "es" : ""}.
-            </p>
-          </Card>
-        )}
+        ))}
       </div>
     </>
   );
