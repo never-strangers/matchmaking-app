@@ -37,6 +37,19 @@ export async function POST(
     );
   }
 
+  // Reveal requires this round to be computed first (match_results exist for this round)
+  const { count: computedCount } = await supabase
+    .from("match_results")
+    .select("*", { count: "exact", head: true })
+    .eq("event_id", eventId)
+    .eq("round", round);
+  if (computedCount === 0) {
+    return new Response(
+      JSON.stringify({ error: "Compute round first. Run matching to compute this round." }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
   const { data: existing, error: fetchError } = await supabase
     .from("match_rounds")
     .select("event_id, round1_revealed_at, round2_revealed_at, round3_revealed_at, last_revealed_round")

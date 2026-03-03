@@ -48,8 +48,9 @@ export function buildAllPairs(
 /**
  * Greedy disjoint matching: pick pairs so each attendee appears in at most one pair.
  * Uses pairs in order (already sorted by score desc). Deterministic.
+ * Mutates excludePairKeys by adding chosen pairs.
  */
-function pickDisjointPairs(
+export function pickDisjointPairs(
   pairs: PairWithScore[],
   excludePairKeys: Set<string>
 ): PairWithScore[] {
@@ -67,6 +68,29 @@ function pickDisjointPairs(
   }
 
   return chosen;
+}
+
+/** Normalize (a,b) to a stable key for deduplication (a <= b). */
+export function pairKey(a: string, b: string): string {
+  const [x, y] = [a, b].sort();
+  return `${x}_${y}`;
+}
+
+/**
+ * Compute pair assignments for a single round only.
+ * - Eligible users must not already have a match in this round (caller filters).
+ * - excludePairKeys: pairs that already exist in match_results for this event (any round).
+ * Does not mutate excludePairKeys.
+ */
+export function computeSingleRound(
+  users: MatchUser[],
+  questions: Question[],
+  excludePairKeys: Set<string>
+): PairWithScore[] {
+  if (users.length < 2) return [];
+  const allPairs = buildAllPairs(users, questions);
+  const excludeCopy = new Set(excludePairKeys);
+  return pickDisjointPairs(allPairs, excludeCopy);
 }
 
 /**

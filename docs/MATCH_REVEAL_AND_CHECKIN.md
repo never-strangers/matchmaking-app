@@ -6,33 +6,33 @@ Matches are revealed in **exactly 3 rounds** on the user **Matches** view (`/mat
 
 ### Behaviour
 
-- **Run Matching** (admin): Computes Round 1, 2, and 3 pairings using a greedy disjoint matching (highest score first; no attendee paired twice in the same round; no pair repeated across rounds). Persists `match_results` with `round` 1–3 and resets `match_rounds` (nothing revealed yet).
-- Admin clicks **Reveal Round 1** (then **Reveal Round 2**, then **Reveal Round 3**). Each action is idempotent (already revealed returns 200).
+- **Run Matching** (admin, incremental): Each click computes **the next round only** (Round 1, then 2, then 3). Uses a greedy disjoint matching (highest score first; no attendee paired twice in the same round; no pair repeated across rounds). Does **not** reset reveal state or delete existing `match_results`. Late check-ins are included in the next computed round. Tooltip: "Computes the next round only. Late check-ins will be included going forward."
+- Admin clicks **Reveal Round 1** (then **Reveal Round 2**, then **Reveal Round 3**). Reveal requires that round to be computed first; otherwise the API returns "Compute round first". Each action is idempotent (already revealed returns 200).
 - When a round is revealed, attendees who have a match in that round see a **full-screen countdown 3 → 2 → 1**, then their match card (score, aligned/mismatched reasons).
 - Users have **no reveal buttons**; they only see “Waiting for host to reveal Round N” until the admin reveals.
 - **Reset event** clears `match_results`, `match_rounds`, and `match_reveal_queue` for that event.
 
 ### Data model
 
-- **`match_results`** (migration `20260227100000_match_rounds.sql`):  
+- **`match_results`** (migration `20260227100000_match_rounds.sql` + `20260303000000_incremental_matching.sql`):  
   - `event_id`, `a_profile_id`, `b_profile_id`, `score`, **`round`** (1, 2, or 3).  
-  - One row per pair per round; each (event, a, b) appears in exactly one round.
-- **`match_rounds`** (same migration):  
-  - `event_id` (PK), `round1_revealed_at`, `round2_revealed_at`, `round3_revealed_at`, `last_revealed_round` (0–3), `updated_at`.  
-  - Tracks which rounds have been revealed per event.
+  - Unique constraint: one pair per event across all rounds (`event_id`, LEAST(a,b), GREATEST(a,b)), so the same pair never appears in two rounds.
+- **`match_rounds`** (same migration + `20260303000000_incremental_matching.sql`):  
+  - `event_id` (PK), `round1_revealed_at`, `round2_revealed_at`, `round3_revealed_at`, `last_revealed_round` (0–3), `last_computed_round` (0–3), `round1_computed_at`, `round2_computed_at`, `round3_computed_at`, `updated_at`.  
+  - Tracks which rounds have been revealed and which have been computed. Reveal state is never reset by Run Matching.
 
 ### APIs
 
 **Admin**
 
 - **`POST /api/admin/events/[eventId]/run-matching`**  
-  - Computes rounds 1–3 (greedy disjoint pairing), deletes existing `match_results` for the event, inserts new rows with `round` 1/2/3, resets `match_rounds`.  
-  - Response: `{ ok, run_id, round1Pairs, round2Pairs, round3Pairs, attendees }`.
+  - **Incremental**: Computes the **next** round only (`last_computed_round + 1`). Does not delete existing `match_results` or reset reveal state. Eligible users: checked_in, payment ok, questionnaire complete. Excludes users who already have a match in this round; excludes pairs that exist in any prior round. Inserts only new rows for this round. Idempotent: if the round already has results, returns without duplicating.  
+  - Response: `{ ok, roundComputed?, pairsCount?, allRoundsComputed?, message? }`. When all three rounds are computed: `{ ok, allRoundsComputed: true, message: "All rounds computed." }`.
 
 - **`POST /api/admin/events/[eventId]/reveal-round`**  
-  - Body: `{ round: 1 | 2 | 3 }`. Admin only.  
+  - Body: `{ round: 1 | 2 | 3 }`. Admin only. Round must be computed first (match_results exist for that round); otherwise 400 with "Compute round first. Run matching to compute this round."  
   - Idempotent: if that round already revealed, returns 200 with `alreadyRevealed: true`.  
-  - Otherwise sets `match_rounds.round{N}_revealed_at = now()` and `last_revealed_round = max(last, N)`.  
+  - Otherwise sets `match_rounds.round{N}_revealed_at = now()` and `last_revealed_round = max(last, N)`. Does **not** change `last_computed_round`.  
   - **Creates a `conversations` row** for each pair in that round (if not already present) and inserts a system message “You’ve been matched. Say hi 👋”.  
   - Response: `{ ok, round, alreadyRevealed?, pairsInRound, lastRevealedRound }`.
 
@@ -102,18 +102,24 @@ On the **Admin event** page (where “Run Matching” lives):
 
 ## Seeding data for matching
 
-To quickly get 10 approved users joined to two events (so you can run matching from the admin UI):
+Use the **seed scripts** (no match data or conversations are created; admin runs matching from the UI):
 
-1. Run the SQL script in **Supabase SQL Editor** (Dashboard → SQL Editor → New query):
-   - **File:** `supabase/scripts/seed_10_approved_users_for_matching.sql`
-2. The script creates/updates 10 profiles (`status = 'approved'`), joins them to the **first two live events** (by `created_at`) with `payment_status = 'paid'`, `checked_in = true`, and fills in **answers** for every event question.
-3. In **Admin → Events → [event]**, use **Run Matching**; the 10 users will be included.
+- **Events only:** `SEED_CONFIRM=true npm run seed:events` — creates past/future, free/paid/tiered events with no match_results or match_rounds.
+- **Test/demo world:** `SEED_CONFIRM=true SEED_USER_PASSWORD="…" npm run seed:test-data` — creates 10 approved + 2 pending + 2 rejected users per city, events per city, and **attendees for upcoming events only** with:
+  - Free events: `payment_status = 'not_required'`; paid: mix of paid and checkout_created.
+  - **8 checked in, 2 unchecked** (late arrivals) so you can run Round 1, then check in 1–2 late and run matching again for Round 2 (incremental matching).
+  - Full questionnaire for 8 attendees, 2 with no answers (gating).
+- **Full reset:** `npm run reset:test-data` (cleanup with default label `test-seed` then seed).
 
-To target specific events instead of the first two, edit the script and replace the two `SELECT id INTO v_event_*_id FROM events ...` lines with e.g. `v_event_1_id := 'your-uuid-1'::uuid;` and `v_event_2_id := 'your-uuid-2'::uuid;`.
+See **README** “Supabase test/demo user + event seeding” and “Cleanup seeded test data” for details and cleanup order (messages → conversations → match_* → …).
 
 ---
 
 ## Compatibility
 
 - Pending verification gating, questionnaire completion, and payment flow are unchanged.
-- Run Matching computes 3 rounds (greedy disjoint pairs) and resets `match_rounds`. Reset event deletes `match_results`, `match_rounds`, and `match_reveal_queue` for the event.
+- Run Matching is incremental: each run computes one round (1, then 2, then 3) and never resets reveal state. Reset event deletes `match_results`, `match_rounds`, and `match_reveal_queue` for the event.
+
+### Late arrivals
+
+- Guests can be checked in after Round 1 is already revealed. **Run Matching** again to compute the next round (e.g. Round 2); newly checked-in users are included and get matches in that round only (they do not receive a Round 1 match). No pair is repeated across rounds.

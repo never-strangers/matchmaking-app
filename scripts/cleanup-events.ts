@@ -57,6 +57,51 @@ function formatKeepList(keepIds: string[]): string {
   return keepIds.join(", ");
 }
 
+async function getEventIdsToDelete(keepIds: string[]): Promise<string[]> {
+  const supabase = createAdminClient();
+  let query = supabase.from("events").select("id");
+  if (keepIds.length > 0) {
+    query = query.not("id", "in", `(${keepIds.join(",")})`);
+  }
+  const { data, error } = await query;
+  if (error) return [];
+  return (data ?? []).map((r: { id: string }) => r.id);
+}
+
+async function deleteMessagesForEvents(
+  eventIds: string[],
+  dryRun: boolean
+): Promise<TableResult> {
+  if (eventIds.length === 0) return { table: "messages", count: 0 };
+  const supabase = createAdminClient();
+  const { data: convs, error: convError } = await supabase
+    .from("conversations")
+    .select("id")
+    .in("event_id", eventIds);
+  if (convError || !convs?.length) {
+    if (convError?.message?.includes("Could not find the table")) {
+      return { table: "messages", count: 0 };
+    }
+    return { table: "messages", count: null };
+  }
+  const convIds = convs.map((c: { id: string }) => c.id);
+  const { count, error: countError } = await supabase
+    .from("messages")
+    .select("*", { count: "exact", head: true })
+    .in("conversation_id", convIds);
+  if (countError) {
+    if (countError.message.includes("Could not find the table")) return { table: "messages", count: 0 };
+    return { table: "messages", count: null };
+  }
+  if (dryRun) return { table: "messages", count: count ?? 0 };
+  const { error: delError } = await supabase.from("messages").delete().in("conversation_id", convIds);
+  if (delError) {
+    console.error("Error deleting from messages:", delError.message);
+    return { table: "messages", count: null };
+  }
+  return { table: "messages", count: count ?? 0 };
+}
+
 async function deleteByEventId(
   table: string,
   column: string,
@@ -125,41 +170,62 @@ async function main() {
 
   const results: TableResult[] = [];
 
-  // 1) match_reveals (depends on match_results.id + events.id)
+  // Resolve event IDs to delete (for messages/conversations which need event_id list)
+  const eventIdsToDelete = await getEventIdsToDelete(keepIds);
+
+  // 1) messages (FK: conversation_id → conversations; must delete before conversations)
+  results.push(await deleteMessagesForEvents(eventIdsToDelete, dryRun));
+
+  // 2) conversations (FK: match_result_id → match_results; delete before match_results)
+  results.push(
+    await deleteByEventId("conversations", "event_id", keepIds, dryRun)
+  );
+
+  // 3) match_reveals (depends on match_results.id + events.id)
   results.push(
     await deleteByEventId("match_reveals", "event_id", keepIds, dryRun)
   );
 
-  // 2) match_results
+  // 4) match_reveal_queue (depends on match_results.id)
+  results.push(
+    await deleteByEventId("match_reveal_queue", "event_id", keepIds, dryRun)
+  );
+
+  // 5) match_results
   results.push(
     await deleteByEventId("match_results", "event_id", keepIds, dryRun)
   );
 
-  // 3) likes
-  results.push(await deleteByEventId("likes", "event_id", keepIds, dryRun));
-
-  // 4) answers
-  results.push(await deleteByEventId("answers", "event_id", keepIds, dryRun));
-
-  // 5) event_attendees
+  // 6) match_rounds (incremental matching state)
   results.push(
-    await deleteByEventId("event_attendees", "event_id", keepIds, dryRun)
+    await deleteByEventId("match_rounds", "event_id", keepIds, dryRun)
   );
 
-  // 6) questions (event-scoped)
-  results.push(await deleteByEventId("questions", "event_id", keepIds, dryRun));
-
-  // 7) event_ticket_types
-  results.push(
-    await deleteByEventId("event_ticket_types", "event_id", keepIds, dryRun)
-  );
-
-  // 8) match_runs (per-event matching runs)
+  // 7) match_runs (per-event matching runs)
   results.push(
     await deleteByEventId("match_runs", "event_id", keepIds, dryRun)
   );
 
-  // 9) events (root)
+  // 8) likes
+  results.push(await deleteByEventId("likes", "event_id", keepIds, dryRun));
+
+  // 9) answers
+  results.push(await deleteByEventId("answers", "event_id", keepIds, dryRun));
+
+  // 10) event_attendees
+  results.push(
+    await deleteByEventId("event_attendees", "event_id", keepIds, dryRun)
+  );
+
+  // 11) questions (event-scoped)
+  results.push(await deleteByEventId("questions", "event_id", keepIds, dryRun));
+
+  // 12) event_ticket_types
+  results.push(
+    await deleteByEventId("event_ticket_types", "event_id", keepIds, dryRun)
+  );
+
+  // 13) events (root)
   const supabase = createAdminClient();
   // Count matching events first for reporting.
   let eventCountQuery = supabase

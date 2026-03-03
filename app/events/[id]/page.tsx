@@ -74,7 +74,10 @@ export default async function EventDetailPage({
   const matchesRun = !!runRow;
   const priceCents = Number((event as { price_cents?: number }).price_cents ?? 0);
   const paymentRequired = (event as { payment_required?: boolean }).payment_required !== false && priceCents > 0;
-  const paid = paymentStatus === "paid";
+  const paid =
+    paymentStatus === "paid" ||
+    paymentStatus === "free" ||
+    paymentStatus === "not_required";
   const canViewMatches = matchesRun && (!paymentRequired || paid);
 
   const { data: ticketTypes } = await supabase
@@ -104,7 +107,7 @@ export default async function EventDetailPage({
   } else if (joined && completed) {
     if (canViewMatches) {
       primaryLabel = "View Matches";
-      primaryHref = "/match";
+      primaryHref = `/match?event=${encodeURIComponent(eventId)}`;
     } else {
       primaryLabel = "Matches pending";
       primaryHref = "#";

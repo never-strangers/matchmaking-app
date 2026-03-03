@@ -92,7 +92,10 @@ export async function GET(
 
   const paymentStatus =
     (attendeeRow as { payment_status?: string } | null)?.payment_status ?? "unpaid";
-  const paid = paymentStatus === "paid";
+  const paid =
+    paymentStatus === "paid" ||
+    paymentStatus === "free" ||
+    paymentStatus === "not_required";
 
   const attendeeState: AttendeePreviewState = {
     answered_count: answeredCount,

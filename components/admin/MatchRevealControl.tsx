@@ -10,6 +10,7 @@ type Props = {
   round2RevealedAt: string | null;
   round3RevealedAt: string | null;
   lastRevealedRound: number;
+  lastComputedRound: number;
   round1Count: number;
   round2Count: number;
   round3Count: number;
@@ -21,6 +22,7 @@ export function MatchRevealControl({
   round2RevealedAt,
   round3RevealedAt,
   lastRevealedRound,
+  lastComputedRound,
   round1Count,
   round2Count,
   round3Count,
@@ -73,11 +75,12 @@ export function MatchRevealControl({
   return (
     <div className="space-y-3">
       <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-        Revealed: Round <span className="font-semibold">{lastRevealedRound}/3</span>
+        Revealed: <span className="font-semibold">{lastRevealedRound}/3</span>
+        {" · "}
+        Computed: <span className="font-semibold">{lastComputedRound}/3</span>
         {totalPairs > 0 && (
-          <> · Round 1: {round1Count} · Round 2: {round2Count} · Round 3: {round3Count}</>
-        )}{" "}
-        pair{totalPairs === 1 ? "" : "s"}
+          <> · Pairs: R1 {round1Count} · R2 {round2Count} · R3 {round3Count}</>
+        )}
       </p>
       <div className="flex flex-wrap gap-2">
         <Button
@@ -131,9 +134,19 @@ export function MatchRevealControl({
             : `Reveal Round 3${round3Count > 0 ? ` (${round3Count})` : ""}`}
         </Button>
       </div>
-      {totalPairs === 0 && (
+      {totalPairs === 0 && lastComputedRound === 0 && (
         <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-          Run matching first to compute Round 1–3 pairs for this event.
+          Run matching first to compute the next round. Late check-ins will be included going forward.
+        </p>
+      )}
+      {lastComputedRound < 3 && totalPairs > 0 && (
+        <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+          Run matching again to compute Round {lastComputedRound + 1}. All rounds computed when Computed: 3/3.
+        </p>
+      )}
+      {lastComputedRound >= 3 && (
+        <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+          All rounds computed.
         </p>
       )}
       {message && (

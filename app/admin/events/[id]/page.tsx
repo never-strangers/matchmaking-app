@@ -31,7 +31,7 @@ export default async function AdminEventDetailPage({
 
   const { data: event, error: eventError } = await supabase
     .from("events")
-    .select("id, title, status, created_at, start_at, end_at, category, poster_path, whats_included")
+    .select("id, title, status, created_at, start_at, end_at, category, poster_path, whats_included, payment_required, price_cents")
     .eq("id", eventId)
     .maybeSingle();
 
@@ -48,7 +48,7 @@ export default async function AdminEventDetailPage({
       .order("score", { ascending: false }),
     supabase
       .from("match_rounds")
-      .select("round1_revealed_at, round2_revealed_at, round3_revealed_at, last_revealed_round")
+      .select("round1_revealed_at, round2_revealed_at, round3_revealed_at, last_revealed_round, last_computed_round")
       .eq("event_id", eventId)
       .maybeSingle(),
     supabase
@@ -57,13 +57,34 @@ export default async function AdminEventDetailPage({
       .eq("event_id", eventId),
   ]);
 
-  const attendees = attendeesRes[eventId] || [];
+  const allAttendees = attendeesRes[eventId] || [];
+  const paymentRequired =
+    event &&
+    (event as { payment_required?: boolean }).payment_required !== false &&
+    Number((event as { price_cents?: number }).price_cents ?? 0) > 0;
+  const paidAttendees = paymentRequired
+    ? allAttendees.filter(
+        (a) =>
+          a.paymentStatus === "paid" ||
+          a.paymentStatus === "free" ||
+          a.paymentStatus === "not_required"
+      )
+    : allAttendees;
+  const pendingAttendees = paymentRequired
+    ? allAttendees.filter(
+        (a) =>
+          a.paymentStatus === "unpaid" ||
+          a.paymentStatus === "checkout_created"
+      )
+    : [];
+  const attendees = allAttendees;
   const matchRows = matchRowsRes.data || [];
   const matchRounds = matchRoundsRes.data as {
     round1_revealed_at: string | null;
     round2_revealed_at: string | null;
     round3_revealed_at: string | null;
     last_revealed_round: number;
+    last_computed_round?: number;
   } | null;
   const roundCounts = (roundCountsRes.data || []).reduce(
     (acc: Record<number, number>, r: { round: number }) => {
@@ -105,6 +126,7 @@ export default async function AdminEventDetailPage({
   const round2Count = roundCounts[2] ?? 0;
   const round3Count = roundCounts[3] ?? 0;
   const lastRevealedRound = matchRounds?.last_revealed_round ?? 0;
+  const lastComputedRound = matchRounds?.last_computed_round ?? 0;
 
   const eventSummary: AdminEventSummary = {
     id: String(event.id),
@@ -171,6 +193,7 @@ export default async function AdminEventDetailPage({
             round2RevealedAt={matchRounds?.round2_revealed_at ?? null}
             round3RevealedAt={matchRounds?.round3_revealed_at ?? null}
             lastRevealedRound={lastRevealedRound}
+            lastComputedRound={lastComputedRound}
             round1Count={round1Count}
             round2Count={round2Count}
             round3Count={round3Count}
@@ -183,67 +206,198 @@ export default async function AdminEventDetailPage({
           </h3>
           <p className="text-sm mb-3" style={{ color: "var(--text-muted)" }}>
             Only checked-in attendees are included when you run matching. Check in guests who are present.
+            {paymentRequired && (
+              <> Only paid attendees can be checked in.</>
+            )}
           </p>
-          {attendees.length === 0 ? (
+          {allAttendees.length === 0 ? (
             <p className="text-sm" style={{ color: "var(--text-muted)" }}>
               No one has joined this event yet.
             </p>
           ) : (
-            <div className="overflow-x-auto -mx-1 sm:mx-0" style={{ minHeight: "1px" }}>
-              <table className="w-full text-sm min-w-[320px]">
-                <thead>
-                  <tr style={{ borderBottom: "1px solid var(--border)", color: "var(--text-muted)" }}>
-                    <th className="text-left py-2 pr-2 sm:pr-4 font-medium">Name</th>
-                    <th className="text-left py-2 pr-2 sm:pr-4 font-medium">Phone</th>
-                    <th className="text-left py-2 pr-2 sm:pr-4 font-medium">Payment</th>
-                    <th className="text-left py-2 pr-2 sm:pr-4 font-medium">Ticket</th>
-                    <th className="text-left py-2 pr-2 sm:pr-4 font-medium">Questions</th>
-                    <th className="text-left py-2 pr-2 sm:pr-4 font-medium">Check-in</th>
-                    <th className="text-left py-2 font-medium">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {attendees.map((a) => (
-                    <tr key={a.id} style={{ borderBottom: "1px solid var(--border)" }}>
-                      <td className="py-2 pr-2 sm:pr-4" style={{ color: "var(--text)" }}>
-                        {a.displayName}
-                      </td>
-                      <td className="py-2 pr-2 sm:pr-4 font-mono text-xs" style={{ color: "var(--text-muted)" }}>
-                        {a.phoneLast4}
-                      </td>
-                      <td className="py-2 pr-2 sm:pr-4" style={{ color: "var(--text-muted)" }}>
-                        {a.paymentStatus}
-                      </td>
-                      <td className="py-2 pr-2 sm:pr-4" style={{ color: "var(--text-muted)" }}>
-                        {a.ticketStatus}
-                      </td>
-                      <td className="py-2 pr-2 sm:pr-4" style={{ color: "var(--text)" }}>
-                        {a.totalQuestions > 0 ? (
-                          <span className={a.answersCount >= a.totalQuestions ? "text-green-600" : ""}>
-                            {a.answersCount}/{a.totalQuestions}
-                            {a.answersCount >= a.totalQuestions ? " ✓" : ""}
-                          </span>
-                        ) : (
-                          "—"
-                        )}
-                      </td>
-                      <td className="py-2 pr-2 sm:pr-4" style={{ color: "var(--text-muted)" }}>
-                        {a.checkedIn ? "✓ Checked in" : "—"}
-                      </td>
-                      <td className="py-2">
-                        <AttendeeCheckInButton
-                          eventId={eventId}
-                          attendeeId={a.id}
-                          checkedIn={a.checkedIn}
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <>
+              {paymentRequired && (
+                <>
+                  <h4 className="text-sm font-medium mt-4 mb-2" style={{ color: "var(--text)" }}>
+                    Paid attendees ({paidAttendees.length})
+                  </h4>
+                  {paidAttendees.length === 0 ? (
+                    <p className="text-sm mb-3" style={{ color: "var(--text-muted)" }}>
+                      No paid attendees yet.
+                    </p>
+                  ) : (
+                    <div className="overflow-x-auto -mx-1 sm:mx-0 mb-4" style={{ minHeight: "1px" }}>
+                      <table className="w-full text-sm min-w-[320px]">
+                        <thead>
+                          <tr style={{ borderBottom: "1px solid var(--border)", color: "var(--text-muted)" }}>
+                            <th className="text-left py-2 pr-2 sm:pr-4 font-medium">Name</th>
+                            <th className="text-left py-2 pr-2 sm:pr-4 font-medium">Phone</th>
+                            <th className="text-left py-2 pr-2 sm:pr-4 font-medium">Payment</th>
+                            <th className="text-left py-2 pr-2 sm:pr-4 font-medium">Ticket</th>
+                            <th className="text-left py-2 pr-2 sm:pr-4 font-medium">Questions</th>
+                            <th className="text-left py-2 pr-2 sm:pr-4 font-medium">Check-in</th>
+                            <th className="text-left py-2 font-medium">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {paidAttendees.map((a) => (
+                            <tr key={a.id} style={{ borderBottom: "1px solid var(--border)" }}>
+                              <td className="py-2 pr-2 sm:pr-4" style={{ color: "var(--text)" }}>
+                                {a.displayName}
+                              </td>
+                              <td className="py-2 pr-2 sm:pr-4 font-mono text-xs" style={{ color: "var(--text-muted)" }}>
+                                {a.phoneLast4}
+                              </td>
+                              <td className="py-2 pr-2 sm:pr-4" style={{ color: "var(--text-muted)" }}>
+                                {a.paymentStatus === "free" || a.paymentStatus === "not_required" ? "Free" : a.paymentStatus}
+                              </td>
+                              <td className="py-2 pr-2 sm:pr-4" style={{ color: "var(--text-muted)" }}>
+                                {a.ticketStatus}
+                              </td>
+                              <td className="py-2 pr-2 sm:pr-4" style={{ color: "var(--text)" }}>
+                                {a.totalQuestions > 0 ? (
+                                  <span className={a.answersCount >= a.totalQuestions ? "text-green-600" : ""}>
+                                    {a.answersCount}/{a.totalQuestions}
+                                    {a.answersCount >= a.totalQuestions ? " ✓" : ""}
+                                  </span>
+                                ) : (
+                                  "—"
+                                )}
+                              </td>
+                              <td className="py-2 pr-2 sm:pr-4" style={{ color: "var(--text-muted)" }}>
+                                {a.checkedIn ? "✓ Checked in" : "—"}
+                              </td>
+                              <td className="py-2">
+                                <AttendeeCheckInButton
+                                  eventId={eventId}
+                                  attendeeId={a.id}
+                                  checkedIn={a.checkedIn}
+                                />
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                  <h4 className="text-sm font-medium mt-2 mb-2" style={{ color: "var(--text)" }}>
+                    Payment pending ({pendingAttendees.length})
+                  </h4>
+                  {pendingAttendees.length === 0 ? (
+                    <p className="text-sm mb-3" style={{ color: "var(--text-muted)" }}>
+                      No one in payment pending.
+                    </p>
+                  ) : (
+                    <div className="overflow-x-auto -mx-1 sm:mx-0 mb-4" style={{ minHeight: "1px" }}>
+                      <table className="w-full text-sm min-w-[320px]">
+                        <thead>
+                          <tr style={{ borderBottom: "1px solid var(--border)", color: "var(--text-muted)" }}>
+                            <th className="text-left py-2 pr-2 sm:pr-4 font-medium">Name</th>
+                            <th className="text-left py-2 pr-2 sm:pr-4 font-medium">Phone</th>
+                            <th className="text-left py-2 pr-2 sm:pr-4 font-medium">Payment</th>
+                            <th className="text-left py-2 pr-2 sm:pr-4 font-medium">Ticket</th>
+                            <th className="text-left py-2 pr-2 sm:pr-4 font-medium">Questions</th>
+                            <th className="text-left py-2 pr-2 sm:pr-4 font-medium">Check-in</th>
+                            <th className="text-left py-2 font-medium">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {pendingAttendees.map((a) => (
+                            <tr key={a.id} style={{ borderBottom: "1px solid var(--border)" }}>
+                              <td className="py-2 pr-2 sm:pr-4" style={{ color: "var(--text)" }}>
+                                {a.displayName}
+                              </td>
+                              <td className="py-2 pr-2 sm:pr-4 font-mono text-xs" style={{ color: "var(--text-muted)" }}>
+                                {a.phoneLast4}
+                              </td>
+                              <td className="py-2 pr-2 sm:pr-4" style={{ color: "var(--text-muted)" }}>
+                                {a.paymentStatus}
+                              </td>
+                              <td className="py-2 pr-2 sm:pr-4" style={{ color: "var(--text-muted)" }}>
+                                {a.ticketStatus}
+                              </td>
+                              <td className="py-2 pr-2 sm:pr-4" style={{ color: "var(--text)" }}>
+                                {a.totalQuestions > 0 ? (
+                                  <span className={a.answersCount >= a.totalQuestions ? "text-green-600" : ""}>
+                                    {a.answersCount}/{a.totalQuestions}
+                                    {a.answersCount >= a.totalQuestions ? " ✓" : ""}
+                                  </span>
+                                ) : (
+                                  "—"
+                                )}
+                              </td>
+                              <td className="py-2 pr-2 sm:pr-4" style={{ color: "var(--text-muted)" }}>
+                                —
+                              </td>
+                              <td className="py-2" style={{ color: "var(--text-muted)" }}>
+                                Pay first
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </>
+              )}
+              {!paymentRequired && (
+                <div className="overflow-x-auto -mx-1 sm:mx-0" style={{ minHeight: "1px" }}>
+                  <table className="w-full text-sm min-w-[320px]">
+                    <thead>
+                      <tr style={{ borderBottom: "1px solid var(--border)", color: "var(--text-muted)" }}>
+                        <th className="text-left py-2 pr-2 sm:pr-4 font-medium">Name</th>
+                        <th className="text-left py-2 pr-2 sm:pr-4 font-medium">Phone</th>
+                        <th className="text-left py-2 pr-2 sm:pr-4 font-medium">Payment</th>
+                        <th className="text-left py-2 pr-2 sm:pr-4 font-medium">Ticket</th>
+                        <th className="text-left py-2 pr-2 sm:pr-4 font-medium">Questions</th>
+                        <th className="text-left py-2 pr-2 sm:pr-4 font-medium">Check-in</th>
+                        <th className="text-left py-2 font-medium">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {allAttendees.map((a) => (
+                        <tr key={a.id} style={{ borderBottom: "1px solid var(--border)" }}>
+                          <td className="py-2 pr-2 sm:pr-4" style={{ color: "var(--text)" }}>
+                            {a.displayName}
+                          </td>
+                          <td className="py-2 pr-2 sm:pr-4 font-mono text-xs" style={{ color: "var(--text-muted)" }}>
+                            {a.phoneLast4}
+                          </td>
+                          <td className="py-2 pr-2 sm:pr-4" style={{ color: "var(--text-muted)" }}>
+                            {a.paymentStatus === "free" || a.paymentStatus === "not_required" ? "Free" : a.paymentStatus}
+                          </td>
+                          <td className="py-2 pr-2 sm:pr-4" style={{ color: "var(--text-muted)" }}>
+                            {a.ticketStatus}
+                          </td>
+                          <td className="py-2 pr-2 sm:pr-4" style={{ color: "var(--text)" }}>
+                            {a.totalQuestions > 0 ? (
+                              <span className={a.answersCount >= a.totalQuestions ? "text-green-600" : ""}>
+                                {a.answersCount}/{a.totalQuestions}
+                                {a.answersCount >= a.totalQuestions ? " ✓" : ""}
+                              </span>
+                            ) : (
+                              "—"
+                            )}
+                          </td>
+                          <td className="py-2 pr-2 sm:pr-4" style={{ color: "var(--text-muted)" }}>
+                            {a.checkedIn ? "✓ Checked in" : "—"}
+                          </td>
+                          <td className="py-2">
+                            <AttendeeCheckInButton
+                              eventId={eventId}
+                              attendeeId={a.id}
+                              checkedIn={a.checkedIn}
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </>
           )}
-          {attendees.length > 0 && attendees.filter((a) => a.checkedIn).length < 4 && (
+          {paidAttendees.length > 0 && paidAttendees.filter((a) => a.checkedIn).length < 4 && (
             <p className="text-sm mt-3" style={{ color: "var(--text-muted)" }}>
               Fewer than 4 guests are checked in. Run matching will only include checked-in (and paid) attendees.
             </p>

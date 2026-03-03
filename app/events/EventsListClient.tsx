@@ -77,6 +77,30 @@ export function EventsListClient({ events }: { events: ListEvent[] }) {
     }
   }, [selectedEventId, closeModal, router]);
 
+  const handleContinueToPayment = useCallback(async () => {
+    if (!selectedEventId) return;
+    try {
+      const res = await fetch("/api/stripe/create-checkout-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ event_id: selectedEventId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        alert(data?.error || "Failed to start checkout");
+        return;
+      }
+      if (data?.url) {
+        window.location.href = data.url;
+        return;
+      }
+    } catch (err) {
+      console.error("Checkout error:", err);
+      alert("Something went wrong. Please try again.");
+    }
+  }, [selectedEventId]);
+
   return (
     <>
       <div className="space-y-4" data-testid="events-list-container">
@@ -107,7 +131,7 @@ export function EventsListClient({ events }: { events: ListEvent[] }) {
           } else if (joined && completed) {
             if (canViewMatches) {
               primaryLabel = "View Matches";
-              primaryHref = "/match";
+              primaryHref = `/match?event=${encodeURIComponent(event.id)}`;
             } else {
               primaryLabel = "Matches pending";
               primaryHref = "#";
@@ -211,6 +235,7 @@ export function EventsListClient({ events }: { events: ListEvent[] }) {
         onClose={closeModal}
         onCompleteQuestions={handleCompleteQuestions}
         onContinueToEvent={handleContinueToEvent}
+        onContinueToPayment={handleContinueToPayment}
         loading={previewLoading}
       />
     </>

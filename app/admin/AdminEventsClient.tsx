@@ -53,7 +53,15 @@ export function AdminEventsClient({ events, showCreateButton = true }: Props) {
         alert(text || "Failed to run matching");
       } else {
         const data = await res.json().catch(() => null);
-        if (data?.round1Pairs != null) {
+        if (data?.allRoundsComputed) {
+          alert(data.message ?? "All rounds computed.");
+        } else if (data?.roundComputed != null) {
+          alert(
+            data.alreadyHadResults
+              ? (data.message ?? "Round already computed.")
+              : `Round ${data.roundComputed} computed: ${data.pairsCount ?? 0} pair(s).`
+          );
+        } else if (data?.round1Pairs != null) {
           alert(
             `Matching completed: Round 1: ${data.round1Pairs} pairs, Round 2: ${data.round2Pairs ?? 0}, Round 3: ${data.round3Pairs ?? 0}.`
           );
@@ -163,6 +171,7 @@ export function AdminEventsClient({ events, showCreateButton = true }: Props) {
                   onClick={() => handleRunMatching(event.id)}
                   size="sm"
                   disabled={isRunning}
+                  title="Computes the next round only. Late check-ins will be included going forward."
                 >
                   {isRunning ? "Running..." : "Run Matching"}
                 </Button>

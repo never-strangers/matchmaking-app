@@ -12,8 +12,14 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { MatchRealtimeSubscriber } from "@/components/match/MatchRealtimeSubscriber";
 import { MatchRevealView } from "@/components/match/MatchRevealView";
 
-export default async function MatchPage() {
+type MatchPageProps = {
+  searchParams?: Promise<{ event?: string }>;
+};
+
+export default async function MatchPage(props: MatchPageProps) {
   const session = await requireApprovedUser();
+  const searchParams = await props.searchParams;
+  const requestedEventId = searchParams?.event?.trim() || null;
 
   const supabase = getServiceSupabaseClient();
 
@@ -49,7 +55,9 @@ export default async function MatchPage() {
     const ev = events.find((e) => e.id === eid);
     const paymentRequired = (ev as { payment_required?: boolean })?.payment_required !== false;
     const att = (attendeeRows || []).find((r: { event_id: string }) => String(r.event_id) === String(eid));
-    const paid = (att as { payment_status?: string })?.payment_status === "paid";
+    const status = (att as { payment_status?: string })?.payment_status;
+    const paid =
+      status === "paid" || status === "free" || status === "not_required";
     return att && (!paymentRequired || paid);
   });
 
@@ -60,10 +68,26 @@ export default async function MatchPage() {
     .eq("status", "done")
     .order("finished_at", { ascending: false });
 
-  const eventIdWithMatches = runRows?.[0]?.event_id;
-  const event = eventIdWithMatches
-    ? events.find((e) => e.id === eventIdWithMatches) ?? events[0]
-    : events[0];
+  const eventsWithRuns = new Set((runRows ?? []).map((r: { event_id: string }) => r.event_id));
+
+  let eventIdWithMatches: string | null = null;
+  let event: (typeof events)[0] | null = null;
+
+  if (requestedEventId) {
+    const isAttendee = paidOrNotRequiredEventIds.includes(requestedEventId);
+    const hasRun = eventsWithRuns.has(requestedEventId);
+    const ev = events.find((e) => e.id === requestedEventId);
+    if (ev && isAttendee && hasRun) {
+      eventIdWithMatches = requestedEventId;
+      event = ev;
+    }
+  }
+  if (!event) {
+    eventIdWithMatches = runRows?.[0]?.event_id ?? null;
+    event = eventIdWithMatches
+      ? events.find((e) => e.id === eventIdWithMatches) ?? events[0]
+      : events[0];
+  }
 
   if (!eventIdWithMatches) {
     const hasPaidEvent = paidOrNotRequiredEventIds.length > 0;

@@ -10,6 +10,10 @@ type SeededEvent = {
   category: string;
   payment_required: boolean;
   price_cents: number;
+  /** free | paid_single | tiered */
+  eventType: string;
+  /** past | future */
+  timing: string;
 };
 
 function ensureEnvGuards() {
@@ -163,7 +167,10 @@ async function main() {
 
   const seededEvents: SeededEvent[] = [];
 
-  // 1) Past Friends Mixer (Free)
+  const defaultWhatsincluded =
+    "- Curated matches based on your questionnaire\n- Icebreakers and group activities";
+
+  // 1) Past Friends Mixer (Free) – ended
   const pastFreeId = await createEventWithDefaults({
     name: "Past Friends Mixer (Free)",
     description:
@@ -174,6 +181,7 @@ async function main() {
     category: "friends",
     paymentRequired: false,
     priceCents: 0,
+    whatsIncluded: defaultWhatsincluded,
   });
   console.log(`- Created Past Friends Mixer (Free): ${pastFreeId}`);
   seededEvents.push({
@@ -183,9 +191,11 @@ async function main() {
     category: "friends",
     payment_required: false,
     price_cents: 0,
+    eventType: "free",
+    timing: "past",
   });
 
-  // 2) Future Friends Mixer (Free)
+  // 2) Future Friends Mixer (Free) – payment_status on attendee should be free/not_required
   const futureFreeId = await createEventWithDefaults({
     name: "Future Friends Mixer (Free)",
     description:
@@ -196,6 +206,7 @@ async function main() {
     category: "friends",
     paymentRequired: false,
     priceCents: 0,
+    whatsIncluded: defaultWhatsincluded,
   });
   console.log(`- Created Future Friends Mixer (Free): ${futureFreeId}`);
   seededEvents.push({
@@ -205,9 +216,11 @@ async function main() {
     category: "friends",
     payment_required: false,
     price_cents: 0,
+    eventType: "free",
+    timing: "future",
   });
 
-  // 3) Dating Night (Paid Single Price)
+  // 3) Dating Night (Paid Single Price) – Stripe before questions
   const datingPaidId = await createEventWithDefaults({
     name: "Dating Night (Paid Single Price)",
     description:
@@ -218,6 +231,7 @@ async function main() {
     category: "dating",
     paymentRequired: true,
     priceCents: 3900,
+    whatsIncluded: defaultWhatsincluded,
   });
   console.log(`- Created Dating Night (Paid Single Price): ${datingPaidId}`);
   seededEvents.push({
@@ -227,6 +241,8 @@ async function main() {
     category: "dating",
     payment_required: true,
     price_cents: 3900,
+    eventType: "paid_single",
+    timing: "future",
   });
 
   // 4) Friends Mixer (Paid Single Price)
@@ -240,6 +256,7 @@ async function main() {
     category: "friends",
     paymentRequired: true,
     priceCents: 3100,
+    whatsIncluded: defaultWhatsincluded,
   });
   console.log(`- Created Friends Mixer (Paid Single Price): ${friendsPaidId}`);
   seededEvents.push({
@@ -249,6 +266,8 @@ async function main() {
     category: "friends",
     payment_required: true,
     price_cents: 3100,
+    eventType: "paid_single",
+    timing: "future",
   });
 
   // 5) Big Event (Tiered Tickets)
@@ -279,6 +298,8 @@ async function main() {
     category: "friends",
     payment_required: true,
     price_cents: 0,
+    eventType: "tiered",
+    timing: "future",
   });
 
   writeSeedOutput(seededEvents);

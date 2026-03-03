@@ -47,12 +47,14 @@ Leave `stripe listen` running in the other terminal so webhooks are forwarded.
 
 ## 4. Trigger a test checkout
 
+**Flow: Pay first → then complete questions.** For paid events, users cannot access the questionnaire until payment is complete.
+
 1. Log in as an **approved** user.
 2. Create an event (as admin) with **Payment required** checked and **Price (SGD cents)** &gt; 0 (e.g. `5000` for 50.00 SGD).
-3. Join the event and complete **all** event questions (e.g. 20/20).
-4. Click **Pay now** (or open the event’s questions page after completing questions).
-5. You’ll be redirected to Stripe Checkout. Use test card: `4242 4242 4242 4242`, any future expiry, any CVC, any postal code.
-6. After payment, you’ll be sent to the success URL; the app will poll attendance and then redirect to the events list with the attendee marked **Paid**.
+3. From the events list, click **Enter Event** (or open the event), then in the preview modal click **Continue to payment**. Or on the event detail page click **Pay to confirm**.
+4. You’ll be redirected to Stripe Checkout. Use test card: `4242 4242 4242 4242`, any future expiry, any CVC, any postal code.
+5. After payment, you’ll land on the payment success page; the app will poll attendance and then redirect to **Questions** for that event. Complete the questionnaire.
+6. For **free events**, `payment_status` is set to `free` on join; users can go straight to questions. Admin guest list shows “Free” for those attendees.
 
 ## 5. Simulate webhook events (optional)
 
@@ -77,5 +79,5 @@ Admins can issue refunds in the [Stripe Dashboard](https://dashboard.stripe.com/
 - **Price** is always read from `events.price_cents` on the server; the client never sends the amount.
 - **Paid state** is only set by the Stripe webhook handler (after signature verification), never by the client.
 - **Idempotency**: every webhook event is stored in `payment_events` by Stripe event ID; duplicates return 200 without re-applying.
-- **Checkout metadata** includes `event_id` and `profile_id`; fulfillment uses these to update the correct attendee.
+- **Checkout metadata** includes `event_id`, `attendee_id`, and `profile_id`; fulfillment uses these to update the correct attendee. The attendee row is created when the user starts checkout if it does not exist.
 - **RLS / trigger**: direct client updates to `event_attendees.payment_status` (and Stripe-related fields) are blocked by a DB trigger when using the anon key.

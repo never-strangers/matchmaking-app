@@ -174,7 +174,10 @@ async function getEventsPageData(profileId: string, role: string): Promise<Event
     const paymentRequired =
       (e as { payment_required?: boolean }).payment_required !== false &&
       priceCents > 0;
-    const paid = paymentStatus === "paid";
+    const paid =
+      paymentStatus === "paid" ||
+      paymentStatus === "free" ||
+      paymentStatus === "not_required";
     const canViewMatches = matchesRun && (!paymentRequired || paid);
 
     return {

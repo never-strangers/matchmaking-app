@@ -59,11 +59,10 @@ function ensureEnvGuards(opts: CleanupCliOptions) {
     process.exit(1);
   }
 
+  // When used as part of reset:test-data (no args), default to label "test-seed" to clean all test seed runs.
   if (!opts.runId && !opts.label) {
-    console.error(
-      "❌ You must specify either --run-id <uuid> or --label <text> to select which seed_runs to clean up."
-    );
-    process.exit(1);
+    opts.label = "test-seed";
+    console.log("  No --run-id or --label; using default --label test-seed");
   }
 }
 
@@ -87,10 +86,10 @@ async function resolveRunIds(opts: CleanupCliOptions): Promise<string[]> {
 
   const ids = (data ?? []).map((row) => row.id as string);
   if (!ids.length) {
-    console.error(
-      `❌ No seed_runs found matching label filter "${labelFilter}". Nothing to clean.`
+    console.log(
+      `No seed_runs found matching label filter "${labelFilter}". Nothing to clean (exit 0).`
     );
-    process.exit(1);
+    return [];
   }
 
   console.log(
@@ -226,16 +225,48 @@ async function deleteEventsAndMatchData(params: {
     return { table, deleted: count ?? 0 };
   }
 
-  // match_reveal_queue
-  results.push(await deleteByEventId("match_reveal_queue", "event_id"));
+  // messages (FK: conversation_id; must delete before conversations)
+  const { data: convs, error: convErr } = await supabase
+    .from("conversations")
+    .select("id")
+    .in("event_id", eventIds);
+  if (convErr?.message?.includes("Could not find the table")) {
+    results.push({ table: "messages", deleted: 0 });
+  } else if (convs?.length) {
+    const convIds = convs.map((c: { id: string }) => c.id);
+    const { count: msgCount, error: msgErr } = await supabase
+      .from("messages")
+      .select("*", { count: "exact", head: true })
+      .in("conversation_id", convIds);
+    if (msgErr?.message?.includes("Could not find the table")) {
+      results.push({ table: "messages", deleted: 0 });
+    } else {
+      if (!params.dryRun) {
+        await supabase.from("messages").delete().in("conversation_id", convIds);
+      }
+      results.push({
+        table: "messages",
+        deleted: params.dryRun ? (msgCount ?? 0) : (msgCount ?? 0),
+      });
+    }
+  } else {
+    results.push({ table: "messages", deleted: 0 });
+  }
+
+  // conversations (FK: match_result_id; delete before match_results)
+  results.push(await deleteByEventId("conversations", "event_id"));
   // match_reveals
   results.push(await deleteByEventId("match_reveals", "event_id"));
+  // match_reveal_queue
+  results.push(await deleteByEventId("match_reveal_queue", "event_id"));
   // match_results
   results.push(await deleteByEventId("match_results", "event_id"));
-  // likes
-  results.push(await deleteByEventId("likes", "event_id"));
+  // match_rounds (incremental matching state)
+  results.push(await deleteByEventId("match_rounds", "event_id"));
   // match_runs
   results.push(await deleteByEventId("match_runs", "event_id"));
+  // likes
+  results.push(await deleteByEventId("likes", "event_id"));
   // answers (only those not tagged by seed_run_id, but tied to seeded events)
   results.push(await deleteByEventId("answers", "event_id"));
   // event_attendees
@@ -380,6 +411,11 @@ async function main() {
   console.log(`  label filter: ${opts.label ?? "(not set)"}`);
 
   const runIds = await resolveRunIds(opts);
+
+  if (runIds.length === 0) {
+    console.log("✅ Cleanup complete (no seeded data to remove).");
+    return;
+  }
 
   const byTable: TableCleanupResult[] = [];
 

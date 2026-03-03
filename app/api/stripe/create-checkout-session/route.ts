@@ -57,21 +57,58 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Ensure attendee row exists (create on first checkout for paid events)
+  let attendeeRow: { id: string; event_id: string; profile_id: string; payment_status: string; ticket_type_id: string | null } | null = null;
   const { data: attendee, error: attendeeError } = await supabase
     .from("event_attendees")
-    .select("event_id, profile_id, payment_status, ticket_type_id")
+    .select("id, event_id, profile_id, payment_status, ticket_type_id")
     .eq("event_id", eventId)
     .eq("profile_id", profileId)
-    .single();
+    .maybeSingle();
 
-  if (attendeeError || !attendee) {
+  if (attendeeError) {
     return new Response(
-      JSON.stringify({ error: "You must join the event and complete questions first" }),
-      { status: 403, headers: { "Content-Type": "application/json" } }
+      JSON.stringify({ error: "Failed to load attendance" }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }
 
-  const status = (attendee as { payment_status?: string }).payment_status;
+  if (attendee) {
+    attendeeRow = {
+      id: attendee.id,
+      event_id: attendee.event_id,
+      profile_id: attendee.profile_id,
+      payment_status: (attendee as { payment_status?: string }).payment_status ?? "unpaid",
+      ticket_type_id: (attendee as { ticket_type_id?: string | null }).ticket_type_id ?? null,
+    };
+  } else {
+    const { data: inserted, error: insertErr } = await supabase
+      .from("event_attendees")
+      .insert({
+        event_id: eventId,
+        profile_id: profileId,
+        joined_at: new Date().toISOString(),
+        payment_status: "unpaid",
+      })
+      .select("id")
+      .single();
+    if (insertErr || !inserted) {
+      console.error("Failed to create attendee for checkout:", insertErr);
+      return new Response(
+        JSON.stringify({ error: "Failed to reserve your spot" }),
+        { status: 500, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    attendeeRow = {
+      id: inserted.id,
+      event_id: eventId,
+      profile_id: profileId,
+      payment_status: "unpaid",
+      ticket_type_id: null,
+    };
+  }
+
+  const status = attendeeRow.payment_status;
   if (status === "paid") {
     return new Response(
       JSON.stringify({ error: "Already paid" }),
@@ -80,7 +117,7 @@ export async function POST(req: NextRequest) {
   }
 
   let chargeCents = priceCents;
-  const ticketTypeId = (attendee as { ticket_type_id?: string | null }).ticket_type_id;
+  const ticketTypeId = attendeeRow.ticket_type_id;
   if (ticketTypeId) {
     const { data: ticketType } = await supabase
       .from("event_ticket_types")
@@ -138,6 +175,7 @@ export async function POST(req: NextRequest) {
       cancel_url: `${baseUrl}/events/${eventId}/payment/canceled`,
       metadata: {
         event_id: eventId,
+        attendee_id: attendeeRow.id,
         profile_id: profileId,
       },
       client_reference_id: `${eventId}:${profileId}`,

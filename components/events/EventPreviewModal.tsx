@@ -32,6 +32,8 @@ export type EventPreviewModalProps = {
   onClose: () => void;
   onCompleteQuestions: () => void;
   onContinueToEvent: () => void;
+  /** When paid event and not paid: start Stripe checkout (call API and redirect to URL). */
+  onContinueToPayment?: () => void;
   loading?: boolean;
 };
 
@@ -42,6 +44,7 @@ export function EventPreviewModal({
   onClose,
   onCompleteQuestions,
   onContinueToEvent,
+  onContinueToPayment,
   loading = false,
 }: EventPreviewModalProps) {
   useEffect(() => {
@@ -198,7 +201,7 @@ export function EventPreviewModal({
                     </p>
                     <Button
                       size="md"
-                      onClick={onContinueToEvent}
+                      onClick={onContinueToPayment ?? onContinueToEvent}
                       data-testid="event-preview-go-to-payment"
                     >
                       Continue to payment

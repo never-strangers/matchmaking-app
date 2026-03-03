@@ -37,7 +37,7 @@ export async function POST(
 
   const { data: attendee, error: fetchError } = await supabase
     .from("event_attendees")
-    .select("id, event_id")
+    .select("id, event_id, payment_status")
     .eq("id", attendeeId)
     .eq("event_id", eventId)
     .maybeSingle();
@@ -46,6 +46,26 @@ export async function POST(
     return new Response(
       JSON.stringify({ error: "Attendee not found" }),
       { status: 404, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  const { data: eventRow } = await supabase
+    .from("events")
+    .select("payment_required, price_cents")
+    .eq("id", eventId)
+    .single();
+  const paymentRequired =
+    eventRow &&
+    (eventRow as { payment_required?: boolean }).payment_required !== false &&
+    Number((eventRow as { price_cents?: number }).price_cents ?? 0) > 0;
+  const status = (attendee as { payment_status?: string }).payment_status ?? "unpaid";
+  const canCheckIn = paymentRequired
+    ? status === "paid"
+    : status === "paid" || status === "free" || status === "not_required";
+  if (!canCheckIn) {
+    return new Response(
+      JSON.stringify({ error: "Only paid (or free) attendees can be checked in" }),
+      { status: 403, headers: { "Content-Type": "application/json" } }
     );
   }
 

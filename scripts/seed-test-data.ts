@@ -16,7 +16,7 @@ type SeedRunRecord = {
   label: string | null;
 };
 
-type SeedUserStatus = "approved" | "pending_approval" | "rejected";
+type SeedUserStatus = "approved" | "pending_verification" | "rejected";
 
 type SeedProfileSummary = {
   profileId: string;
@@ -34,6 +34,8 @@ type SeedEventSummary = {
   category: "friends" | "dating";
   paymentRequired: boolean;
   hasTiers: boolean;
+  /** free | paid_single | tiered */
+  eventType: string;
   startAt: string;
   endAt: string;
 };
@@ -49,6 +51,8 @@ type SeedAttendeeSummary = {
 type SeedOutput = {
   seedRun: SeedRunRecord;
   options: SeedCliOptions;
+  /** User password: from SEED_USER_PASSWORD env (not stored in file). */
+  passwordHint: string;
   users: SeedProfileSummary[];
   events: SeedEventSummary[];
   attendees: SeedAttendeeSummary[];
@@ -172,7 +176,7 @@ function randomChoice<T>(arr: T[]): T {
 }
 
 function randomGender(): string {
-  return randomChoice(["male", "female", "other"]);
+  return randomChoice(["male", "female", "other", "prefer_not_to_say"]);
 }
 
 function randomAttractedTo(gender: string): string {
@@ -207,9 +211,9 @@ function buildFullName(
   const base =
     status === "approved"
       ? "Approved Guest"
-      : status === "pending_approval"
-      ? "Pending Guest"
-      : "Rejected Guest";
+      : status === "pending_verification"
+        ? "Pending Guest"
+        : "Rejected Guest";
   return `${base} ${cityCode(city).toUpperCase()} ${index}`;
 }
 
@@ -337,13 +341,13 @@ async function seedUsersForCity(params: {
     );
   }
 
-  // Pending users (gated)
+  // Pending users (gated; admin review)
   for (let i = 1; i <= 2; i++) {
     outputs.push(
       await createAuthUserWithProfile({
         seedRunId: params.seedRunId,
         city: params.city,
-        status: "pending_approval",
+        status: "pending_verification",
         index: i,
         emailPrefixBase: params.emailPrefixBase,
         dryRun: params.dryRun,
@@ -539,6 +543,7 @@ async function seedEventsForCities(params: {
       category: "friends",
       paymentRequired: false,
       hasTiers: false,
+      eventType: "free",
       startAt: start.toISOString(),
       endAt: end.toISOString(),
     });
@@ -576,6 +581,7 @@ async function seedEventsForCities(params: {
       category: "friends",
       paymentRequired: true,
       hasTiers: true,
+      eventType: "tiered",
       startAt: start.toISOString(),
       endAt: end.toISOString(),
     });
@@ -614,6 +620,7 @@ async function seedEventsForCities(params: {
         category: "friends",
         paymentRequired: false,
         hasTiers: false,
+        eventType: "free",
         startAt: start.toISOString(),
         endAt: end.toISOString(),
       });
@@ -649,6 +656,7 @@ async function seedEventsForCities(params: {
         category: "dating",
         paymentRequired: true,
         hasTiers: false,
+        eventType: "paid_single",
         startAt: start.toISOString(),
         endAt: end.toISOString(),
       });
@@ -749,15 +757,13 @@ async function seedAttendeesAndAnswers(params: {
     }
   }
 
+  const now = new Date();
   for (const event of params.events) {
+    if (new Date(event.startAt) < now) continue;
     const cityUsers = approvedByCity.get(event.city) ?? [];
     if (!cityUsers.length) continue;
 
-    const targetCount = Math.min(
-      cityUsers.length,
-      8 + Math.floor(Math.random() * 3)
-    );
-
+    const targetCount = Math.min(cityUsers.length, 10);
     const shuffled = [...cityUsers].sort(() => Math.random() - 0.5);
     const attendees = shuffled.slice(0, targetCount);
 
@@ -781,20 +787,26 @@ async function seedAttendeesAndAnswers(params: {
     }
 
     const attendeesRows: any[] = [];
+    const numCheckedIn = 8;
+    const numLateArrivals = Math.min(2, targetCount - numCheckedIn);
+    const numPaid = isPaid ? 8 : targetCount;
+    const numUnpaid = targetCount - numPaid;
+    const numIncompleteQuestionnaire = 2;
 
     attendees.forEach((user, index) => {
-      const isCheckedIn = index < Math.ceil(targetCount * 0.7);
-      let paymentStatus = "paid";
-
-      if (isPaid) {
-        // Make roughly 20–30% unpaid to test gating.
-        const unpaid = index >= Math.floor(targetCount * 0.7);
-        paymentStatus = unpaid ? "unpaid" : "paid";
-      }
+      const isPaidAttendee = !isPaid || index < numPaid;
+      const paymentStatus = isPaid
+        ? isPaidAttendee
+          ? "paid"
+          : "checkout_created"
+        : "not_required";
+      const eligibleForCheckIn = !isPaid || paymentStatus === "paid";
+      const isCheckedIn =
+        eligibleForCheckIn && index < numCheckedIn;
+      const questionnaireComplete = index >= targetCount - numIncompleteQuestionnaire ? false : true;
 
       let ticketTypeId: string | null = null;
       let ticketStatus = "reserved";
-
       if (isTiered && ticketTypesForEvent.length > 0) {
         const tt = ticketTypesForEvent[index % ticketTypesForEvent.length];
         ticketTypeId = tt.id;
@@ -819,7 +831,7 @@ async function seedAttendeesAndAnswers(params: {
         profileId: user.profileId,
         paymentStatus,
         checkedIn: isCheckedIn,
-        questionnaireComplete: true,
+        questionnaireComplete,
       });
     });
 
@@ -852,8 +864,10 @@ async function seedAttendeesAndAnswers(params: {
     if (!questions.length) continue;
 
     const answerRows: any[] = [];
+    const numIncomplete = 2;
 
     attendees.forEach((user, index) => {
+      if (index >= attendees.length - numIncomplete) return;
       const cluster: "extrovert" | "introvert" | "balanced" =
         index % 3 === 0 ? "extrovert" : index % 3 === 1 ? "introvert" : "balanced";
 
@@ -950,6 +964,7 @@ async function main() {
   const output: SeedOutput = {
     seedRun,
     options: opts,
+    passwordHint: "from SEED_USER_PASSWORD env (not stored)",
     users: allUsers,
     events,
     attendees,
