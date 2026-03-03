@@ -13,11 +13,13 @@ export type RevealStatePayload = {
 
 export type RevealMatchPayload = {
   matchResultId: string;
+  conversationId: string | null;
   otherProfileId: string;
   displayName: string;
   score: number;
   aligned: string[];
   mismatched: string[];
+  instagramSharedByMe?: boolean;
 };
 
 export async function GET(
@@ -147,6 +149,7 @@ export async function GET(
       : [];
     return {
       matchResultId: resultId,
+      conversationId: null,
       otherProfileId: otherId,
       displayName: profileNames.get(otherId) || otherId,
       score,

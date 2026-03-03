@@ -23,6 +23,8 @@ const LABEL_WHY =
 const LABEL_INSTAGRAM =
   "Vibe Check! What's Your Instagram? (With a clear picture of yourself in your display picture!)";
 
+const MIN_PASSWORD_LENGTH = 6;
+
 type ProfileRow = {
   name: string | null;
   full_name: string | null;
@@ -55,7 +57,13 @@ export default function ProfilePage() {
     reason: string | null;
   } | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
-  const [resetSent, setResetSent] = useState(false);
+  const [emailInput, setEmailInput] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
+  const [passwordSubmitting, setPasswordSubmitting] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
   useEffect(() => {
     const supabase = createClient();
@@ -65,7 +73,9 @@ export default function ProfilePage() {
         router.replace("/login");
         return;
       }
-      setUserEmail(user.email ?? null);
+      const email = user.email ?? null;
+      setUserEmail(email);
+      setEmailInput(email ?? "");
       supabase
         .from("profiles")
         .select("name, full_name, city, dob, gender, attracted_to, orientation, preferred_language, instagram, reason")
@@ -151,11 +161,69 @@ export default function ProfilePage() {
     });
   };
 
+  const handleChangePassword = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setPasswordError("");
+    setPasswordSuccess(false);
+    const cur = currentPassword.trim();
+    const newP = newPassword.trim();
+    const conf = confirmPassword.trim();
+    if (newP.length < MIN_PASSWORD_LENGTH) {
+      setPasswordError(`New password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
+      return;
+    }
+    if (newP !== conf) {
+      setPasswordError("New password and confirmation do not match.");
+      return;
+    }
+    if (!userEmail) {
+      setPasswordError("Email is required to change password.");
+      return;
+    }
+    setPasswordSubmitting(true);
+    try {
+      const supabase = createClient();
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: userEmail,
+        password: cur,
+      });
+      if (signInError) {
+        setPasswordError(signInError.message || "Current password is incorrect.");
+        setPasswordSubmitting(false);
+        return;
+      }
+      const { error: updateError } = await supabase.auth.updateUser({ password: newP });
+      if (updateError) {
+        setPasswordError(updateError.message || "Failed to update password.");
+        setPasswordSubmitting(false);
+        return;
+      }
+      setPasswordSuccess(true);
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch {
+      setPasswordError("Something went wrong. Please try again.");
+    }
+    setPasswordSubmitting(false);
+  };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
     const form = e.currentTarget;
     const formData = new FormData(form);
+    const newEmail = (formData.get("email") as string)?.trim() || null;
+    if (newEmail && newEmail !== userEmail) {
+      const supabase = createClient();
+      const { error: emailError } = await supabase.auth.updateUser({ email: newEmail });
+      if (emailError) {
+        setError(emailError.message || "Failed to update email.");
+        return;
+      }
+      setUserEmail(newEmail);
+      setEmailInput(newEmail);
+    }
     const dobRaw = (formData.get("dob") as string | null)?.trim() || null;
     const dob = parseDateOfBirth(dobRaw) ?? dobRaw;
     const dobErr = validateDob21Plus(dob);
@@ -271,6 +339,25 @@ export default function ProfilePage() {
               placeholder="Last name"
               data-testid="profile-last-name"
             />
+          </div>
+          <div>
+            <label htmlFor="email" className="block text-sm font-medium text-[var(--text)] mb-1">
+              Email
+            </label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              autoComplete="email"
+              value={emailInput}
+              onChange={(e) => setEmailInput(e.target.value)}
+              className="w-full px-4 py-2.5 bg-[var(--bg-panel)] border rounded-xl border-[var(--border)] text-[var(--text)] placeholder:text-[var(--text-subtle)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+              placeholder="you@example.com"
+              data-testid="profile-email"
+            />
+            <p className="text-xs text-[var(--text-muted)] mt-1">
+              Changing your email may require you to verify the new address.
+            </p>
           </div>
           <div>
             <label htmlFor="city" className="block text-sm font-medium text-[var(--text)] mb-1">
@@ -473,33 +560,81 @@ export default function ProfilePage() {
           data-testid="profile-security-section"
         >
           <h2 className="text-lg font-semibold text-[var(--text)] mb-2">
-            Security
+            Change password
           </h2>
           <p className="text-sm text-[var(--text-muted)] mb-3">
-            Reset your password via email.
+            Enter your current password, then choose a new password.
           </p>
-          {resetSent ? (
-            <p className="text-sm text-[var(--success)]" data-testid="profile-reset-sent-msg">
-              Check your email for the reset link.
+          {passwordSuccess && (
+            <p className="text-sm text-[var(--success)] mb-3" data-testid="profile-password-success">
+              Password updated successfully.
             </p>
-          ) : (
-            <button
-              type="button"
-              onClick={async () => {
-                if (!userEmail) return;
-                await fetch("/api/auth/reset-password", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ email: userEmail }),
-                });
-                setResetSent(true);
-              }}
-              className="bg-[var(--bg-panel)] border border-[var(--border)] text-[var(--text)] px-4 py-2 rounded-xl font-medium hover:opacity-90"
-              data-testid="profile-reset-password-btn"
-            >
-              Reset password
-            </button>
           )}
+          <form onSubmit={handleChangePassword} className="space-y-3">
+            <div>
+              <label htmlFor="current_password" className="block text-sm font-medium text-[var(--text)] mb-1">
+                Current password
+              </label>
+              <input
+                id="current_password"
+                type="password"
+                autoComplete="current-password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                required
+                className="w-full px-4 py-2.5 bg-[var(--bg-panel)] border rounded-xl border-[var(--border)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+                data-testid="profile-current-password"
+              />
+            </div>
+            <div>
+              <label htmlFor="new_password" className="block text-sm font-medium text-[var(--text)] mb-1">
+                New password
+              </label>
+              <input
+                id="new_password"
+                type="password"
+                autoComplete="new-password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                required
+                minLength={MIN_PASSWORD_LENGTH}
+                className="w-full px-4 py-2.5 bg-[var(--bg-panel)] border rounded-xl border-[var(--border)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+                data-testid="profile-new-password"
+              />
+              <p className="text-xs text-[var(--text-muted)] mt-1">
+                At least {MIN_PASSWORD_LENGTH} characters.
+              </p>
+            </div>
+            <div>
+              <label htmlFor="confirm_password" className="block text-sm font-medium text-[var(--text)] mb-1">
+                Confirm new password
+              </label>
+              <input
+                id="confirm_password"
+                type="password"
+                autoComplete="new-password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+                minLength={MIN_PASSWORD_LENGTH}
+                className="w-full px-4 py-2.5 bg-[var(--bg-panel)] border rounded-xl border-[var(--border)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+                data-testid="profile-confirm-password"
+              />
+            </div>
+            {passwordError && (
+              <p role="alert" className="text-sm text-[var(--danger)]">
+                {passwordError}
+              </p>
+            )}
+            <button
+              type="submit"
+              disabled={passwordSubmitting}
+              className="bg-[var(--bg-panel)] border border-[var(--border)] text-[var(--text)] px-4 py-2 rounded-xl font-medium hover:opacity-90 disabled:opacity-50"
+              data-testid="profile-change-password-btn"
+            >
+              {passwordSubmitting ? "Updating…" : "Change password"}
+            </button>
+          </form>
         </section>
       </div>
     </div>

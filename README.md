@@ -831,9 +831,20 @@ npm run dev
 
 ---
 
-## 💬 Demo Chat (Mock Realtime)
+## 💬 Messaging & Chat
 
-The app includes a **demo-ready mocked realtime chat** system for CEO demonstrations. This is a fully functional chat UI that works across multiple browser tabs/windows without requiring any backend infrastructure.
+### Production: Chat now after match reveal
+
+In **production** (Supabase-backed match flow), when a host **reveals a round**, each revealed pair gets an in-app **conversation**. On the match card users see:
+
+- **Chat now** – opens the thread at `/messages?c=<conversationId>` (no mutual like required).
+- **Share Instagram** – optional; if the user has no Instagram on profile, a link to “Add your Instagram in Profile” is shown. Sharing is Instagram-only (no phone sharing in chat).
+
+Conversations and messages are stored in Supabase (`conversations`, `messages` tables); RLS restricts access to participants. The `/messages` conversation view uses **bounded fetching**: one initial load, then polling every 4s (with visibility pause when the tab is hidden, exponential backoff on errors, and max 3 retries). E2E test `tests/e2e/messages-request-cap.spec.ts` asserts that GETs to the messages API stay ≤ 5 in 10 seconds. See **docs/CHAT_AUDIT.md** for what was kept vs refactored, and **docs/MATCH_REVEAL_AND_CHECKIN.md** for reveal + chat APIs.
+
+### Demo Chat (Mock Realtime)
+
+The app also includes a **demo-ready mocked realtime chat** system for CEO demonstrations (localStorage + BroadcastChannel). This is a fully functional chat UI that works across multiple browser tabs/windows without requiring any backend infrastructure.
 
 ### How It Works
 

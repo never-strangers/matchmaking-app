@@ -170,6 +170,10 @@ export function MatchRevealView({ eventId, eventTitle }: Props) {
                     likedByMe={false}
                     mutual={false}
                     whatsappUrl={null}
+                    conversationId={match.conversationId ?? undefined}
+                    matchResultId={match.matchResultId}
+                    currentUserInstagram={data.currentUserInstagram ?? null}
+                    instagramSharedByMe={match.instagramSharedByMe ?? false}
                   />
                 </div>
               ) : nextRoundToWaitFor === r ? (

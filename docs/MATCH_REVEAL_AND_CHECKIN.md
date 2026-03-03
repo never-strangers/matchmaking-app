@@ -33,6 +33,7 @@ Matches are revealed in **exactly 3 rounds** on the user **Matches** view (`/mat
   - Body: `{ round: 1 | 2 | 3 }`. Admin only.  
   - Idempotent: if that round already revealed, returns 200 with `alreadyRevealed: true`.  
   - Otherwise sets `match_rounds.round{N}_revealed_at = now()` and `last_revealed_round = max(last, N)`.  
+  - **Creates a `conversations` row** for each pair in that round (if not already present) and inserts a system message “You’ve been matched. Say hi 👋”.  
   - Response: `{ ok, round, alreadyRevealed?, pairsInRound, lastRevealedRound }`.
 
 **User**
@@ -41,7 +42,15 @@ Matches are revealed in **exactly 3 rounds** on the user **Matches** view (`/mat
   - Auth: approved user; must be an attendee.  
   - Returns matches for the current user **only for rounds that have been revealed** (`round <= last_revealed_round`).  
   - Response: `{ rounds: { 1?: RevealMatchPayload, 2?: RevealMatchPayload, 3?: RevealMatchPayload }, lastRevealedRound, nextRoundToWaitFor }`.  
+  - Each round payload includes **`conversationId`** (uuid or null) for the in-app chat.  
   - Used by `/match` with polling to show Round 1/2/3 sections and to trigger the countdown when a new round is revealed.
+
+### Chat after reveal
+
+When a round is revealed, a **conversation** is created for each pair (see migration `20260302000000_conversations_messages.sql`). The match card shows **Chat now** (primary) and **Share Instagram** (secondary). Sharing is Instagram-only; phone sharing is not exposed. If the user has no Instagram on profile, the card shows “Add your Instagram in Profile” (link to `/profile`). After sharing, the card shows “Instagram shared ✓”. On the **chat screen**, the header has “Share Instagram” (or the shared handle chip with copy); the receiver sees a contact card “&lt;Name&gt; shared Instagram: @handle” with a link to `https://instagram.com/&lt;handle&gt;`.
+
+**APIs:** `GET/POST /api/conversations`, `GET /api/conversations/[id]`, `GET/POST /api/conversations/[id]/messages`, `POST /api/conversations/[id]/share-instagram` (Instagram only; handle from profile, idempotent), `POST /api/conversations/ensure-for-match`. The old `POST /api/conversations/[id]/share` returns 404; use `share-instagram` instead.  
+**RLS:** Participants can read/write only their own conversations and messages. See **docs/CHAT_AUDIT.md** for what was kept vs production path.
 
 ### UI test ids
 
@@ -50,6 +59,11 @@ Matches are revealed in **exactly 3 rounds** on the user **Matches** view (`/mat
 - `match-card-round-2`, `match-card-round-3` – round-specific cards
 - `matches-list-container` – container for matches list
 - `admin-reveal-round-1`, `admin-reveal-round-2`, `admin-reveal-round-3` – admin reveal buttons
+- `match-chat-now` – Chat now button on match card
+- `match-share-instagram` – Share Instagram button on match card
+- `match-add-instagram-link` – “Add your Instagram in Profile” link when profile has no Instagram
+- `match-instagram-shared` – “Instagram shared ✓” state on match card
+- `chat-share-instagram`, `chat-add-instagram-link`, `chat-instagram-shared-chip` – Share Instagram / add link / shared handle on chat screen
 
 ---
 

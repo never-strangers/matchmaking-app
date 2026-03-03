@@ -99,6 +99,43 @@ export async function POST(
     }
   }
 
+  const { data: pairs, error: pairsError } = await supabase
+    .from("match_results")
+    .select("id, a_profile_id, b_profile_id")
+    .eq("event_id", eventId)
+    .eq("round", round);
+
+  if (!pairsError && pairs && pairs.length > 0) {
+    for (const row of pairs as { id: string; a_profile_id: string; b_profile_id: string }[]) {
+      const a = String(row.a_profile_id);
+      const b = String(row.b_profile_id);
+      const { data: existing } = await supabase
+        .from("conversations")
+        .select("id")
+        .eq("match_result_id", row.id)
+        .maybeSingle();
+      if (existing) continue;
+      const { data: inserted } = await supabase
+        .from("conversations")
+        .insert({
+          event_id: eventId,
+          match_result_id: row.id,
+          user_a_id: a,
+          user_b_id: b,
+        })
+        .select("id")
+        .single();
+      if (inserted) {
+        await supabase.from("messages").insert({
+          conversation_id: inserted.id,
+          sender_id: null,
+          kind: "system",
+          body: "You've been matched. Say hi 👋",
+        });
+      }
+    }
+  }
+
   const { count } = await supabase
     .from("match_results")
     .select("*", { count: "exact", head: true })

@@ -92,6 +92,9 @@ export default function NavBar() {
                 <Link href="/match" data-testid="nav-match" className={navLinkClass} style={navLinkStyle} {...navLinkHover} onClick={closeMobile}>
                   Matches
                 </Link>
+                <Link href="/messages" data-testid="nav-messages" className={navLinkClass} style={navLinkStyle} {...navLinkHover} onClick={closeMobile}>
+                  Messages
+                </Link>
                 {isAdmin && (
                   <>
                     <Link href="/admin" data-testid="nav-admin" className={navLinkClass} style={navLinkStyle} {...navLinkHover} onClick={closeMobile}>

@@ -81,6 +81,17 @@ export async function GET(
     )
   );
 
+  const { data: convRows } = await supabase
+    .from("conversations")
+    .select("match_result_id, id")
+    .in("match_result_id", matchResultIds);
+  const conversationByMatchResult = new Map(
+    (convRows || []).map((c: { match_result_id: string; id: string }) => [
+      String(c.match_result_id),
+      String(c.id),
+    ])
+  );
+
   // Questions + answers for explanations
   const { data: questionRows } = await supabase
     .from("questions")
@@ -159,6 +170,7 @@ export async function GET(
 
     matchesForUser.push({
       matchResultId: String(row.match_result_id),
+      conversationId: conversationByMatchResult.get(String(row.match_result_id)) ?? null,
       otherProfileId: otherId,
       displayName: profileNames.get(otherId) || otherId,
       score: res.score,

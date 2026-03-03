@@ -17,6 +17,8 @@ export default defineConfig({
   testMatch: [
     /tests\/e2e\/auth-journey\.spec\.ts/,
     /tests\/e2e\/match-reveal-and-checkin\.spec\.ts/,
+    /tests\/e2e\/chat-after-reveal\.spec\.ts/,
+    /tests\/e2e\/messages-request-cap\.spec\.ts/,
   ],
   /* Keep deterministic order for shared fixtures/storage states */
   fullyParallel: false,

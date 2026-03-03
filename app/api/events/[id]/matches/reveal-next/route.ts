@@ -130,8 +130,15 @@ export async function POST(
     .eq("id", otherId)
     .maybeSingle();
 
+  const { data: convRow } = await supabase
+    .from("conversations")
+    .select("id")
+    .eq("match_result_id", resultRow.id)
+    .maybeSingle();
+
   const payload: RevealMatchPayload = {
     matchResultId: resultRow.id,
+    conversationId: convRow?.id ?? null,
     otherProfileId: otherId,
     displayName: (profileRow?.display_name as string) || otherId,
     score,
