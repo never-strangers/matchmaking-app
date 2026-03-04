@@ -364,6 +364,7 @@ export default function MessagesPage() {
                   <div
                     key={m.id}
                     className={`flex ${isOwn ? "justify-end" : "justify-start"}`}
+                    data-testid="message-item"
                   >
                     {isSystem ? (
                       <p className="text-xs text-center w-full" style={{ color: "var(--text-muted)" }}>
@@ -429,12 +430,14 @@ export default function MessagesPage() {
                 backgroundColor: "var(--bg)",
                 color: "var(--text)",
               }}
+              data-testid="message-input"
             />
             <Button
               variant="primary"
               size="md"
               onClick={handleSend}
               disabled={!newMessage.trim() || sending}
+              data-testid="message-send"
             >
               {sending ? "Sending…" : "Send"}
             </Button>

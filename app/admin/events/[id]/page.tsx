@@ -241,7 +241,11 @@ export default async function AdminEventDetailPage({
                         </thead>
                         <tbody>
                           {paidAttendees.map((a) => (
-                            <tr key={a.id} style={{ borderBottom: "1px solid var(--border)" }}>
+                            <tr
+                              key={a.id}
+                              data-testid={`admin-guest-row-${a.profileId}`}
+                              style={{ borderBottom: "1px solid var(--border)" }}
+                            >
                               <td className="py-2 pr-2 sm:pr-4" style={{ color: "var(--text)" }}>
                                 {a.displayName}
                               </td>
@@ -267,7 +271,7 @@ export default async function AdminEventDetailPage({
                               <td className="py-2 pr-2 sm:pr-4" style={{ color: "var(--text-muted)" }}>
                                 {a.checkedIn ? "✓ Checked in" : "—"}
                               </td>
-                              <td className="py-2">
+                              <td className="py-2" data-testid={`admin-checkin-cell-${a.profileId}`}>
                                 <AttendeeCheckInButton
                                   eventId={eventId}
                                   attendeeId={a.id}
@@ -303,7 +307,11 @@ export default async function AdminEventDetailPage({
                         </thead>
                         <tbody>
                           {pendingAttendees.map((a) => (
-                            <tr key={a.id} style={{ borderBottom: "1px solid var(--border)" }}>
+                            <tr
+                              key={a.id}
+                              data-testid={`admin-guest-row-${a.profileId}`}
+                              style={{ borderBottom: "1px solid var(--border)" }}
+                            >
                               <td className="py-2 pr-2 sm:pr-4" style={{ color: "var(--text)" }}>
                                 {a.displayName}
                               </td>

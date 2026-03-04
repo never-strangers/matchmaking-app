@@ -48,6 +48,13 @@ type SeedAttendeeSummary = {
   questionnaireComplete: boolean;
 };
 
+/** E2E test credentials (password from SEED_USER_PASSWORD at seed time). */
+type SeedE2ECredentials = {
+  email: string;
+  profileId: string;
+  passwordHint: string;
+};
+
 type SeedOutput = {
   seedRun: SeedRunRecord;
   options: SeedCliOptions;
@@ -56,6 +63,13 @@ type SeedOutput = {
   users: SeedProfileSummary[];
   events: SeedEventSummary[];
   attendees: SeedAttendeeSummary[];
+  /** Set when seed creates E2E paid event + admin + userA/userB. */
+  e2e?: {
+    paidEventId: string;
+    admin: SeedE2ECredentials;
+    userA: SeedE2ECredentials;
+    userB: SeedE2ECredentials;
+  };
 };
 
 function parseCliArgs(argv: string[]): SeedCliOptions {
@@ -587,6 +601,38 @@ async function seedEventsForCities(params: {
     });
   }
 
+  // 2b) E2E paid event: single paid dating night in primary city (clearly labeled)
+  {
+    const start = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+    const end = new Date(start.getTime() + twoHoursMs);
+    const title = `[SEED] Paid Dating Night`;
+    const description =
+      "E2E paid event: payment required, then questions, check-in, matching, reveal, chat.";
+    const id = await createEventWithDefaults({
+      name: title,
+      description,
+      startAt: start,
+      endAt: end,
+      city: primaryCity,
+      category: "dating",
+      paymentRequired: true,
+      priceCents: 3900,
+      seedRunId: params.seedRunId,
+      dryRun: params.dryRun,
+    });
+    outputs.push({
+      id,
+      city: primaryCity,
+      title,
+      category: "dating",
+      paymentRequired: true,
+      hasTiers: false,
+      eventType: "paid_single",
+      startAt: start.toISOString(),
+      endAt: end.toISOString(),
+    });
+  }
+
   // 3) Per-city upcoming free + paid events
   for (const city of params.cities) {
     const baseOffsetDays =
@@ -717,6 +763,9 @@ async function seedAttendeesAndAnswers(params: {
   users: SeedProfileSummary[];
   events: SeedEventSummary[];
   dryRun: boolean;
+  /** E2E: paid event id (e.g. [SEED] Paid Dating Night). */
+  e2ePaidEventId?: string | null;
+  primaryCity?: string;
 }): Promise<SeedAttendeeSummary[]> {
   const supabase = createAdminClient();
   const outputs: SeedAttendeeSummary[] = [];
@@ -758,14 +807,30 @@ async function seedAttendeesAndAnswers(params: {
   }
 
   const now = new Date();
+  const primaryCity = params.primaryCity ?? null;
+  const e2ePaidEventId = params.e2ePaidEventId ?? null;
+
   for (const event of params.events) {
     if (new Date(event.startAt) < now) continue;
     const cityUsers = approvedByCity.get(event.city) ?? [];
     if (!cityUsers.length) continue;
 
-    const targetCount = Math.min(cityUsers.length, 10);
-    const shuffled = [...cityUsers].sort(() => Math.random() - 0.5);
-    const attendees = shuffled.slice(0, targetCount);
+    const isE2EPaidEvent =
+      e2ePaidEventId !== null &&
+      primaryCity !== undefined &&
+      event.id === e2ePaidEventId &&
+      event.city === primaryCity &&
+      cityUsers.length >= 9;
+
+    let attendees: SeedProfileSummary[];
+    if (isE2EPaidEvent) {
+      // E2E: userA = index 1 (unpaid), userB + 7 others = indices 2..9 (8 paid, questionnaire complete)
+      attendees = cityUsers.slice(1, 10);
+    } else {
+      const targetCount = Math.min(cityUsers.length, 10);
+      const shuffled = [...cityUsers].sort(() => Math.random() - 0.5);
+      attendees = shuffled.slice(0, targetCount);
+    }
 
     const isPaid = event.paymentRequired;
     const isTiered = event.hasTiers;
@@ -787,23 +852,29 @@ async function seedAttendeesAndAnswers(params: {
     }
 
     const attendeesRows: any[] = [];
-    const numCheckedIn = 8;
+    const targetCount = attendees.length;
+    const numCheckedIn = isE2EPaidEvent ? 8 : 8;
     const numLateArrivals = Math.min(2, targetCount - numCheckedIn);
-    const numPaid = isPaid ? 8 : targetCount;
+    const numPaid = isPaid ? targetCount : targetCount;
     const numUnpaid = targetCount - numPaid;
-    const numIncompleteQuestionnaire = 2;
+    const numIncompleteQuestionnaire = isE2EPaidEvent ? 1 : 2;
 
     attendees.forEach((user, index) => {
-      const isPaidAttendee = !isPaid || index < numPaid;
+      const isPaidAttendee = isE2EPaidEvent
+        ? true
+        : !isPaid || index < numPaid;
       const paymentStatus = isPaid
         ? isPaidAttendee
           ? "paid"
           : "checkout_created"
         : "not_required";
       const eligibleForCheckIn = !isPaid || paymentStatus === "paid";
-      const isCheckedIn =
-        eligibleForCheckIn && index < numCheckedIn;
-      const questionnaireComplete = index >= targetCount - numIncompleteQuestionnaire ? false : true;
+      const isCheckedIn = isE2EPaidEvent
+        ? index > 0 && index <= numCheckedIn
+        : eligibleForCheckIn && index < numCheckedIn;
+      const questionnaireComplete = isE2EPaidEvent
+        ? index > 0
+        : index < targetCount - numIncompleteQuestionnaire;
 
       let ticketTypeId: string | null = null;
       let ticketStatus = "reserved";
@@ -864,9 +935,10 @@ async function seedAttendeesAndAnswers(params: {
     if (!questions.length) continue;
 
     const answerRows: any[] = [];
-    const numIncomplete = 2;
+    const numIncomplete = isE2EPaidEvent ? 1 : 2;
 
     attendees.forEach((user, index) => {
+      if (isE2EPaidEvent && index === 0) return;
       if (index >= attendees.length - numIncomplete) return;
       const cluster: "extrovert" | "introvert" | "balanced" =
         index % 3 === 0 ? "extrovert" : index % 3 === 1 ? "introvert" : "balanced";
@@ -918,6 +990,12 @@ function writeSeedOutputFile(output: SeedOutput) {
   const outputPath = path.join(outputDir, `test-data-${safeLabel}.json`);
   fs.writeFileSync(outputPath, JSON.stringify(output, null, 2), "utf8");
   console.log(`\n📝 Seed summary written to ${outputPath}`);
+
+  if (output.e2e) {
+    const fixedPath = path.join(outputDir, "test-data.json");
+    fs.writeFileSync(fixedPath, JSON.stringify(output, null, 2), "utf8");
+    console.log(`📝 E2E contract written to ${fixedPath}`);
+  }
 }
 
 async function main() {
@@ -953,22 +1031,81 @@ async function main() {
     dryRun: opts.dryRun,
   });
 
+  const primaryCity = opts.cities[0] ?? "Singapore";
+  const e2ePaidEvent = events.find(
+    (e) =>
+      e.eventType === "paid_single" &&
+      e.city === primaryCity &&
+      e.title === "[SEED] Paid Dating Night"
+  );
+  const e2ePaidEventId = e2ePaidEvent?.id ?? null;
+
+  const approvedInPrimary = allUsers.filter(
+    (u) => u.status === "approved" && u.city === primaryCity
+  );
+  if (
+    !opts.dryRun &&
+    approvedInPrimary.length >= 3 &&
+    e2ePaidEventId
+  ) {
+    const supabase = createAdminClient();
+    const { error: adminErr } = await supabase
+      .from("profiles")
+      .update({ role: "admin" })
+      .eq("id", approvedInPrimary[0].profileId);
+    if (adminErr) {
+      console.error("❌ Failed to set admin role:", adminErr.message);
+    } else {
+      console.log(
+        `👤 Set admin: ${approvedInPrimary[0].email} (${approvedInPrimary[0].profileId})`
+      );
+    }
+  }
+
   console.log("\n🧾 Seeding attendees + answers for upcoming events...");
   const attendees = await seedAttendeesAndAnswers({
     seedRunId: seedRun.id,
     users: allUsers,
     events,
     dryRun: opts.dryRun,
+    e2ePaidEventId,
+    primaryCity,
   });
 
+  const passwordHint = "from SEED_USER_PASSWORD env (use same when running E2E)";
   const output: SeedOutput = {
     seedRun,
     options: opts,
-    passwordHint: "from SEED_USER_PASSWORD env (not stored)",
+    passwordHint,
     users: allUsers,
     events,
     attendees,
   };
+
+  if (
+    !opts.dryRun &&
+    e2ePaidEventId &&
+    approvedInPrimary.length >= 3
+  ) {
+    output.e2e = {
+      paidEventId: e2ePaidEventId,
+      admin: {
+        email: approvedInPrimary[0].email,
+        profileId: approvedInPrimary[0].profileId,
+        passwordHint,
+      },
+      userA: {
+        email: approvedInPrimary[1].email,
+        profileId: approvedInPrimary[1].profileId,
+        passwordHint,
+      },
+      userB: {
+        email: approvedInPrimary[2].email,
+        profileId: approvedInPrimary[2].profileId,
+        passwordHint,
+      },
+    };
+  }
 
   if (!opts.dryRun) {
     writeSeedOutputFile(output);

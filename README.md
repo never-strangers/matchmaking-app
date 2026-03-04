@@ -1207,6 +1207,16 @@ This script includes:
 - Q&A cheat sheet
 - Rollback/safety instructions
 
+### Paid event to chat (Supabase seed)
+
+The **paid-event-to-chat** E2E validates the full flow: pay → questions → check-in → matching → reveal → chat using **seeded Supabase data**. It requires:
+
+- Running `npm run reset:test-data` (with `SEED_USER_PASSWORD`) so `scripts/.seed-output/test-data.json` contains the E2E contract.
+- For CI/deterministic runs: `E2E_TEST_MODE=true`, `E2E_SHARED_SECRET`, and test-only endpoint `POST /api/test/stripe/confirm-payment` (Option B).
+- For local runs with real Stripe: Stripe CLI `stripe listen --forward-to localhost:3000/api/stripe/webhook` and test card 4242 4242 4242 4242 (Option A).
+
+See **[docs/E2E_PAID_EVENT_TO_CHAT.md](./docs/E2E_PAID_EVENT_TO_CHAT.md)** for seed contract, env vars, and how to run the test.
+
 ### CI Integration
 
 The E2E tests can run in CI/CD pipelines:

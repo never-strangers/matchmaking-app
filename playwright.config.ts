@@ -12,6 +12,9 @@ dotenv.config();
  * See https://playwright.dev/docs/test-configuration.
  */
 export default defineConfig({
+  // Seed Supabase test data once before all tests, and clean up afterward.
+  globalSetup: require.resolve("./playwright.global-setup"),
+  globalTeardown: require.resolve("./playwright.global-teardown"),
   testDir: './tests/e2e',
   /* E2E specs to run (auth journey + match reveal/check-in). Omit testMatch to run all specs in tests/e2e. */
   testMatch: [
@@ -21,6 +24,7 @@ export default defineConfig({
     /tests\/e2e\/chat-after-reveal\.spec\.ts/,
     /tests\/e2e\/messages-request-cap\.spec\.ts/,
     /tests\/e2e\/event-payment-flow\.spec\.ts/,
+    /tests\/e2e\/paid-event-to-chat\.spec\.ts/,
   ],
   /* Keep deterministic order for shared fixtures/storage states */
   fullyParallel: false,

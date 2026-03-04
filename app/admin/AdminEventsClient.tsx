@@ -172,6 +172,7 @@ export function AdminEventsClient({ events, showCreateButton = true }: Props) {
                   size="sm"
                   disabled={isRunning}
                   title="Computes the next round only. Late check-ins will be included going forward."
+                  data-testid="admin-run-matching"
                 >
                   {isRunning ? "Running..." : "Run Matching"}
                 </Button>

@@ -55,6 +55,7 @@ export function AttendeeCheckInButton({ eventId, attendeeId, checkedIn }: Props)
       variant={localCheckedIn ? "secondary" : "primary"}
       onClick={handleToggle}
       disabled={loading}
+      data-testid="admin-checkin-btn"
     >
       {loading ? "…" : localCheckedIn ? "Undo check-in" : "Check-in"}
     </Button>

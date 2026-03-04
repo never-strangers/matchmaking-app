@@ -142,7 +142,12 @@ export function EventsListClient({ events }: { events: ListEvent[] }) {
           }
 
           return (
-            <Card key={event.id} variant="elevated" padding="md">
+            <Card
+              key={event.id}
+              variant="elevated"
+              padding="md"
+              data-testid={`event-card-${event.id}`}
+            >
               <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
                 <div className="flex-1">
                   <h2

@@ -171,7 +171,10 @@ export function QuestionForm({
         >
           Your Responses
         </h2>
-        <Badge variant={showCompleteBadge ? "success" : "warning"}>
+        <Badge
+          variant={showCompleteBadge ? "success" : "warning"}
+          data-testid={showCompleteBadge ? "questions-complete-badge" : undefined}
+        >
           {answeredCount}/{totalQuestions} {showCompleteBadge ? "✓" : ""}
         </Badge>
       </div>
@@ -192,6 +195,7 @@ export function QuestionForm({
               key={question.id}
               className="space-y-3 pb-6 border-b last:border-0 min-w-0"
               style={{ borderColor: "var(--border)" }}
+              data-testid={`question-${question.id}`}
             >
               <label
                 className="block text-sm font-medium break-words"
@@ -242,6 +246,7 @@ export function QuestionForm({
           variant={allFilled ? "success" : "outline"}
           size="md"
           disabled={!allFilled}
+          data-testid="questions-submit"
         >
           {allFilled ? "Save Answers" : "Complete all questions"}
         </Button>
