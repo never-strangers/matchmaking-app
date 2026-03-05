@@ -15,6 +15,7 @@ import {
   ATTRACTED_TO_OPTIONS,
   LOOKING_FOR_OPTIONS,
 } from "@/lib/constants/profileOptions";
+import { Button } from "@/components/ui/Button";
 
 const LABEL_WHY =
   "Let's know more about you. Tell us why Never Strangers is for you!";
@@ -25,13 +26,83 @@ const AGREEMENT_MARKETING =
 const AGREEMENT_ACCURATE =
   "I confirm that the details I have provided are accurate and truthful. I understand that I may be required to present a valid photo ID at the event for verification purposes, and entry may be denied if the information does not match.";
 
-const inputClass =
-  "w-full px-4 py-2.5 bg-[var(--bg-panel)] border rounded-xl border-[var(--border)] text-[var(--text)] placeholder:text-[var(--text-subtle)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]";
-const selectClass =
-  "w-full px-4 py-2.5 bg-[var(--bg-panel)] border rounded-xl border-[var(--border)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]";
-const labelClass = "block text-sm font-medium text-[var(--text)] mb-1";
-const checkboxClass =
-  "rounded border-[var(--border)] text-[var(--primary)] focus:ring-[var(--primary)]";
+const inputStyle: React.CSSProperties = {
+  width: "100%",
+  padding: "12px 14px",
+  backgroundColor: "var(--bg-panel)",
+  border: "1px solid var(--border)",
+  borderRadius: "var(--radius-sm)",
+  color: "var(--text)",
+  fontSize: 14,
+  fontFamily: "var(--font-sans)",
+  outline: "none",
+};
+
+const labelStyle: React.CSSProperties = {
+  display: "block",
+  fontSize: 13,
+  fontWeight: 600,
+  color: "var(--text)",
+  marginBottom: 6,
+  fontFamily: "var(--font-sans)",
+};
+
+function StyledInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
+  return (
+    <input
+      {...props}
+      style={inputStyle}
+      onFocus={(e) => {
+        e.currentTarget.style.borderColor = "var(--primary)";
+        e.currentTarget.style.boxShadow = "0 0 0 3px rgba(185,15,20,0.1)";
+        props.onFocus?.(e);
+      }}
+      onBlur={(e) => {
+        e.currentTarget.style.borderColor = "var(--border)";
+        e.currentTarget.style.boxShadow = "none";
+        props.onBlur?.(e);
+      }}
+    />
+  );
+}
+
+function StyledSelect(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
+  return (
+    <select
+      {...props}
+      style={inputStyle}
+      onFocus={(e) => {
+        e.currentTarget.style.borderColor = "var(--primary)";
+        e.currentTarget.style.boxShadow = "0 0 0 3px rgba(185,15,20,0.1)";
+        props.onFocus?.(e);
+      }}
+      onBlur={(e) => {
+        e.currentTarget.style.borderColor = "var(--border)";
+        e.currentTarget.style.boxShadow = "none";
+        props.onBlur?.(e);
+      }}
+    />
+  );
+}
+
+function StyledTextarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  return (
+    <textarea
+      {...props}
+      style={{ ...inputStyle, resize: "vertical" }}
+      onFocus={(e) => {
+        e.currentTarget.style.borderColor = "var(--primary)";
+        e.currentTarget.style.boxShadow = "0 0 0 3px rgba(185,15,20,0.1)";
+        props.onFocus?.(e);
+      }}
+      onBlur={(e) => {
+        e.currentTarget.style.borderColor = "var(--border)";
+        e.currentTarget.style.boxShadow = "none";
+        props.onBlur?.(e);
+      }}
+    />
+  );
+}
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -126,285 +197,301 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="max-w-md mx-auto px-4 py-16">
-      <div className="rounded-xl border border-[var(--border)] p-8 bg-[var(--bg-panel)]">
-        <h1 className="text-2xl font-bold text-[var(--text)] mb-2">
-          Join Never Strangers
-        </h1>
-        <p className="text-sm text-[var(--text-muted)] mb-6">
-          Create your account. You must be 21+ to join.
+    <div
+      style={{
+        minHeight: "100svh",
+        display: "flex",
+        alignItems: "flex-start",
+        justifyContent: "center",
+        padding: "40px 16px 60px",
+        backgroundColor: "var(--bg)",
+      }}
+    >
+      <div style={{ width: "100%", maxWidth: 480 }}>
+        {/* Wordmark */}
+        <p
+          className="text-center mb-8"
+          style={{
+            fontFamily: "var(--font-heading)",
+            fontSize: 28,
+            color: "var(--text)",
+            letterSpacing: "-0.02em",
+          }}
+        >
+          Never Strangers
         </p>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label htmlFor="email" className={labelClass}>
-              E-mail Address
-            </label>
-            <input
-              id="email"
-              type="email"
-              required
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className={inputClass}
-              placeholder="you@example.com"
-              data-testid="register-email"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="first_name" className={labelClass}>
-              First Name
-            </label>
-            <input
-              id="first_name"
-              type="text"
-              autoComplete="given-name"
-              value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
-              className={inputClass}
-              placeholder="First name"
-              data-testid="register-first-name"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="last_name" className={labelClass}>
-              Last Name
-            </label>
-            <input
-              id="last_name"
-              type="text"
-              autoComplete="family-name"
-              value={lastName}
-              onChange={(e) => setLastName(e.target.value)}
-              className={inputClass}
-              placeholder="Last name"
-              data-testid="register-last-name"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="password" className={labelClass}>
-              Create Password
-            </label>
-            <input
-              id="password"
-              type="password"
-              required
-              autoComplete="new-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className={inputClass}
-              placeholder="Min. 8 characters"
-              data-testid="register-password"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="city" className={labelClass}>
-              Which city are you in?
-            </label>
-            <select
-              id="city"
-              value={city}
-              onChange={(e) => setCity(e.target.value)}
-              className={selectClass}
-              data-testid="register-city"
-            >
-              <option value="">Choose a City</option>
-              {CITIES.map((c) => (
-                <option key={c.value} value={c.value}>
-                  {c.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label htmlFor="dob" className={labelClass}>
-              Birth Date
-            </label>
-            <input
-              id="dob"
-              name="dob"
-              type="date"
-              required
-              autoComplete="bday"
-              {...getDobDateInputBounds()}
-              value={dob}
-              onChange={(e) => setDob(e.target.value)}
-              className={inputClass}
-              data-testid="register-dob"
-            />
-            <p className="text-xs text-[var(--text-muted)] mt-1">
-              You must be 21+ to join Never Strangers.
-            </p>
-          </div>
-
-          <div>
-            <span className={labelClass}>Gender</span>
-            <div className="flex flex-wrap gap-4 mt-2" role="group" aria-label="Gender">
-              {GENDER_OPTIONS.map((o) => (
-                <label key={o.value} className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="gender"
-                    value={o.value}
-                    checked={gender === o.value}
-                    onChange={(e) => setGender(e.target.value)}
-                    className={checkboxClass}
-                    data-testid={`register-gender-${o.value}`}
-                  />
-                  <span className="text-sm text-[var(--text)]">{o.label}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <span className={labelClass}>Which gender are you attracted to?</span>
-            <div className="flex flex-wrap gap-4 mt-2" role="group">
-              {ATTRACTED_TO_OPTIONS.map((o) => (
-                <label key={o.value} className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={attractedTo.includes(o.value)}
-                    onChange={() => toggleAttractedTo(o.value)}
-                    className={checkboxClass}
-                    data-testid={`register-attracted-to-${o.value}`}
-                  />
-                  <span className="text-sm text-[var(--text)]">{o.label}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <span className={labelClass}>What are you looking for?</span>
-            <div className="flex flex-wrap gap-4 mt-2" role="group">
-              {LOOKING_FOR_OPTIONS.map((o) => (
-                <label key={o.value} className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={lookingFor.includes(o.value)}
-                    onChange={() => toggleLookingFor(o.value)}
-                    className={checkboxClass}
-                    data-testid={`register-looking-for-${o.value}`}
-                  />
-                  <span className="text-sm text-[var(--text)]">{o.label}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <label htmlFor="reason" className={labelClass}>
-              {LABEL_WHY}
-            </label>
-            <textarea
-              id="reason"
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              rows={3}
-              className={inputClass}
-              placeholder="Tell us why you want to join"
-              data-testid="register-reason"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="instagram" className={labelClass}>
-              {LABEL_INSTAGRAM}
-            </label>
-            <input
-              id="instagram"
-              type="text"
-              value={instagram}
-              onChange={(e) => setInstagram(e.target.value)}
-              className={inputClass}
-              placeholder="Username"
-              data-testid="register-instagram"
-            />
-          </div>
-
-          <div>
-            <label className={labelClass}>Upload your Profile Photo</label>
-            <input
-              type="file"
-              accept="image/jpeg,image/jpg,image/png,image/webp"
-              className="block w-full text-sm text-[var(--text-muted)] file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-[var(--primary)] file:text-white file:font-medium"
-              data-testid="register-photo"
-            />
-            <p className="text-xs text-[var(--text-muted)] mt-1">Optional</p>
-          </div>
-
-          <div>
-            <label htmlFor="preferred_language" className={labelClass}>
-              Preferred language for event & communications
-            </label>
-            <select
-              id="preferred_language"
-              value={preferred_language || "en"}
-              onChange={(e) => setPreferredLanguage(e.target.value)}
-              className={selectClass}
-              data-testid="register-preferred-language"
-            >
-              <option value="en">English (Default)</option>
-              {PREFERRED_LANGUAGE_OPTIONS.filter((o) => o.value !== "en").map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="space-y-3">
-            <label className="flex items-start gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={agreementMarketing}
-                onChange={(e) => setAgreementMarketing(e.target.checked)}
-                className={`mt-1 ${checkboxClass}`}
-                data-testid="register-agreement-marketing"
-              />
-              <span className="text-sm text-[var(--text)]">{AGREEMENT_MARKETING}</span>
-            </label>
-            <label className="flex items-start gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={agreementAccurate}
-                onChange={(e) => setAgreementAccurate(e.target.checked)}
-                className={`mt-1 ${checkboxClass}`}
-                data-testid="register-agreement-accurate"
-              />
-              <span className="text-sm text-[var(--text)]">{AGREEMENT_ACCURATE}</span>
-            </label>
-          </div>
-
-          {error && (
-            <p role="alert" className="text-sm text-[var(--danger)]">
-              {error}
-            </p>
-          )}
-
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full bg-[var(--primary)] text-white px-6 py-3 rounded-xl font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
-            data-testid="register-submit"
+        <div
+          style={{
+            backgroundColor: "var(--bg-panel)",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius-lg)",
+            padding: "32px",
+          }}
+          className="sm:shadow-[var(--shadow-card)]"
+        >
+          <h1
+            className="mb-1"
+            style={{
+              fontFamily: "var(--font-heading)",
+              fontSize: "clamp(22px, 5vw, 28px)",
+              color: "var(--text)",
+              letterSpacing: "-0.02em",
+            }}
           >
-            {submitting ? "Creating account…" : "Register"}
-          </button>
-        </form>
+            Join Never Strangers
+          </h1>
+          <p style={{ fontSize: 14, color: "var(--text-muted)", marginBottom: 24 }}>
+            Create your account. You must be 21+ to join.
+          </p>
 
-        <p className="text-sm text-[var(--text-muted)] mt-6 text-center">
-          Already have an account?{" "}
-          <Link href="/login" className="text-[var(--primary)] underline" data-testid="register-login-link">
-            Login
-          </Link>
-        </p>
+          <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+            <div>
+              <label htmlFor="email" style={labelStyle}>E-mail Address</label>
+              <StyledInput
+                id="email"
+                type="email"
+                required
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                data-testid="register-email"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="first_name" style={labelStyle}>First Name</label>
+              <StyledInput
+                id="first_name"
+                type="text"
+                autoComplete="given-name"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                placeholder="First name"
+                data-testid="register-first-name"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="last_name" style={labelStyle}>Last Name</label>
+              <StyledInput
+                id="last_name"
+                type="text"
+                autoComplete="family-name"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                placeholder="Last name"
+                data-testid="register-last-name"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="password" style={labelStyle}>Create Password</label>
+              <StyledInput
+                id="password"
+                type="password"
+                required
+                autoComplete="new-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Min. 8 characters"
+                data-testid="register-password"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="city" style={labelStyle}>Which city are you in?</label>
+              <StyledSelect
+                id="city"
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                data-testid="register-city"
+              >
+                <option value="">Choose a City</option>
+                {CITIES.map((c) => (
+                  <option key={c.value} value={c.value}>
+                    {c.label}
+                  </option>
+                ))}
+              </StyledSelect>
+            </div>
+
+            <div>
+              <label htmlFor="dob" style={labelStyle}>Birth Date</label>
+              <StyledInput
+                id="dob"
+                name="dob"
+                type="date"
+                required
+                autoComplete="bday"
+                {...getDobDateInputBounds()}
+                value={dob}
+                onChange={(e) => setDob(e.target.value)}
+                data-testid="register-dob"
+              />
+              <p style={{ fontSize: 12, color: "var(--text-subtle)", marginTop: 4 }}>
+                You must be 21+ to join Never Strangers.
+              </p>
+            </div>
+
+            <div>
+              <span style={labelStyle}>Gender</span>
+              <div className="flex flex-wrap gap-4 mt-2" role="group" aria-label="Gender">
+                {GENDER_OPTIONS.map((o) => (
+                  <label key={o.value} className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="gender"
+                      value={o.value}
+                      checked={gender === o.value}
+                      onChange={(e) => setGender(e.target.value)}
+                      style={{ accentColor: "var(--primary)" }}
+                      data-testid={`register-gender-${o.value}`}
+                    />
+                    <span style={{ fontSize: 14, color: "var(--text)" }}>{o.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <span style={labelStyle}>Which gender are you attracted to?</span>
+              <div className="flex flex-wrap gap-4 mt-2" role="group">
+                {ATTRACTED_TO_OPTIONS.map((o) => (
+                  <label key={o.value} className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={attractedTo.includes(o.value)}
+                      onChange={() => toggleAttractedTo(o.value)}
+                      style={{ accentColor: "var(--primary)" }}
+                      data-testid={`register-attracted-to-${o.value}`}
+                    />
+                    <span style={{ fontSize: 14, color: "var(--text)" }}>{o.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <span style={labelStyle}>What are you looking for?</span>
+              <div className="flex flex-wrap gap-4 mt-2" role="group">
+                {LOOKING_FOR_OPTIONS.map((o) => (
+                  <label key={o.value} className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={lookingFor.includes(o.value)}
+                      onChange={() => toggleLookingFor(o.value)}
+                      style={{ accentColor: "var(--primary)" }}
+                      data-testid={`register-looking-for-${o.value}`}
+                    />
+                    <span style={{ fontSize: 14, color: "var(--text)" }}>{o.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="reason" style={labelStyle}>{LABEL_WHY}</label>
+              <StyledTextarea
+                id="reason"
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                rows={3}
+                placeholder="Tell us why you want to join"
+                data-testid="register-reason"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="instagram" style={labelStyle}>{LABEL_INSTAGRAM}</label>
+              <StyledInput
+                id="instagram"
+                type="text"
+                value={instagram}
+                onChange={(e) => setInstagram(e.target.value)}
+                placeholder="Username"
+                data-testid="register-instagram"
+              />
+            </div>
+
+            <div>
+              <label style={labelStyle}>Upload your Profile Photo</label>
+              <input
+                type="file"
+                accept="image/jpeg,image/jpg,image/png,image/webp"
+                className="block w-full text-sm text-[var(--text-muted)] file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-[var(--primary)] file:text-white file:font-medium"
+                data-testid="register-photo"
+              />
+              <p style={{ fontSize: 12, color: "var(--text-subtle)", marginTop: 4 }}>Optional</p>
+            </div>
+
+            <div>
+              <label htmlFor="preferred_language" style={labelStyle}>
+                Preferred language for event & communications
+              </label>
+              <StyledSelect
+                id="preferred_language"
+                value={preferred_language || "en"}
+                onChange={(e) => setPreferredLanguage(e.target.value)}
+                data-testid="register-preferred-language"
+              >
+                <option value="en">English (Default)</option>
+                {PREFERRED_LANGUAGE_OPTIONS.filter((o) => o.value !== "en").map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </StyledSelect>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={agreementMarketing}
+                  onChange={(e) => setAgreementMarketing(e.target.checked)}
+                  style={{ marginTop: 3, accentColor: "var(--primary)" }}
+                  data-testid="register-agreement-marketing"
+                />
+                <span style={{ fontSize: 14, color: "var(--text)" }}>{AGREEMENT_MARKETING}</span>
+              </label>
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={agreementAccurate}
+                  onChange={(e) => setAgreementAccurate(e.target.checked)}
+                  style={{ marginTop: 3, accentColor: "var(--primary)" }}
+                  data-testid="register-agreement-accurate"
+                />
+                <span style={{ fontSize: 14, color: "var(--text)" }}>{AGREEMENT_ACCURATE}</span>
+              </label>
+            </div>
+
+            {error && (
+              <p role="alert" style={{ fontSize: 14, color: "var(--danger)" }}>
+                {error}
+              </p>
+            )}
+
+            <Button
+              type="submit"
+              disabled={submitting}
+              fullWidth
+              size="lg"
+              data-testid="register-submit"
+            >
+              {submitting ? "Creating account…" : "Register"}
+            </Button>
+          </form>
+
+          <p style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 24, textAlign: "center" }}>
+            Already have an account?{" "}
+            <Link href="/login" style={{ color: "var(--primary)" }} className="hover:underline" data-testid="register-login-link">
+              Login
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
   );

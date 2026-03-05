@@ -21,19 +21,19 @@ export default function ValueProp() {
 
   return (
     <section
-      className="px-4 py-14 sm:px-6 sm:py-16 lg:px-20 lg:py-20 xl:py-32"
+      className="px-4 py-14 sm:px-6 sm:py-16 lg:px-20 lg:py-32"
       style={{ backgroundColor: "var(--bg-panel)" }}
     >
       <div className="max-w-7xl mx-auto">
         <p
           className="text-xs font-semibold uppercase tracking-wider mb-4"
-          style={{ color: "var(--text-subtle)", letterSpacing: "0.08em" }}
+          style={{ color: "var(--text-subtle)", letterSpacing: "var(--tracking-label)" }}
         >
           WHY NEVER STRANGERS
         </p>
         <h2
           className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-4 sm:mb-6"
-          style={{ color: "var(--text)", fontFamily: "'Cabinet Grotesk', system-ui, sans-serif" }}
+          style={{ color: "var(--text)", fontFamily: "var(--font-heading)" }}
         >
           More than just a social mixer.
         </h2>
@@ -48,10 +48,11 @@ export default function ValueProp() {
           {valueCards.map((card, index) => (
             <div
               key={index}
-              className="p-6 sm:p-8 rounded-xl transition-all duration-200 hover:-translate-y-1 hover:border-[var(--primary)] hover:shadow-md"
+              className="p-6 sm:p-8 rounded-xl transition-all hover:-translate-y-1 hover:border-[var(--primary)] hover:shadow-[var(--shadow-md)]"
               style={{
                 backgroundColor: "var(--bg)",
                 border: "1px solid var(--border)",
+                transitionDuration: "var(--duration-normal)",
               }}
             >
               <div className="text-3xl sm:text-4xl mb-3 sm:mb-4">{card.icon}</div>

@@ -1,50 +1,81 @@
 "use client";
 
 import Link from "next/link";
+import { useReveal } from "@/hooks/useReveal";
 
 export default function FinalCTA() {
+  const ref = useReveal<HTMLElement>();
+
   return (
     <section
-      className="px-4 py-16 sm:px-6 sm:py-20 lg:px-20 lg:py-32 text-center safe-area-inset-bottom"
-      style={{ backgroundColor: "var(--primary)" }}
+      ref={ref}
+      className="reveal-section px-4 sm:px-6 lg:px-20 py-24 lg:py-40 text-center safe-area-inset-bottom"
+      style={{
+        background:
+          "radial-gradient(ellipse 70% 60% at 50% 50%, rgba(185,15,20,0.18) 0%, transparent 70%), var(--bg)",
+      }}
     >
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-3xl mx-auto">
         <h2
-          className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-6 sm:mb-8 leading-tight px-1"
-          style={{ color: "var(--primary-foreground)", fontFamily: "'Cabinet Grotesk', system-ui, sans-serif" }}
+          style={{
+            fontFamily: "var(--font-heading)",
+            fontSize: "clamp(36px, 5vw, 72px)",
+            color: "var(--text)",
+            lineHeight: 1.1,
+            marginBottom: "24px",
+          }}
         >
-          Ready to meet your new soulmate?
+          The guest list is almost{" "}
+          <em style={{ color: "var(--primary)", fontStyle: "italic" }}>full.</em>
         </h2>
-        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-stretch sm:items-center max-w-xs sm:max-w-none mx-auto">
+        <p
+          style={{
+            fontFamily: "var(--font-sans)",
+            fontSize: "clamp(16px, 1.5vw, 20px)",
+            color: "var(--text-muted)",
+            marginBottom: "40px",
+            maxWidth: "480px",
+            marginLeft: "auto",
+            marginRight: "auto",
+          }}
+        >
+          Spots go fast. Join now and we&apos;ll let you know when a mixer opens near you.
+        </p>
+
+        <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
           <Link
             href="/register"
-            className="touch-manipulation inline-flex items-center justify-center min-h-[48px] w-full sm:w-auto px-6 sm:px-8 py-3.5 sm:py-4 rounded-xl font-semibold text-base transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98]"
+            className="inline-flex items-center justify-center font-semibold transition-opacity hover:opacity-85"
             style={{
-              backgroundColor: "var(--primary-foreground)",
-              color: "var(--primary)",
-              boxShadow: "var(--shadow-lg)",
+              backgroundColor: "#080808",
+              color: "#FFFFFF",
+              borderRadius: "var(--radius-pill)",
+              padding: "15px 36px",
+              fontSize: "16px",
+              fontFamily: "var(--font-sans)",
+              minHeight: "var(--touch-min-height)",
+              boxShadow: "0 4px 20px rgba(0,0,0,0.2)",
             }}
           >
-            Get Your Invite
+            I&rsquo;m in →
           </Link>
           <Link
-            href="/login"
-            className="touch-manipulation inline-flex items-center justify-center min-h-[48px] w-full sm:w-auto px-6 sm:px-8 py-3.5 sm:py-4 rounded-xl font-semibold text-base transition-all duration-200 hover:bg-white/10 active:scale-[0.98]"
+            href="/events"
+            className="inline-flex items-center justify-center font-semibold transition-colors hover:bg-black/5"
             style={{
               backgroundColor: "transparent",
-              border: "2px solid var(--primary-foreground)",
-              color: "var(--primary-foreground)",
+              color: "var(--text)",
+              border: "1.5px solid var(--border-strong)",
+              borderRadius: "var(--radius-pill)",
+              padding: "15px 36px",
+              fontSize: "16px",
+              fontFamily: "var(--font-sans)",
+              minHeight: "var(--touch-min-height)",
             }}
           >
-            Login
+            See what&apos;s on
           </Link>
         </div>
-        <p
-          className="text-sm mt-5 sm:mt-6"
-          style={{ color: "var(--primary-foreground)", opacity: 0.9 }}
-        >
-          Or login if you already have an account.
-        </p>
       </div>
     </section>
   );

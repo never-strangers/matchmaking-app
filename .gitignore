@@ -47,4 +47,6 @@ next-env.d.ts
 
 /scripts/.seed-output/
 
+docs/security-scan-report.md
+
 

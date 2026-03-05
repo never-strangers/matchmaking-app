@@ -2,28 +2,28 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { Card } from "@/components/ui/Card";
 
 export default function OnboardingPage() {
   const router = useRouter();
-  
+
   useEffect(() => {
-    // Redirect to events - onboarding is deprecated
     router.push("/events");
   }, [router]);
 
   return (
     <div className="max-w-md mx-auto px-4 py-16">
-      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
-        <h2 className="text-xl font-semibold text-gray-dark mb-4">
-          Onboarding Deprecated
+      <Card className="text-center">
+        <h2
+          className="text-2xl mb-3"
+          style={{ fontFamily: "var(--font-heading)", color: "var(--text)" }}
+        >
+          Redirecting…
         </h2>
-        <p className="text-gray-medium mb-4">
-          Onboarding has been removed. Questionnaires are now per-event and collected after RSVP and payment.
+        <p className="text-sm" style={{ color: "var(--text-muted)", fontFamily: "var(--font-sans)" }}>
+          Questionnaires are now per-event and collected after RSVP and payment.
         </p>
-        <p className="text-sm text-gray-medium">
-          Redirecting to events...
-        </p>
-      </div>
+      </Card>
     </div>
   );
 }

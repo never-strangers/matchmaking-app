@@ -137,7 +137,7 @@ export default async function EventDetailPage({
   const endAt = (event as { end_at?: string | null }).end_at;
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8 sm:py-12">
+    <div className="max-w-3xl mx-auto px-4 py-8 sm:py-12" style={{ backgroundColor: "var(--bg)" }}>
       <div className="mb-4">
         <Link
           href="/events"
@@ -157,10 +157,10 @@ export default async function EventDetailPage({
           />
         ) : (
           <div
-            className="w-full aspect-[3/2] flex items-center justify-center text-[var(--text-muted)]"
-            style={{ backgroundColor: "var(--bg-panel)" }}
+            className="w-full aspect-[3/2] flex items-center justify-center"
+            style={{ backgroundColor: "var(--bg-dark)" }}
           >
-            No poster image
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--border-strong)", opacity: 0.5 }}><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
           </div>
         )}
         <div className="p-4 sm:p-6">
@@ -235,11 +235,32 @@ export default async function EventDetailPage({
           )}
 
           {hasTicketTypes && (
-            <div className="text-sm mb-4" style={{ color: "var(--text-muted)" }}>
-              <span className="font-medium text-[var(--text)]">Ticket types: </span>
-              {(ticketTypes as { name: string; price_cents: number; cap: number; sold: number }[])
-                .map((t) => `${t.name} (${(t.price_cents / 100).toFixed(2)} SGD, ${t.cap - t.sold} left)`)
-                .join(" · ")}
+            <div className="mb-5">
+              <h3 className="text-sm font-semibold mb-2" style={{ color: "var(--text)", fontFamily: "var(--font-sans)" }}>
+                Ticket types
+              </h3>
+              <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-md)", overflow: "hidden" }}>
+                {(ticketTypes as { name: string; price_cents: number; cap: number; sold: number }[]).map((t, i, arr) => (
+                  <div
+                    key={i}
+                    className="flex items-center justify-between px-4 py-3 text-sm"
+                    style={{
+                      borderBottom: i < arr.length - 1 ? "1px solid var(--border)" : "none",
+                      backgroundColor: "var(--bg-panel)",
+                    }}
+                  >
+                    <span style={{ color: "var(--text)", fontFamily: "var(--font-sans)", fontWeight: 500 }}>{t.name}</span>
+                    <div className="flex items-center gap-4">
+                      <span style={{ color: "var(--text)", fontFamily: "var(--font-sans)" }}>
+                        {(t.price_cents / 100).toFixed(2)} SGD
+                      </span>
+                      <span style={{ color: "var(--text-subtle)", fontFamily: "var(--font-sans)", fontSize: "12px" }}>
+                        {t.cap - t.sold} left
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 

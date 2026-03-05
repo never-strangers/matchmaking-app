@@ -3,7 +3,6 @@
 import { useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { PayToConfirmButton } from "@/app/events/PayToConfirmButton";
@@ -26,7 +25,27 @@ type ListEvent = {
   paymentRequired: boolean;
   paid: boolean;
   canViewMatches: boolean;
+  posterUrl?: string | null;
 };
+
+function formatEventDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return "Live event";
+  const d = new Date(dateStr);
+  const today = new Date();
+  const isToday =
+    d.getDate() === today.getDate() &&
+    d.getMonth() === today.getMonth() &&
+    d.getFullYear() === today.getFullYear();
+  return (
+    (isToday
+      ? "Today"
+      : d.toLocaleDateString(undefined, {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        })) + " · Live event"
+  );
+}
 
 export function EventsListClient({ events }: { events: ListEvent[] }) {
   const router = useRouter();
@@ -44,10 +63,7 @@ export function EventsListClient({ events }: { events: ListEvent[] }) {
     setPreviewLoading(true);
     try {
       const res = await fetch(`/api/events/${eventId}/preview`);
-      if (!res.ok) {
-        setPreviewLoading(false);
-        return;
-      }
+      if (!res.ok) { setPreviewLoading(false); return; }
       const data = await res.json();
       setPreviewEvent(data.event ?? null);
       setPreviewAttendee(data.attendee ?? null);
@@ -64,17 +80,11 @@ export function EventsListClient({ events }: { events: ListEvent[] }) {
   }, []);
 
   const handleCompleteQuestions = useCallback(() => {
-    if (selectedEventId) {
-      closeModal();
-      router.push(`/events/${selectedEventId}/questions`);
-    }
+    if (selectedEventId) { closeModal(); router.push(`/events/${selectedEventId}/questions`); }
   }, [selectedEventId, closeModal, router]);
 
   const handleContinueToEvent = useCallback(() => {
-    if (selectedEventId) {
-      closeModal();
-      router.push(`/events/${selectedEventId}`);
-    }
+    if (selectedEventId) { closeModal(); router.push(`/events/${selectedEventId}`); }
   }, [selectedEventId, closeModal, router]);
 
   const handleContinueToPayment = useCallback(async () => {
@@ -87,14 +97,8 @@ export function EventsListClient({ events }: { events: ListEvent[] }) {
         body: JSON.stringify({ event_id: selectedEventId }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        alert(data?.error || "Failed to start checkout");
-        return;
-      }
-      if (data?.url) {
-        window.location.href = data.url;
-        return;
-      }
+      if (!res.ok) { alert(data?.error || "Failed to start checkout"); return; }
+      if (data?.url) { window.location.href = data.url; }
     } catch (err) {
       console.error("Checkout error:", err);
       alert("Something went wrong. Please try again.");
@@ -103,17 +107,14 @@ export function EventsListClient({ events }: { events: ListEvent[] }) {
 
   return (
     <>
-      <div className="space-y-4" data-testid="events-list-container">
+      <div
+        className="grid gap-4 sm:grid-cols-2"
+        data-testid="events-list-container"
+      >
         {events.map((event) => {
           const {
-            joined,
-            completed,
-            answerCount,
-            totalQuestions,
-            matchesRun,
-            paymentRequired,
-            paid,
-            canViewMatches,
+            joined, completed, answerCount, totalQuestions,
+            matchesRun, paymentRequired, paid, canViewMatches,
           } = event;
 
           let primaryLabel = "Enter Event";
@@ -121,7 +122,6 @@ export function EventsListClient({ events }: { events: ListEvent[] }) {
           let showPrimary = true;
           let isEnterEvent = false;
 
-          // Questions come after payment: pay first, then questionnaire
           if (joined && paymentRequired && !paid) {
             primaryLabel = "Pay to confirm";
             primaryHref = "";
@@ -142,74 +142,105 @@ export function EventsListClient({ events }: { events: ListEvent[] }) {
           }
 
           return (
-            <Card
+            <div
               key={event.id}
-              variant="elevated"
-              padding="md"
               data-testid={`event-card-${event.id}`}
+              className="group flex flex-col overflow-hidden transition-all duration-200 hover:-translate-y-0.5"
+              style={{
+                backgroundColor: "var(--bg-panel)",
+                border: "1px solid var(--border)",
+                borderRadius: "var(--radius-xl)",
+                boxShadow: "var(--shadow-sm)",
+              }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLDivElement).style.boxShadow = "var(--shadow-md)";
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLDivElement).style.boxShadow = "var(--shadow-sm)";
+              }}
             >
-              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
-                <div className="flex-1">
-                  <h2
-                    className="text-xl font-semibold mb-2"
-                    style={{ color: "var(--text)" }}
-                  >
-                    <Link href={`/events/${event.id}`} className="hover:underline">
-                      {event.title}
-                    </Link>
-                  </h2>
-                  <p
-                    className="text-sm mb-1"
-                    style={{ color: "var(--text-muted)" }}
-                  >
-                    {(() => {
-                      const dateStr = event.start_at || event.created_at;
-                      if (!dateStr) return "Live event";
-                      const d = new Date(dateStr);
-                      const today = new Date();
-                      const isToday =
-                        d.getDate() === today.getDate() &&
-                        d.getMonth() === today.getMonth() &&
-                        d.getFullYear() === today.getFullYear();
-                      return (
-                        (isToday
-                          ? "Today"
-                          : d.toLocaleDateString(undefined, {
-                              month: "short",
-                              day: "numeric",
-                              year: "numeric",
-                            })) + " · Live event"
-                      );
-                    })()}
-                  </p>
-                  <div className="flex flex-wrap gap-2 mt-1">
-                    {joined && <Badge variant="success">Joined</Badge>}
-                    {completed && (
-                      <Badge variant="info">Questionnaire Complete</Badge>
-                    )}
-                    {joined && completed && paymentRequired && paid && (
-                      <Badge variant="success">Paid</Badge>
-                    )}
-                    {joined && !completed && totalQuestions > 0 && (
-                      <Badge variant="warning">
-                        {answerCount}/{totalQuestions} answered
-                      </Badge>
-                    )}
-                    {joined && completed && !matchesRun && (
-                      <Badge variant="warning">Matches pending</Badge>
-                    )}
-                  </div>
-                  {joined && completed && !matchesRun && (
-                    <p
-                      className="text-sm mt-2"
-                      style={{ color: "var(--text-muted)" }}
+              {/* Image area */}
+              <Link href={`/events/${event.id}`} className="block flex-shrink-0 overflow-hidden" style={{ borderRadius: "var(--radius-xl) var(--radius-xl) 0 0" }}>
+                <div
+                  className="w-full flex items-center justify-center"
+                  style={{
+                    height: "180px",
+                    backgroundColor: "var(--bg-dark)",
+                    borderBottom: "1px solid var(--border)",
+                    overflow: "hidden",
+                  }}
+                >
+                  {event.posterUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={event.posterUrl}
+                      alt={event.title}
+                      style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                    />
+                  ) : (
+                    <svg
+                      width="40"
+                      height="40"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      style={{ color: "var(--border-strong)", opacity: 0.6 }}
                     >
-                      Matches will appear after the host runs matching.
-                    </p>
+                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                      <circle cx="8.5" cy="8.5" r="1.5"/>
+                      <polyline points="21 15 16 10 5 21"/>
+                    </svg>
                   )}
                 </div>
+              </Link>
+
+              {/* Card content */}
+              <div className="flex flex-col flex-1 p-5">
+                {/* Date */}
+                <p
+                  className="text-xs mb-2 font-medium uppercase tracking-wider"
+                  style={{ color: "var(--text-subtle)", fontFamily: "var(--font-sans)" }}
+                >
+                  {formatEventDate(event.start_at || event.created_at)}
+                </p>
+
+                {/* Title */}
+                <h2
+                  className="text-xl mb-3 leading-snug"
+                  style={{ fontFamily: "var(--font-heading)", color: "var(--text)" }}
+                >
+                  <Link href={`/events/${event.id}`} className="hover:underline">
+                    {event.title}
+                  </Link>
+                </h2>
+
+                {/* Badges */}
+                <div className="flex flex-wrap gap-1.5 mb-4">
+                  {joined && <Badge variant="success">Joined</Badge>}
+                  {completed && <Badge variant="info">Questionnaire Complete</Badge>}
+                  {joined && completed && paymentRequired && paid && (
+                    <Badge variant="success">Paid</Badge>
+                  )}
+                  {joined && !completed && totalQuestions > 0 && (
+                    <Badge variant="warning">{answerCount}/{totalQuestions} answered</Badge>
+                  )}
+                  {joined && completed && !matchesRun && (
+                    <Badge variant="warning">Matches pending</Badge>
+                  )}
+                </div>
+
+                {joined && completed && !matchesRun && (
+                  <p className="text-sm mb-3" style={{ color: "var(--text-muted)" }}>
+                    Matches will appear after the host runs matching.
+                  </p>
+                )}
+
+                {/* CTA */}
                 {showPrimary && (
-                  <div className="flex flex-col sm:flex-row gap-2 sm:ml-4">
+                  <div className="mt-auto pt-2">
                     {primaryLabel === "Pay to confirm" ? (
                       <PayToConfirmButton eventId={event.id} />
                     ) : isEnterEvent ? (
@@ -217,18 +248,19 @@ export function EventsListClient({ events }: { events: ListEvent[] }) {
                         size="md"
                         onClick={() => openPreview(event.id)}
                         data-testid="event-enter-btn"
+                        fullWidth
                       >
                         {primaryLabel}
                       </Button>
                     ) : (
-                      <Link href={primaryHref}>
-                        <Button size="md">{primaryLabel}</Button>
-                      </Link>
+                      <Button href={primaryHref} size="md" fullWidth>
+                        {primaryLabel}
+                      </Button>
                     )}
                   </div>
                 )}
               </div>
-            </Card>
+            </div>
           );
         })}
       </div>

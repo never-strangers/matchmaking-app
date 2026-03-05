@@ -14,29 +14,28 @@ export function Badge({
   children,
   ...props
 }: BadgeProps) {
-  const baseStyles = "inline-flex items-center font-medium rounded-lg";
-  
   const variants = {
-    default:
-      "bg-[var(--bg-muted)] text-[var(--text)] border border-[var(--border)]",
-    success:
-      "bg-[var(--success-light)] text-[var(--success)] border border-[var(--success)]/20",
-    warning:
-      "bg-[var(--warning-light)] text-[var(--warning)] border border-[var(--warning)]/20",
-    danger:
-      "bg-[var(--danger-light)] text-[var(--danger)] border border-[var(--danger)]/20",
-    info:
-      "bg-[var(--info-light)] text-[var(--info)] border border-[var(--info)]/20",
+    default:  "bg-[var(--bg-dark)] text-[var(--text)] border border-[var(--border)]",
+    success:  "bg-[var(--success-light)] text-[var(--success)]",
+    warning:  "bg-[var(--warning-light)] text-[var(--warning)]",
+    danger:   "bg-[var(--danger-light)] text-[var(--danger)]",
+    info:     "bg-[var(--info-light)] text-[var(--info)]",
   };
 
   const sizes = {
-    sm: "px-2 py-0.5 text-xs",
-    md: "px-2.5 py-1 text-sm",
+    sm: "px-2.5 py-0.5 text-xs",
+    md: "px-3 py-1 text-sm",
   };
 
   return (
     <span
-      className={cn(baseStyles, variants[variant], sizes[size], className)}
+      className={cn(
+        "inline-flex items-center font-semibold rounded-full",
+        variants[variant],
+        sizes[size],
+        className
+      )}
+      style={{ fontFamily: "var(--font-sans)" }}
       {...props}
     >
       {children}

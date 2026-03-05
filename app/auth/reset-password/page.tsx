@@ -160,14 +160,14 @@ function ResetPasswordContent() {
   if (pageState === "error") {
     return (
       <div className="max-w-md mx-auto px-4 py-16">
-        <div className="rounded-xl border border-[var(--border)] p-8 text-center bg-[var(--bg-panel)]">
+        <div className="rounded-2xl border border-[var(--border)] p-8 text-center bg-[var(--bg-panel)]">
           <h1 className="text-2xl font-bold text-[var(--text)] mb-4">
             Link expired or invalid
           </h1>
           <p className="text-[var(--text-muted)] mb-6">{errorMessage}</p>
           <Link
             href="/profile"
-            className="inline-block bg-[var(--primary)] text-white px-6 py-2 rounded-xl font-medium hover:opacity-90 transition-opacity"
+            className="inline-block bg-[var(--primary)] text-white px-6 py-2 rounded-full font-semibold hover:opacity-90 transition-opacity"
           >
             Back to profile
           </Link>
@@ -179,7 +179,7 @@ function ResetPasswordContent() {
   if (pageState === "success") {
     return (
       <div className="max-w-md mx-auto px-4 py-16">
-        <div className="rounded-xl border border-[var(--border)] p-8 text-center bg-[var(--bg-panel)]">
+        <div className="rounded-2xl border border-[var(--border)] p-8 text-center bg-[var(--bg-panel)]">
           <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 bg-[var(--success)]/20">
             <svg className="w-6 h-6 text-[var(--success)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -196,7 +196,7 @@ function ResetPasswordContent() {
 
   return (
     <div className="max-w-md mx-auto px-4 py-16">
-      <div className="rounded-xl border border-[var(--border)] p-8 bg-[var(--bg-panel)]">
+      <div className="rounded-2xl border border-[var(--border)] p-8 bg-[var(--bg-panel)]">
         <h1 className="text-2xl font-bold text-[var(--text)] mb-2">
           Set a new password
         </h1>
@@ -259,7 +259,7 @@ function ResetPasswordContent() {
           <button
             type="submit"
             disabled={pageState === "submitting"}
-            className="w-full bg-[var(--primary)] text-white px-6 py-3 rounded-xl font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+            className="w-full bg-[var(--primary)] text-white px-6 py-3 rounded-full font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
             data-testid="reset-password-submit"
           >
             {pageState === "submitting" ? "Updating…" : "Update password"}

@@ -17,6 +17,7 @@ import {
   LOOKING_FOR_OPTIONS,
   normalizeCityForSelect,
 } from "@/lib/constants/profileOptions";
+import { Button } from "@/components/ui/Button";
 
 const LABEL_WHY =
   "Let's know more about you. Tell us why Never Strangers is for you!";
@@ -37,6 +38,84 @@ type ProfileRow = {
   instagram: string | null;
   reason: string | null;
 };
+
+const inputStyle: React.CSSProperties = {
+  width: "100%",
+  padding: "12px 14px",
+  backgroundColor: "var(--bg-panel)",
+  border: "1px solid var(--border)",
+  borderRadius: "var(--radius-sm)",
+  color: "var(--text)",
+  fontSize: 14,
+  fontFamily: "var(--font-sans)",
+  outline: "none",
+};
+
+const labelStyle: React.CSSProperties = {
+  display: "block",
+  fontSize: 13,
+  fontWeight: 600,
+  color: "var(--text)",
+  marginBottom: 6,
+  fontFamily: "var(--font-sans)",
+};
+
+function StyledInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
+  return (
+    <input
+      {...props}
+      style={inputStyle}
+      onFocus={(e) => {
+        e.currentTarget.style.borderColor = "var(--primary)";
+        e.currentTarget.style.boxShadow = "0 0 0 3px rgba(185,15,20,0.1)";
+        props.onFocus?.(e);
+      }}
+      onBlur={(e) => {
+        e.currentTarget.style.borderColor = "var(--border)";
+        e.currentTarget.style.boxShadow = "none";
+        props.onBlur?.(e);
+      }}
+    />
+  );
+}
+
+function StyledSelect(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
+  return (
+    <select
+      {...props}
+      style={inputStyle}
+      onFocus={(e) => {
+        e.currentTarget.style.borderColor = "var(--primary)";
+        e.currentTarget.style.boxShadow = "0 0 0 3px rgba(185,15,20,0.1)";
+        props.onFocus?.(e);
+      }}
+      onBlur={(e) => {
+        e.currentTarget.style.borderColor = "var(--border)";
+        e.currentTarget.style.boxShadow = "none";
+        props.onBlur?.(e);
+      }}
+    />
+  );
+}
+
+function StyledTextarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  return (
+    <textarea
+      {...props}
+      style={{ ...inputStyle, resize: "vertical" }}
+      onFocus={(e) => {
+        e.currentTarget.style.borderColor = "var(--primary)";
+        e.currentTarget.style.boxShadow = "0 0 0 3px rgba(185,15,20,0.1)";
+        props.onFocus?.(e);
+      }}
+      onBlur={(e) => {
+        e.currentTarget.style.borderColor = "var(--border)";
+        e.currentTarget.style.boxShadow = "none";
+        props.onBlur?.(e);
+      }}
+    />
+  );
+}
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -277,38 +356,60 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="max-w-md mx-auto px-4 py-16 text-center">
-        <p className="text-[var(--text-muted)]">Loading profile…</p>
+      <div style={{ maxWidth: 560, margin: "0 auto", padding: "64px 16px", textAlign: "center" }}>
+        <p style={{ color: "var(--text-muted)" }}>Loading profile…</p>
       </div>
     );
   }
 
   return (
-    <div className="max-w-md mx-auto px-4 py-16">
+    <div style={{ maxWidth: 560, margin: "0 auto", padding: "48px 16px 80px" }}>
       {success && (
         <div
           role="alert"
-          className="mb-6 rounded-xl border border-[var(--success)]/50 bg-[var(--success)]/10 p-4 text-sm text-[var(--success)]"
+          style={{
+            marginBottom: 24,
+            borderRadius: "var(--radius-md)",
+            border: "1px solid rgba(45,106,79,0.3)",
+            backgroundColor: "var(--success-light)",
+            padding: "12px 16px",
+            fontSize: 14,
+            color: "var(--success)",
+          }}
           data-testid="profile-save-success"
         >
           Profile saved.
         </div>
       )}
 
-      <div className="rounded-xl border border-[var(--border)] p-8 bg-[var(--bg-panel)]">
-        <h1 className="text-2xl font-bold text-[var(--text)] mb-2">
-          Your profile
-        </h1>
-        <p className="text-sm text-[var(--text-muted)] mb-6">
-          Update your details. You must be 21+ to use Never Strangers.
-        </p>
+      <h1
+        style={{
+          fontFamily: "var(--font-heading)",
+          fontSize: "clamp(28px, 5vw, 36px)",
+          color: "var(--text)",
+          letterSpacing: "-0.025em",
+          marginBottom: 6,
+        }}
+      >
+        Your profile
+      </h1>
+      <p style={{ fontSize: 14, color: "var(--text-muted)", marginBottom: 32 }}>
+        Update your details. You must be 21+ to use Never Strangers.
+      </p>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+      <div
+        style={{
+          backgroundColor: "var(--bg-panel)",
+          border: "1px solid var(--border)",
+          borderRadius: "var(--radius-lg)",
+          padding: "32px",
+          boxShadow: "var(--shadow-sm)",
+        }}
+      >
+        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
           <div>
-            <label htmlFor="first_name" className="block text-sm font-medium text-[var(--text)] mb-1">
-              First Name
-            </label>
-            <input
+            <label htmlFor="first_name" style={labelStyle}>First Name</label>
+            <StyledInput
               id="first_name"
               name="first_name"
               type="text"
@@ -317,16 +418,13 @@ export default function ProfilePage() {
               onChange={(e) =>
                 setProfile((p) => (p ? { ...p, first_name: e.target.value || null } : { ...defaultProfile(), first_name: e.target.value || null }))
               }
-              className="w-full px-4 py-2.5 bg-[var(--bg-panel)] border rounded-xl border-[var(--border)] text-[var(--text)] placeholder:text-[var(--text-subtle)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
               placeholder="First name"
               data-testid="profile-first-name"
             />
           </div>
           <div>
-            <label htmlFor="last_name" className="block text-sm font-medium text-[var(--text)] mb-1">
-              Last Name
-            </label>
-            <input
+            <label htmlFor="last_name" style={labelStyle}>Last Name</label>
+            <StyledInput
               id="last_name"
               name="last_name"
               type="text"
@@ -335,42 +433,35 @@ export default function ProfilePage() {
               onChange={(e) =>
                 setProfile((p) => (p ? { ...p, last_name: e.target.value || null } : { ...defaultProfile(), last_name: e.target.value || null }))
               }
-              className="w-full px-4 py-2.5 bg-[var(--bg-panel)] border rounded-xl border-[var(--border)] text-[var(--text)] placeholder:text-[var(--text-subtle)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
               placeholder="Last name"
               data-testid="profile-last-name"
             />
           </div>
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-[var(--text)] mb-1">
-              Email
-            </label>
-            <input
+            <label htmlFor="email" style={labelStyle}>Email</label>
+            <StyledInput
               id="email"
               name="email"
               type="email"
               autoComplete="email"
               value={emailInput}
               onChange={(e) => setEmailInput(e.target.value)}
-              className="w-full px-4 py-2.5 bg-[var(--bg-panel)] border rounded-xl border-[var(--border)] text-[var(--text)] placeholder:text-[var(--text-subtle)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
               placeholder="you@example.com"
               data-testid="profile-email"
             />
-            <p className="text-xs text-[var(--text-muted)] mt-1">
+            <p style={{ fontSize: 12, color: "var(--text-subtle)", marginTop: 4 }}>
               Changing your email may require you to verify the new address.
             </p>
           </div>
           <div>
-            <label htmlFor="city" className="block text-sm font-medium text-[var(--text)] mb-1">
-              Which city are you in?
-            </label>
-            <select
+            <label htmlFor="city" style={labelStyle}>Which city are you in?</label>
+            <StyledSelect
               id="city"
               name="city"
               value={normalizeCityForSelect(profile?.city ?? null)}
               onChange={(e) =>
                 setProfile((p) => (p ? { ...p, city: e.target.value || null } : { ...defaultProfile(), city: e.target.value || null }))
               }
-              className="w-full px-4 py-2.5 bg-[var(--bg-panel)] border rounded-xl border-[var(--border)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
               data-testid="profile-city"
             >
               <option value="">Choose a City</option>
@@ -379,16 +470,11 @@ export default function ProfilePage() {
                   {c.label}
                 </option>
               ))}
-            </select>
+            </StyledSelect>
           </div>
           <div>
-            <label
-              htmlFor="dob"
-              className="block text-sm font-medium text-[var(--text)] mb-1"
-            >
-              Date of birth
-            </label>
-            <input
+            <label htmlFor="dob" style={labelStyle}>Date of birth</label>
+            <StyledInput
               id="dob"
               name="dob"
               type="date"
@@ -400,29 +486,22 @@ export default function ProfilePage() {
                 const v = e.target.value.trim();
                 setProfile((p) => (p ? { ...p, dob: v || null } : { ...defaultProfile(), dob: v || null }));
               }}
-              className="w-full px-4 py-2.5 bg-[var(--bg-panel)] border rounded-xl border-[var(--border)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
               data-testid="profile-dob"
             />
-            <p className="text-xs text-[var(--text-muted)] mt-1">
+            <p style={{ fontSize: 12, color: "var(--text-subtle)", marginTop: 4 }}>
               You must be 21+ to join Never Strangers.
             </p>
           </div>
 
           <div>
-            <label
-              htmlFor="gender"
-              className="block text-sm font-medium text-[var(--text)] mb-1"
-            >
-              Gender
-            </label>
-            <select
+            <label htmlFor="gender" style={labelStyle}>Gender</label>
+            <StyledSelect
               id="gender"
               name="gender"
               value={profile?.gender ?? ""}
               onChange={(e) =>
                 setProfile((p) => (p ? { ...p, gender: e.target.value } : { ...defaultProfile(), gender: e.target.value }))
               }
-              className="w-full px-4 py-2.5 bg-[var(--bg-panel)] border rounded-xl border-[var(--border)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
               data-testid="profile-gender"
             >
               <option value="">Select</option>
@@ -431,11 +510,11 @@ export default function ProfilePage() {
                   {o.label}
                 </option>
               ))}
-            </select>
+            </StyledSelect>
           </div>
 
           <div>
-            <span className="block text-sm font-medium text-[var(--text)] mb-1">Which gender are you attracted to?</span>
+            <span style={labelStyle}>Which gender are you attracted to?</span>
             <div className="flex flex-wrap gap-4 mt-2" role="group">
               {ATTRACTED_TO_OPTIONS.map((o) => (
                 <label key={o.value} className="flex items-center gap-2 cursor-pointer">
@@ -443,16 +522,16 @@ export default function ProfilePage() {
                     type="checkbox"
                     checked={profile?.attracted_to?.includes(o.value) ?? false}
                     onChange={() => toggleAttractedTo(o.value)}
-                    className="rounded border-[var(--border)] text-[var(--primary)] focus:ring-[var(--primary)]"
+                    style={{ accentColor: "var(--primary)" }}
                     data-testid={`profile-attracted-to-${o.value}`}
                   />
-                  <span className="text-sm text-[var(--text)]">{o.label}</span>
+                  <span style={{ fontSize: 14, color: "var(--text)" }}>{o.label}</span>
                 </label>
               ))}
             </div>
           </div>
           <div>
-            <span className="block text-sm font-medium text-[var(--text)] mb-1">What are you looking for?</span>
+            <span style={labelStyle}>What are you looking for?</span>
             <div className="flex flex-wrap gap-4 mt-2" role="group">
               {LOOKING_FOR_OPTIONS.map((o) => (
                 <label key={o.value} className="flex items-center gap-2 cursor-pointer">
@@ -460,23 +539,20 @@ export default function ProfilePage() {
                     type="checkbox"
                     checked={profile?.looking_for?.includes(o.value) ?? false}
                     onChange={() => toggleLookingFor(o.value)}
-                    className="rounded border-[var(--border)] text-[var(--primary)] focus:ring-[var(--primary)]"
+                    style={{ accentColor: "var(--primary)" }}
                     data-testid={`profile-looking-for-${o.value}`}
                   />
-                  <span className="text-sm text-[var(--text)]">{o.label}</span>
+                  <span style={{ fontSize: 14, color: "var(--text)" }}>{o.label}</span>
                 </label>
               ))}
             </div>
           </div>
 
           <div>
-            <label
-              htmlFor="preferred_language"
-              className="block text-sm font-medium text-[var(--text)] mb-1"
-            >
+            <label htmlFor="preferred_language" style={labelStyle}>
               Preferred language for event & communications
             </label>
-            <select
+            <StyledSelect
               id="preferred_language"
               name="preferred_language"
               value={profile?.preferred_language ?? ""}
@@ -485,7 +561,6 @@ export default function ProfilePage() {
                   p ? { ...p, preferred_language: e.target.value } : { ...defaultProfile(), preferred_language: e.target.value }
                 )
               }
-              className="w-full px-4 py-2.5 bg-[var(--bg-panel)] border rounded-xl border-[var(--border)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
               data-testid="profile-preferred-language"
             >
               <option value="">Select</option>
@@ -494,17 +569,12 @@ export default function ProfilePage() {
                   {o.label}
                 </option>
               ))}
-            </select>
+            </StyledSelect>
           </div>
 
           <div>
-            <label
-              htmlFor="instagram"
-              className="block text-sm font-medium text-[var(--text)] mb-1"
-            >
-              {LABEL_INSTAGRAM}
-            </label>
-            <input
+            <label htmlFor="instagram" style={labelStyle}>{LABEL_INSTAGRAM}</label>
+            <StyledInput
               id="instagram"
               name="instagram"
               type="text"
@@ -512,20 +582,14 @@ export default function ProfilePage() {
               onChange={(e) =>
                 setProfile((p) => (p ? { ...p, instagram: e.target.value } : { ...defaultProfile(), instagram: e.target.value }))
               }
-              className="w-full px-4 py-2.5 bg-[var(--bg-panel)] border rounded-xl border-[var(--border)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
               placeholder="Your Instagram handle"
               data-testid="profile-instagram"
             />
           </div>
 
           <div>
-            <label
-              htmlFor="reason"
-              className="block text-sm font-medium text-[var(--text)] mb-1"
-            >
-              {LABEL_WHY}
-            </label>
-            <textarea
+            <label htmlFor="reason" style={labelStyle}>{LABEL_WHY}</label>
+            <StyledTextarea
               id="reason"
               name="reason"
               value={profile?.reason ?? ""}
@@ -533,64 +597,66 @@ export default function ProfilePage() {
                 setProfile((p) => (p ? { ...p, reason: e.target.value } : { ...defaultProfile(), reason: e.target.value }))
               }
               rows={3}
-              className="w-full px-4 py-2.5 bg-[var(--bg-panel)] border rounded-xl border-[var(--border)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
               placeholder="Tell us why you want to join"
               data-testid="profile-reason"
             />
           </div>
 
           {error && (
-            <p role="alert" className="text-sm text-[var(--danger)]">
+            <p role="alert" style={{ fontSize: 14, color: "var(--danger)" }}>
               {error}
             </p>
           )}
 
-          <button
+          <Button
             type="submit"
             disabled={submitting}
-            className="w-full bg-[var(--primary)] text-white px-6 py-3 rounded-xl font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+            fullWidth
+            size="lg"
             data-testid="profile-save"
           >
-            {submitting ? "Saving…" : "Save profile"}
-          </button>
+            {submitting ? "Saving…" : "Save changes"}
+          </Button>
         </form>
 
         <section
-          className="mt-8 pt-8 border-t border-[var(--border)]"
+          style={{ marginTop: 40, paddingTop: 32, borderTop: "1px solid var(--border)" }}
           data-testid="profile-security-section"
         >
-          <h2 className="text-lg font-semibold text-[var(--text)] mb-2">
+          <h2
+            style={{
+              fontFamily: "var(--font-heading)",
+              fontSize: 20,
+              color: "var(--text)",
+              marginBottom: 6,
+            }}
+          >
             Change password
           </h2>
-          <p className="text-sm text-[var(--text-muted)] mb-3">
+          <p style={{ fontSize: 14, color: "var(--text-muted)", marginBottom: 16 }}>
             Enter your current password, then choose a new password.
           </p>
           {passwordSuccess && (
-            <p className="text-sm text-[var(--success)] mb-3" data-testid="profile-password-success">
+            <p style={{ fontSize: 14, color: "var(--success)", marginBottom: 12 }} data-testid="profile-password-success">
               Password updated successfully.
             </p>
           )}
-          <form onSubmit={handleChangePassword} className="space-y-3">
+          <form onSubmit={handleChangePassword} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <div>
-              <label htmlFor="current_password" className="block text-sm font-medium text-[var(--text)] mb-1">
-                Current password
-              </label>
-              <input
+              <label htmlFor="current_password" style={labelStyle}>Current password</label>
+              <StyledInput
                 id="current_password"
                 type="password"
                 autoComplete="current-password"
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
                 required
-                className="w-full px-4 py-2.5 bg-[var(--bg-panel)] border rounded-xl border-[var(--border)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
                 data-testid="profile-current-password"
               />
             </div>
             <div>
-              <label htmlFor="new_password" className="block text-sm font-medium text-[var(--text)] mb-1">
-                New password
-              </label>
-              <input
+              <label htmlFor="new_password" style={labelStyle}>New password</label>
+              <StyledInput
                 id="new_password"
                 type="password"
                 autoComplete="new-password"
@@ -598,18 +664,15 @@ export default function ProfilePage() {
                 onChange={(e) => setNewPassword(e.target.value)}
                 required
                 minLength={MIN_PASSWORD_LENGTH}
-                className="w-full px-4 py-2.5 bg-[var(--bg-panel)] border rounded-xl border-[var(--border)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
                 data-testid="profile-new-password"
               />
-              <p className="text-xs text-[var(--text-muted)] mt-1">
+              <p style={{ fontSize: 12, color: "var(--text-subtle)", marginTop: 4 }}>
                 At least {MIN_PASSWORD_LENGTH} characters.
               </p>
             </div>
             <div>
-              <label htmlFor="confirm_password" className="block text-sm font-medium text-[var(--text)] mb-1">
-                Confirm new password
-              </label>
-              <input
+              <label htmlFor="confirm_password" style={labelStyle}>Confirm new password</label>
+              <StyledInput
                 id="confirm_password"
                 type="password"
                 autoComplete="new-password"
@@ -617,23 +680,24 @@ export default function ProfilePage() {
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
                 minLength={MIN_PASSWORD_LENGTH}
-                className="w-full px-4 py-2.5 bg-[var(--bg-panel)] border rounded-xl border-[var(--border)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
                 data-testid="profile-confirm-password"
               />
             </div>
             {passwordError && (
-              <p role="alert" className="text-sm text-[var(--danger)]">
+              <p role="alert" style={{ fontSize: 14, color: "var(--danger)" }}>
                 {passwordError}
               </p>
             )}
-            <button
-              type="submit"
-              disabled={passwordSubmitting}
-              className="bg-[var(--bg-panel)] border border-[var(--border)] text-[var(--text)] px-4 py-2 rounded-xl font-medium hover:opacity-90 disabled:opacity-50"
-              data-testid="profile-change-password-btn"
-            >
-              {passwordSubmitting ? "Updating…" : "Change password"}
-            </button>
+            <div>
+              <Button
+                type="submit"
+                variant="secondary"
+                disabled={passwordSubmitting}
+                data-testid="profile-change-password-btn"
+              >
+                {passwordSubmitting ? "Updating…" : "Change password"}
+              </Button>
+            </div>
           </form>
         </section>
       </div>

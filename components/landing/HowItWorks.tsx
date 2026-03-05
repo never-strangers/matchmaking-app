@@ -26,19 +26,20 @@ const steps = [
 export default function HowItWorks() {
   return (
     <section
-      className="px-4 py-14 sm:px-6 sm:py-16 lg:px-20 lg:py-20 xl:py-32"
+      id="how-it-works"
+      className="px-4 py-14 sm:px-6 sm:py-16 lg:px-20 lg:py-32"
       style={{ backgroundColor: "var(--bg-muted)" }}
     >
       <div className="max-w-7xl mx-auto">
         <p
           className="text-xs font-semibold uppercase tracking-wider mb-4 text-center"
-          style={{ color: "var(--text-subtle)", letterSpacing: "0.08em" }}
+          style={{ color: "var(--text-subtle)", letterSpacing: "var(--tracking-label)" }}
         >
           HOW IT WORKS
         </p>
         <h2
           className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-8 sm:mb-12 text-center"
-          style={{ color: "var(--text)", fontFamily: "'Cabinet Grotesk', system-ui, sans-serif" }}
+          style={{ color: "var(--text)", fontFamily: "var(--font-heading)" }}
         >
           Four steps from stranger to friend.
         </h2>
@@ -54,8 +55,8 @@ export default function HowItWorks() {
                 }}
               >
                 <div
-                  className="text-5xl sm:text-6xl lg:text-7xl font-bold leading-none mb-3 sm:mb-4 opacity-20"
-                  style={{ color: "var(--primary)" }}
+                  className="text-5xl sm:text-6xl lg:text-7xl font-bold leading-none mb-3 sm:mb-4"
+                  style={{ color: "var(--primary)", opacity: "var(--opacity-ghost)" }}
                 >
                   {step.number}
                 </div>

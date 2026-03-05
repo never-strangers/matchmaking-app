@@ -13,21 +13,39 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
     return (
       <div className="w-full">
         {label && (
-          <label className="block text-sm font-medium text-[var(--text)] mb-2">
+          <label
+            className="block mb-1.5"
+            style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", fontFamily: "var(--font-sans)" }}
+          >
             {label}
           </label>
         )}
         <input
           ref={ref}
           className={cn(
-            "w-full px-4 py-2.5 bg-[var(--bg-panel)] border rounded-xl",
+            "w-full bg-[var(--bg-panel)] border transition-all duration-200",
             "text-[var(--text)] placeholder:text-[var(--text-subtle)]",
-            "focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-[var(--primary)]",
-            "transition-all duration-200",
-            error && "border-[var(--danger)] focus:ring-[var(--danger)]",
+            "focus:outline-none",
+            error && "border-[var(--danger)]",
             !error && "border-[var(--border)]",
             className
           )}
+          style={{
+            borderRadius: "var(--radius-sm)",
+            padding: "12px 14px",
+            fontSize: 14,
+            fontFamily: "var(--font-sans)",
+          }}
+          onFocus={(e) => {
+            e.currentTarget.style.borderColor = "var(--primary)";
+            e.currentTarget.style.boxShadow = "0 0 0 3px rgba(185,15,20,0.1)";
+            props.onFocus?.(e);
+          }}
+          onBlur={(e) => {
+            e.currentTarget.style.borderColor = error ? "var(--danger)" : "var(--border)";
+            e.currentTarget.style.boxShadow = "none";
+            props.onBlur?.(e);
+          }}
           {...props}
         />
         {error && (

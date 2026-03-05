@@ -1,64 +1,232 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
-import { CITIES } from "./content";
+import { useEffect, useRef } from "react";
+
+const POLAROIDS = [
+  {
+    src: "https://thisisneverstrangers.com/wp-content/uploads/2025/12/Screenshot-2024-12-02-at-5.32.35-PM-1.webp",
+    city: "Singapore",
+    rotate: "3deg",
+    zIndex: 1,
+    top: "40px",
+    left: "0px",
+  },
+  {
+    src: "https://thisisneverstrangers.com/wp-content/uploads/2026/01/1-2.webp",
+    city: "Hong Kong",
+    rotate: "-4.5deg",
+    zIndex: 3,
+    top: "0px",
+    left: "120px",
+  },
+  {
+    src: "https://thisisneverstrangers.com/wp-content/uploads/2026/02/Photo-123-1.webp",
+    city: "Bangkok",
+    rotate: "2deg",
+    zIndex: 2,
+    top: "60px",
+    left: "240px",
+  },
+];
+
+const MOBILE_PHOTOS = [
+  {
+    src: "https://thisisneverstrangers.com/wp-content/uploads/2025/12/Screenshot-2024-12-02-at-5.32.35-PM-1.webp",
+    city: "Singapore",
+  },
+  {
+    src: "https://thisisneverstrangers.com/wp-content/uploads/2026/01/1-2.webp",
+    city: "Hong Kong",
+  },
+  {
+    src: "https://thisisneverstrangers.com/wp-content/uploads/2026/02/Photo-123-1.webp",
+    city: "Bangkok",
+  },
+  {
+    src: "https://thisisneverstrangers.com/wp-content/uploads/2025/12/Screenshot-2024-12-02-at-5.32.35-PM-1.webp",
+    city: "Manila",
+  },
+];
 
 export default function Hero() {
-  const citiesText = `Now in ${CITIES.slice(0, 3).join(", ")}`;
+  const polaroidRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      const { clientX, clientY, currentTarget } = e as MouseEvent & { currentTarget: Window };
+      const cx = window.innerWidth / 2;
+      const cy = window.innerHeight / 2;
+      const dx = (clientX - cx) / cx;
+      const dy = (clientY - cy) / cy;
+
+      polaroidRefs.current.forEach((el, i) => {
+        if (!el) return;
+        const factor = (i + 1) * 6;
+        el.style.transform = `rotate(${POLAROIDS[i].rotate}) translate(${dx * factor}px, ${dy * factor}px)`;
+      });
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    return () => window.removeEventListener("mousemove", handleMouseMove);
+  }, []);
 
   return (
-    <section
-      className="px-4 py-14 sm:px-6 sm:py-16 lg:px-20 lg:py-20 xl:py-32"
-      style={{ backgroundColor: "var(--bg)" }}
-    >
-      <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-8 sm:gap-10 lg:gap-12 items-center">
-        <div className="min-w-0">
-          <h1
-            data-testid="home-title"
-            className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-7xl font-bold mb-4 sm:mb-6 leading-[1.15] sm:leading-tight tracking-tight break-words"
-            style={{ color: "var(--text)", fontFamily: "'Cabinet Grotesk', system-ui, sans-serif" }}
-          >
-            Never Strangers —{" "}
-            <span style={{ color: "var(--primary)" }}>A New Way to Meet People</span>
-          </h1>
-          <p
-            className="text-sm sm:text-base lg:text-lg xl:text-xl mb-6 sm:mb-8 max-w-lg leading-relaxed"
-            style={{ color: "var(--text-muted)" }}
-          >
-            Using an algorithm to find your ideal partner at the party itself. We are bringing back the joys of connecting with people organically. Say goodbye to dating apps!
-          </p>
-          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-5 sm:mb-6">
-            <Link
-              href="/register"
-              className="touch-manipulation inline-flex items-center justify-center min-h-[48px] w-full sm:w-auto px-6 sm:px-8 py-3.5 sm:py-4 rounded-xl font-semibold text-base transition-all duration-200 hover:-translate-y-0.5 hover:opacity-90 active:scale-[0.98]"
+    <section style={{ backgroundColor: "var(--bg)" }}>
+      <style>{`
+        @keyframes mobileScroll {
+          0%   { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+        .hero-mobile-track {
+          display: flex;
+          animation: mobileScroll 22s linear infinite;
+          will-change: transform;
+        }
+        .hero-mobile-track:hover {
+          animation-play-state: paused;
+        }
+      `}</style>
+
+      {/* ── Mobile photo strip (hidden on desktop) ── */}
+      <div className="overflow-hidden lg:hidden" style={{ backgroundColor: "var(--bg)" }}>
+        <div className="hero-mobile-track py-4">
+          {[...MOBILE_PHOTOS, ...MOBILE_PHOTOS].map((photo, i) => (
+            <div
+              key={i}
+              className="relative flex-shrink-0 mx-2 overflow-hidden"
+              style={{ width: "200px", height: "260px", borderRadius: "12px" }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={photo.src}
+                alt={photo.city}
+                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              />
+              <div
+                className="absolute inset-0"
+                style={{ background: "linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 55%)" }}
+              />
+              <span
+                className="absolute bottom-3 left-0 right-0 flex justify-center"
+              >
+                <span
+                  className="text-xs font-semibold px-3 py-1"
+                  style={{
+                    backgroundColor: "var(--primary)",
+                    color: "#fff",
+                    borderRadius: "var(--radius-pill)",
+                    fontFamily: "var(--font-sans)",
+                  }}
+                >
+                  {photo.city}
+                </span>
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Main hero content ── */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-20 py-12 sm:py-16 lg:py-24">
+        <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+          {/* Left */}
+          <div>
+            <h1
+              data-testid="home-title"
+              className="mb-6 leading-[1.08]"
               style={{
-                backgroundColor: "var(--primary)",
-                color: "var(--primary-foreground)",
-                boxShadow: "var(--shadow-terra)",
+                fontFamily: "var(--font-heading)",
+                fontSize: "clamp(48px, 5.5vw, 88px)",
+                color: "var(--text)",
               }}
             >
-              Get Your Invite
+              Like you&apos;ve known them{" "}
+              <em style={{ color: "var(--primary)", fontStyle: "italic" }}>
+                for years.
+              </em>
+            </h1>
+
+            <p
+              className="mb-8 leading-relaxed"
+              style={{
+                fontFamily: "var(--font-sans)",
+                fontSize: "clamp(16px, 1.5vw, 20px)",
+                color: "var(--text-muted)",
+                maxWidth: "480px",
+              }}
+            >
+              Think of it as a party thrown by friends{" "}
+              <strong style={{ color: "var(--text)" }}>
+                who have very good taste.
+              </strong>
+            </p>
+
+            <Link
+              href="/register"
+              className="inline-flex items-center justify-center font-semibold transition-opacity hover:opacity-85"
+              style={{
+                backgroundColor: "#080808",
+                color: "#FFFFFF",
+                borderRadius: "var(--radius-pill)",
+                padding: "14px 32px",
+                fontSize: "16px",
+                fontFamily: "var(--font-sans)",
+                boxShadow: "0 4px 20px rgba(0,0,0,0.22)",
+                minHeight: "var(--touch-min-height)",
+              }}
+            >
+              I&rsquo;m in →
             </Link>
           </div>
-          <p className="text-sm" style={{ color: "var(--text-subtle)" }}>
-            {citiesText}
-          </p>
-        </div>
-        <div className="mt-4 sm:mt-6 lg:mt-0">
+
+          {/* Right — polaroids (desktop only) */}
           <div
-            className="rounded-2xl overflow-hidden w-full max-w-md sm:max-w-none mx-auto lg:mx-0 relative aspect-[3/4] min-h-[280px]"
-            style={{ boxShadow: "var(--shadow-lg)", backgroundColor: "var(--bg-muted, #f5f5f5)" }}
+            className="relative hidden lg:block"
+            style={{ height: "460px" }}
           >
-            <Image
-              src="/landing/carousel-7.webp"
-              alt="People connecting at a Never Strangers event"
-              fill
-              className="object-cover"
-              priority
-              unoptimized
-              sizes="(max-width: 640px) 448px, (max-width: 1024px) 50vw, 600px"
-            />
+            {POLAROIDS.map((card, i) => (
+              <div
+                key={card.city}
+                ref={(el) => { polaroidRefs.current[i] = el; }}
+                className="absolute"
+                style={{
+                  top: card.top,
+                  left: card.left,
+                  zIndex: card.zIndex,
+                  transform: `rotate(${card.rotate})`,
+                  transition: "transform 0.1s ease-out",
+                  width: "210px",
+                  backgroundColor: "#FFFFFF",
+                  border: "9px solid #FFFFFF",
+                  paddingBottom: "34px",
+                  boxShadow: "var(--shadow-card)",
+                  borderRadius: "2px",
+                }}
+              >
+                <div style={{ width: "100%", height: "260px", overflow: "hidden", position: "relative" }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={card.src}
+                    alt={`Never Strangers ${card.city}`}
+                    style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                  />
+                </div>
+                <div className="absolute bottom-2 left-0 right-0 flex justify-center">
+                  <span
+                    className="text-xs font-bold tracking-wide px-3 py-1"
+                    style={{
+                      backgroundColor: "var(--primary)",
+                      color: "#FFFFFF",
+                      borderRadius: "var(--radius-pill)",
+                      fontFamily: "var(--font-sans)",
+                    }}
+                  >
+                    {card.city}
+                  </span>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>

@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
+import AnnouncementBar from "@/components/landing/AnnouncementBar";
 import Hero from "@/components/landing/Hero";
-import ValueProp from "@/components/landing/ValueProp";
-import HowItWorks from "@/components/landing/HowItWorks";
-import SocialProof from "@/components/landing/SocialProof";
+import PressBar from "@/components/landing/PressBar";
+import CityTicker from "@/components/landing/CityTicker";
+import PhotoScroll from "@/components/landing/PhotoScroll";
+import Manifesto from "@/components/landing/Manifesto";
+import Testimonials from "@/components/landing/Testimonials";
 import FinalCTA from "@/components/landing/FinalCTA";
 import Footer from "@/components/landing/Footer";
 
@@ -42,10 +45,13 @@ export const metadata: Metadata = {
 export default function Home() {
   return (
     <>
+      <AnnouncementBar />
       <Hero />
-      <ValueProp />
-      <HowItWorks />
-      <SocialProof />
+      <PressBar />
+      <CityTicker />
+      <PhotoScroll />
+      <Manifesto />
+      <Testimonials />
       <FinalCTA />
       <Footer />
     </>

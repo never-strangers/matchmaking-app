@@ -24,11 +24,19 @@ export function PageHeader({
       )}
     >
       <div className="flex-1">
-        <h1 className="text-3xl sm:text-4xl font-bold text-[var(--text)] mb-2">
+        <h1
+          className="text-3xl sm:text-4xl mb-2 leading-tight"
+          style={{ fontFamily: "var(--font-heading)", color: "var(--text)" }}
+        >
           {title}
         </h1>
         {subtitle && (
-          <p className="text-base text-[var(--text-muted)]">{subtitle}</p>
+          <p
+            className="text-base"
+            style={{ fontFamily: "var(--font-sans)", color: "var(--text-muted)" }}
+          >
+            {subtitle}
+          </p>
         )}
       </div>
       {(action || secondaryAction) && (

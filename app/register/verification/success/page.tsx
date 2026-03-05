@@ -2,13 +2,13 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
 
 export default function VerificationSuccessPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // Auto-redirect to /events after 2 seconds
     const timer = setTimeout(() => {
       router.push("/events");
     }, 2000);
@@ -16,32 +16,30 @@ export default function VerificationSuccessPage() {
   }, [router]);
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-16">
-      <div className="text-center">
-        <div className="mb-8">
-          <div className="w-24 h-24 mx-auto mb-6 bg-blue-100 rounded-full flex items-center justify-center">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={1.5}
-              stroke="currentColor"
-              className="w-12 h-12 text-blue-600"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
+    <div className="min-h-[60vh] flex items-center justify-center px-4 py-16" style={{ backgroundColor: "var(--bg)" }}>
+      <div className="w-full max-w-md">
+        <Card padding="lg" className="text-center">
+          <div
+            className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6"
+            style={{ backgroundColor: "var(--success-light)" }}
+          >
+            <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--success)" }}>
+              <path d="M20 6L9 17l-5-5"/>
             </svg>
           </div>
-          <h1 className="text-4xl font-bold text-gray-dark mb-4">
-            Email Verified!
+          <h1
+            className="text-4xl mb-3"
+            style={{ fontFamily: "var(--font-heading)", color: "var(--text)" }}
+          >
+            You&apos;re in.
           </h1>
-          <p className="text-lg text-gray-medium mb-8">
-            Your account is pending admin approval. Redirecting to events...
+          <p className="mb-8" style={{ color: "var(--text-muted)", fontFamily: "var(--font-sans)" }}>
+            Your account is pending admin approval. Redirecting to events…
           </p>
-        </div>
+          <Button href="/events" size="lg" fullWidth>
+            Go to events
+          </Button>
+        </Card>
       </div>
     </div>
   );

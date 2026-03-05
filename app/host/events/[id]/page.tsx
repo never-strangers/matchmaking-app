@@ -89,7 +89,7 @@ export default function HostEventManagePage() {
   if (!event) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-16">
-        <p className="text-gray-medium">Loading...</p>
+        <p className="text-[var(--text-muted)]">Loading...</p>
       </div>
     );
   }
@@ -99,24 +99,24 @@ export default function HostEventManagePage() {
       <div className="mb-6">
         <Link
           href="/host"
-          className="text-gray-medium hover:text-gray-dark text-sm mb-4 inline-block"
+          className="text-[var(--text-muted)] hover:text-[var(--text)] text-sm mb-4 inline-block"
         >
           ← Back to Host Dashboard
         </Link>
-        <h1 data-testid="host-event-title" className="text-3xl font-bold text-gray-dark mb-2">
+        <h1 data-testid="host-event-title" className="text-3xl font-bold text-[var(--text)] mb-2">
           {event.title}
         </h1>
-        <p className="text-gray-medium">
+        <p className="text-[var(--text-muted)]">
           {event.city} • {formatDate(event.datetime)}
         </p>
       </div>
 
-      <div className="bg-white border border-beige-frame rounded-lg p-6">
-        <h2 className="text-lg font-semibold text-gray-dark mb-4">
+      <div className="bg-white border border-[var(--border)] rounded-lg p-6">
+        <h2 className="text-lg font-semibold text-[var(--text)] mb-4">
           Attendees ({registrations.length})
         </h2>
         {registrations.length === 0 ? (
-          <p className="text-gray-medium">No confirmed attendees yet.</p>
+          <p className="text-[var(--text-muted)]">No confirmed attendees yet.</p>
         ) : (
           <div className="space-y-2">
             {registrations.map((reg) => {
@@ -127,13 +127,13 @@ export default function HostEventManagePage() {
               return (
                 <div
                   key={reg.id}
-                  className="flex justify-between items-center py-3 px-4 border border-beige-frame rounded-lg"
+                  className="flex justify-between items-center py-3 px-4 border border-[var(--border)] rounded-lg"
                 >
                   <div className="flex-1">
-                    <div className="text-sm font-medium text-gray-dark">
+                    <div className="text-sm font-medium text-[var(--text)]">
                       {user?.name || reg.userId}
                     </div>
-                    <div className="text-xs text-gray-medium">
+                    <div className="text-xs text-[var(--text-muted)]">
                       {user?.email}
                     </div>
                     {isCheckedIn && (
@@ -147,7 +147,7 @@ export default function HostEventManagePage() {
                       </span>
                     )}
                     {!isCheckedIn && !isMissing && (
-                      <span className="text-xs text-gray-medium mt-1 inline-block">
+                      <span className="text-xs text-[var(--text-muted)] mt-1 inline-block">
                         Not checked in
                       </span>
                     )}

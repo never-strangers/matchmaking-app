@@ -4,13 +4,13 @@ import { FEATURED_IN_LOGOS } from "./content";
 export default function SocialProof() {
   return (
     <section
-      className="px-4 py-14 sm:px-6 sm:py-16 lg:px-20 lg:py-20 xl:py-32 text-center"
+      className="px-4 py-14 sm:px-6 sm:py-16 lg:px-20 lg:py-32 text-center"
       style={{ backgroundColor: "var(--bg-panel)" }}
     >
       <div className="max-w-7xl mx-auto">
         <p
           className="text-xs font-semibold uppercase tracking-wider mb-6 sm:mb-8"
-          style={{ color: "var(--text-subtle)", letterSpacing: "0.08em" }}
+          style={{ color: "var(--text-subtle)", letterSpacing: "var(--tracking-label)" }}
         >
           FEATURED IN
         </p>
@@ -20,7 +20,7 @@ export default function SocialProof() {
             <div
               key={index}
               className="relative w-full aspect-video"
-              style={{ filter: "grayscale(100%)", opacity: 0.6 }}
+              style={{ filter: "grayscale(100%)", opacity: "var(--opacity-muted)" }}
             >
               <Image
                 src={logo.src}
@@ -42,7 +42,7 @@ export default function SocialProof() {
           className="text-lg sm:text-xl md:text-2xl lg:text-3xl italic mb-4 max-w-2xl mx-auto leading-relaxed px-1"
           style={{
             color: "var(--text)",
-            fontFamily: "'Lora', Georgia, serif",
+            fontFamily: "var(--font-quote)",
           }}
         >
           &quot;I met my co-founder at a Never Strangers mixer. Best Tuesday night ever.&quot;

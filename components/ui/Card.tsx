@@ -15,19 +15,16 @@ export function Card({
   ...props
 }: CardProps) {
   const variants = {
-    default:
-      "bg-[var(--bg-panel)] border border-[var(--border)] rounded-2xl",
-    elevated:
-      "bg-[var(--bg-panel)] border border-[var(--border)] rounded-2xl shadow-[var(--shadow-md)] hover:shadow-[var(--shadow-lg)] transition-shadow",
-    outlined:
-      "bg-transparent border-2 border-[var(--border-strong)] rounded-2xl",
+    default:  "bg-[var(--bg-panel)] border border-[var(--border)] rounded-2xl",
+    elevated: "bg-[var(--bg-panel)] border border-[var(--border)] rounded-2xl shadow-[var(--shadow-card)] hover:shadow-lg transition-shadow",
+    outlined: "bg-transparent border-2 border-[var(--border-strong)] rounded-2xl",
   };
 
   const paddings = {
     none: "",
-    sm: "p-3",
-    md: "p-4 sm:p-6",
-    lg: "p-6 sm:p-8",
+    sm:   "p-4",
+    md:   "p-5 sm:p-7",
+    lg:   "p-7 sm:p-9",
   };
 
   return (

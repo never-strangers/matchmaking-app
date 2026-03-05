@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
 import { getCurrentUserId } from "@/lib/demo/authStore";
 import {
   getNotificationsForUser,
@@ -11,6 +10,9 @@ import {
   deleteNotification,
 } from "@/lib/demo/notificationStore";
 import { Notification } from "@/types/notification";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
 
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -20,118 +22,119 @@ export default function NotificationsPage() {
   useEffect(() => {
     const userId = getCurrentUserId();
     setCurrentUserId(userId);
-
-    if (userId) {
-      loadNotifications(userId);
-    }
+    if (userId) loadNotifications(userId);
   }, []);
 
   const loadNotifications = (userId: string) => {
-    const notifs = getNotificationsForUser(userId);
-    setNotifications(notifs);
+    setNotifications(getNotificationsForUser(userId));
     setUnreadCount(getUnreadCount(userId));
   };
 
-  const handleMarkRead = (notificationId: string) => {
-    markNotificationRead(notificationId);
-    if (currentUserId) {
-      loadNotifications(currentUserId);
-    }
+  const handleMarkRead = (id: string) => {
+    markNotificationRead(id);
+    if (currentUserId) loadNotifications(currentUserId);
   };
 
   const handleMarkAllRead = () => {
-    if (currentUserId) {
-      markAllRead(currentUserId);
-      loadNotifications(currentUserId);
-    }
+    if (currentUserId) { markAllRead(currentUserId); loadNotifications(currentUserId); }
   };
 
-  const handleDelete = (notificationId: string) => {
-    deleteNotification(notificationId);
-    if (currentUserId) {
-      loadNotifications(currentUserId);
-    }
+  const handleDelete = (id: string) => {
+    deleteNotification(id);
+    if (currentUserId) loadNotifications(currentUserId);
   };
 
   if (!currentUserId) {
     return (
-      <div className="max-w-2xl mx-auto px-4 py-16">
-        <h1 className="text-3xl font-bold text-gray-dark mb-8">Notifications</h1>
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <p className="text-yellow-800 text-sm">
-            Please log in to view notifications.
-          </p>
-        </div>
+      <div className="max-w-2xl mx-auto px-4 py-12">
+        <PageHeader title="Notifications" />
+        <Card>
+          <p style={{ color: "var(--text-muted)", fontFamily: "var(--font-sans)" }}>Please log in to view notifications.</p>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-16">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-dark">Notifications</h1>
-        {unreadCount > 0 && (
-          <button
-            onClick={handleMarkAllRead}
-            className="text-sm text-gray-medium hover:text-gray-dark"
-          >
-            Mark all as read
-          </button>
-        )}
-      </div>
+    <div className="max-w-2xl mx-auto px-4 py-12">
+      <PageHeader
+        title="Notifications"
+        action={
+          unreadCount > 0 ? (
+            <Button variant="ghost" size="sm" onClick={handleMarkAllRead}>
+              Mark all as read
+            </Button>
+          ) : undefined
+        }
+      />
 
       {notifications.length === 0 ? (
-        <div className="bg-beige-frame border border-beige-frame rounded-lg p-6 text-center">
-          <p className="text-gray-dark">No notifications yet.</p>
-        </div>
+        <Card className="text-center py-12">
+          <p style={{ color: "var(--text-muted)", fontFamily: "var(--font-sans)" }}>No notifications yet.</p>
+        </Card>
       ) : (
-        <div className="space-y-2">
-          {notifications.map((notification) => (
-            <div
-              key={notification.id}
-              className={`border rounded-lg p-4 bg-white ${
-                notification.read
-                  ? "border-beige-frame"
-                  : "border-blue-200 bg-blue-50"
-              }`}
-            >
-              <div className="flex justify-between items-start">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h3 className="font-medium text-gray-dark">
-                      {notification.title}
-                    </h3>
-                    {!notification.read && (
-                      <span className="w-2 h-2 bg-blue-600 rounded-full"></span>
-                    )}
-                  </div>
-                  <p className="text-sm text-gray-medium mb-2">
-                    {notification.message}
+        <Card padding="none">
+          <ul className="divide-y" style={{ borderColor: "var(--border)" }}>
+            {notifications.map((n) => (
+              <li
+                key={n.id}
+                className="flex items-start gap-4 px-6 py-4"
+                style={{ backgroundColor: n.read ? "transparent" : "var(--primary-light)" }}
+              >
+                {/* Red dot for unread */}
+                <div className="mt-1.5 flex-shrink-0">
+                  {!n.read && (
+                    <span
+                      className="block w-2 h-2 rounded-full"
+                      style={{ backgroundColor: "var(--primary)" }}
+                    />
+                  )}
+                  {n.read && <span className="block w-2 h-2" />}
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <p
+                    className="font-semibold text-sm mb-0.5"
+                    style={{ color: "var(--text)", fontFamily: "var(--font-sans)" }}
+                  >
+                    {n.title}
                   </p>
-                  <p className="text-xs text-gray-medium">
-                    {new Date(notification.createdAt).toLocaleString()}
+                  <p
+                    className="text-sm mb-1"
+                    style={{ color: "var(--text-muted)", fontFamily: "var(--font-sans)" }}
+                  >
+                    {n.message}
+                  </p>
+                  <p
+                    className="text-xs"
+                    style={{ color: "var(--text-subtle)", fontFamily: "var(--font-sans)" }}
+                  >
+                    {new Date(n.createdAt).toLocaleString()}
                   </p>
                 </div>
-                <div className="flex gap-2 ml-4">
-                  {!notification.read && (
+
+                <div className="flex gap-3 flex-shrink-0">
+                  {!n.read && (
                     <button
-                      onClick={() => handleMarkRead(notification.id)}
-                      className="text-xs text-blue-600 hover:text-blue-800"
+                      onClick={() => handleMarkRead(n.id)}
+                      className="text-xs hover:underline"
+                      style={{ color: "var(--text-muted)", fontFamily: "var(--font-sans)" }}
                     >
                       Mark read
                     </button>
                   )}
                   <button
-                    onClick={() => handleDelete(notification.id)}
-                    className="text-xs text-red-600 hover:text-red-800"
+                    onClick={() => handleDelete(n.id)}
+                    className="text-xs hover:underline"
+                    style={{ color: "var(--danger)", fontFamily: "var(--font-sans)" }}
                   >
                     Delete
                   </button>
                 </div>
-              </div>
-            </div>
-          ))}
-        </div>
+              </li>
+            ))}
+          </ul>
+        </Card>
       )}
     </div>
   );

@@ -14,6 +14,7 @@ type DbEvent = {
   city?: string | null;
   created_at?: string | null;
   start_at?: string | null;
+  poster_path?: string | null;
 };
 
 type EventsPageData = {
@@ -63,7 +64,7 @@ async function getEventsPageData(profileId: string, role: string): Promise<Event
   if (filterCity) {
     const res = await supabase
       .from("events")
-      .select("id, title, status, city, created_at, start_at, payment_required, price_cents")
+      .select("id, title, status, city, created_at, start_at, payment_required, price_cents, poster_path")
       .eq("status", "live")
       .or(`city.eq.${filterCity},city.is.null`)
       .order("created_at", { ascending: true });
@@ -82,7 +83,7 @@ async function getEventsPageData(profileId: string, role: string): Promise<Event
   } else {
     const res = await supabase
       .from("events")
-      .select("id, title, status, city, created_at, start_at, payment_required, price_cents")
+      .select("id, title, status, city, created_at, start_at, payment_required, price_cents, poster_path")
       .eq("status", "live")
       .order("created_at", { ascending: true });
     events = res.data;
@@ -191,6 +192,9 @@ async function getEventsPageData(profileId: string, role: string): Promise<Event
       paymentRequired,
       paid,
       canViewMatches,
+      posterUrl: (e as { poster_path?: string | null }).poster_path
+        ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/event-posters/${(e as { poster_path: string }).poster_path}`
+        : null,
     };
   });
 
@@ -212,7 +216,7 @@ export default async function EventsPage() {
   );
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8 sm:py-12">
+    <div className="max-w-5xl mx-auto px-4 py-8 sm:py-12" style={{ backgroundColor: "var(--bg)" }}>
       <PageHeader
         title="Upcoming Events"
         subtitle="Join curated gatherings in your city"

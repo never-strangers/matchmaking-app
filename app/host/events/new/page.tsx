@@ -100,7 +100,7 @@ export default function HostCreateEventPage() {
   if (!hostCity) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-16">
-        <p className="text-gray-medium">Loading...</p>
+        <p className="text-[var(--text-muted)]">Loading...</p>
       </div>
     );
   }
@@ -119,21 +119,21 @@ export default function HostCreateEventPage() {
       <div className="mb-6">
         <Link
           href="/host"
-          className="text-gray-medium hover:text-gray-dark text-sm mb-4 inline-block"
+          className="text-[var(--text-muted)] hover:text-[var(--text)] text-sm mb-4 inline-block"
         >
           ← Back to Host Dashboard
         </Link>
-        <h1 className="text-3xl font-bold text-gray-dark mb-2">
+        <h1 className="text-3xl font-bold text-[var(--text)] mb-2">
           Create Event
         </h1>
-        <p className="text-gray-medium">
+        <p className="text-[var(--text-muted)]">
           Creating event in <strong>{hostCity}</strong>
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="bg-white border border-beige-frame rounded-lg p-6 space-y-6">
+      <form onSubmit={handleSubmit} className="bg-white border border-[var(--border)] rounded-lg p-6 space-y-6">
         <div>
-          <label className="block text-sm font-medium text-gray-dark mb-2">
+          <label className="block text-sm font-medium text-[var(--text)] mb-2">
             Event Title *
           </label>
           <input
@@ -142,13 +142,13 @@ export default function HostCreateEventPage() {
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Enter event title"
             required
-            className="w-full px-4 py-2 border border-beige-frame rounded-lg focus:outline-none focus:ring-2 focus:ring-red-accent"
+            className="w-full px-4 py-2 border border-[var(--border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-red-accent"
             data-testid="host-event-title-input"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-dark mb-2">
+          <label className="block text-sm font-medium text-[var(--text)] mb-2">
             Description
           </label>
           <textarea
@@ -156,13 +156,13 @@ export default function HostCreateEventPage() {
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Enter event description"
             rows={4}
-            className="w-full px-4 py-2 border border-beige-frame rounded-lg focus:outline-none focus:ring-2 focus:ring-red-accent"
+            className="w-full px-4 py-2 border border-[var(--border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-red-accent"
             data-testid="host-event-description-input"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-dark mb-2">
+          <label className="block text-sm font-medium text-[var(--text)] mb-2">
             Date & Time *
           </label>
           <input
@@ -171,13 +171,13 @@ export default function HostCreateEventPage() {
             onChange={(e) => setDatetime(e.target.value)}
             min={minDateTime}
             required
-            className="w-full px-4 py-2 border border-beige-frame rounded-lg focus:outline-none focus:ring-2 focus:ring-red-accent"
+            className="w-full px-4 py-2 border border-[var(--border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-red-accent"
             data-testid="host-event-datetime-input"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-dark mb-2">
+          <label className="block text-sm font-medium text-[var(--text)] mb-2">
             Capacity
           </label>
           <input
@@ -186,10 +186,10 @@ export default function HostCreateEventPage() {
             onChange={(e) => setCapacity(parseInt(e.target.value) || 0)}
             min="1"
             placeholder="Leave empty for unlimited"
-            className="w-full px-4 py-2 border border-beige-frame rounded-lg focus:outline-none focus:ring-2 focus:ring-red-accent"
+            className="w-full px-4 py-2 border border-[var(--border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-red-accent"
             data-testid="host-event-capacity-input"
           />
-          <p className="text-xs text-gray-medium mt-1">
+          <p className="text-xs text-[var(--text-muted)] mt-1">
             Leave empty or set to 0 for unlimited capacity
           </p>
         </div>
@@ -200,23 +200,23 @@ export default function HostCreateEventPage() {
               type="checkbox"
               checked={requiresPayment}
               onChange={(e) => setRequiresPayment(e.target.checked)}
-              className="w-4 h-4 text-red-accent border-beige-frame focus:ring-red-accent"
+              className="w-4 h-4 text-red-accent border-[var(--border)] focus:ring-red-accent"
               data-testid="host-event-payment-checkbox"
             />
-            <span className="text-sm font-medium text-gray-dark">
+            <span className="text-sm font-medium text-[var(--text)]">
               Requires Payment
             </span>
           </label>
-          <p className="text-xs text-gray-medium mt-1 ml-6">
+          <p className="text-xs text-[var(--text-muted)] mt-1 ml-6">
             Check this if attendees need to pay to RSVP
           </p>
         </div>
 
-        <div className="pt-4 border-t border-beige-frame">
+        <div className="pt-4 border-t border-[var(--border)]">
           <div className="flex gap-4">
             <Link
               href="/host"
-              className="px-6 py-2 border border-beige-frame rounded-lg text-gray-dark hover:bg-beige-frame transition-colors"
+              className="px-6 py-2 border border-[var(--border)] rounded-lg text-[var(--text)] hover:bg-[var(--bg-dark)] transition-colors"
             >
               Cancel
             </Link>
