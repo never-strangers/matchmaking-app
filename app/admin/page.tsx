@@ -66,6 +66,19 @@ export default async function AdminPage() {
             </Button>
           </Card>
         </Link>
+        <Link href="/admin/invite">
+          <Card padding="lg" className="hover:shadow-md transition-shadow h-full">
+            <h3 className="text-base font-semibold mb-1" style={{ color: "var(--text)" }}>
+              Invite Links
+            </h3>
+            <p className="text-sm mb-3" style={{ color: "var(--text-muted)" }}>
+              Generate invite tokens and download QR codes.
+            </p>
+            <Button size="sm" variant="secondary">
+              Manage Invites →
+            </Button>
+          </Card>
+        </Link>
       </div>
     </div>
   );
