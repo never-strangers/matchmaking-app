@@ -74,6 +74,10 @@ npx playwright test --ui                         # Interactive mode
 ```
 app/                           # Next.js 15 App Router
 ├── admin/                     # Admin dashboard & matches management
+│   └── invite/                 # Invite links & QR codes (generate 1–50, copy URLs, printable)
+├── api/
+│   └── admin/
+│       └── invite/             # POST generate, GET list
 ├── host/                      # Host dashboard for event management
 ├── events/                    # Events listing & creation flow
 │   ├── [id]/questions/        # Per-event questionnaire (after RSVP)
@@ -226,7 +230,7 @@ Registration = {
 - TTL: 7 days
 - Secret: `APP_SESSION_SECRET` env var
 
-**Invite Links**: QR codes with tokens (`/invite/[token]`) that create city-locked sessions
+**Invite Links**: QR codes with tokens (`/invite/[token]`) that create city-locked sessions. Claim is **button-based** ("Claim my invite →"), not auto-claim. Admins use `/admin/invite` to generate 1–50 tokens, view QR codes, copy URLs, and download a printable QR sheet.
 
 ## Important Patterns & Conventions
 

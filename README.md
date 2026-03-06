@@ -19,6 +19,40 @@ This repo hosts the new **Matching Core** — a lightweight, AI-powered system r
 
 ---
 
+## Routes
+
+- `/` — Home
+- `/register` — Registration
+- `/login` — Login
+- `/onboarding` — Onboarding
+- `/profile` — Profile
+- `/events` — Events list
+- `/events/[id]` — Event detail
+- `/invite/[token]` — Invite claim (button-based)
+- `/admin` — Admin dashboard
+- `/admin/invite` — Invite links & QR codes
+- `/auth/reset-password` — Password reset
+
+## Invite Flow
+
+- Invite claim is **button-based**: on `/invite/[token]` the user sees "Claim my invite →"; no auto-claim.
+
+## Admin: Invite Links
+
+- `/admin/invite`: generate 1–50 tokens, view QR codes, copy invite URLs, printable download (all QR codes).
+
+## API Routes
+
+- `POST /api/admin/invite/generate` — Generate invite tokens (body: `{ count: 1–50 }`).
+- `GET /api/admin/invite/list` — List invite links (admin only).
+
+## Local Dev
+
+- Run: `npm run dev` (localhost:3000).
+- Required env: `NEXT_PUBLIC_APP_URL` (e.g. http://localhost:3000), `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`; server-side: `SUPABASE_SERVICE_ROLE_KEY` for admin/DB.
+
+---
+
 ## 💡 Core Functionality
 
 ### 👤 User Onboarding
