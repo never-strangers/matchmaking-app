@@ -17,7 +17,7 @@ export type PairingOptions = {
  * Pairs are normalized (a < b lexicographically). Sorted by score desc, then a, then b for determinism.
  *
  * When options.datingOnly is true, only male↔female pairs are generated.
- * MatchUser.gender must be 'male' or 'female' (other/missing values are included freely).
+ * MatchUser.gender must be 'male' or 'female'. Users with unknown/missing gender are excluded.
  */
 export function buildAllPairs(
   users: MatchUser[],
@@ -33,9 +33,11 @@ export function buildAllPairs(
       if (datingOnly) {
         const g1 = user.gender?.toLowerCase();
         const g2 = u.gender?.toLowerCase();
-        // Only include pair if genders are known and strictly opposite
-        if (g1 === "male" && g2 === "male") return false;
-        if (g1 === "female" && g2 === "female") return false;
+        // Strict opposite-gender only: both genders must be known and different
+        const known = (g: string | undefined): g is "male" | "female" =>
+          g === "male" || g === "female";
+        if (!known(g1) || !known(g2)) return false; // exclude unknown genders
+        if (g1 === g2) return false;                 // exclude same-gender
       }
       return true;
     });

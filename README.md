@@ -689,6 +689,53 @@ What this script does (per seed run):
 
 **Output:** `scripts/.seed-output/test-data-<label>.json` with event ids, user emails, password hint (from env), which users are checked in, and event types (free/paid_single/tiered).
 
+### Dating event seed — 30 users, ready for matching
+
+For a fast **dating constraint demo** (admin runs matching → all pairs are male↔female, zero same-gender):
+
+```bash
+# Seed 1 paid dating event in Bangkok with 30 approved users (18F / 12M)
+# All are paid + checked-in + questionnaire complete
+npm run seed:dating-30
+```
+
+What this creates:
+- **1 event** — `[SEED:DATING30] Bangkok Dating Night`, Bangkok, category=`dating`, payment_required=true, Apr 5 2026
+- **30 auth users + profiles** — status=`approved`, 18 female / 12 male, with realistic names, DOBs, answer vectors (4 archetypes + noise)
+- **30 attendees** — `payment_status=paid`, `ticket_status=paid`, `checked_in=true`, `paid_at` + `checked_in_at` set
+- **20 answers per user** — all questions answered; questionnaire complete for all 30
+
+**Output:** `scripts/.seed-output/dating30.json` — contains `event_id`, `event_url`, `admin_event_url`, `demo_accounts` (one male, one female recommended login), and full user list.
+
+**Admin flow after seeding:**
+
+1. Open `admin_event_url` from the JSON (or Admin → Events)
+2. Click **Run Matching** → Round 1 computed (male↔female pairs only)
+3. Click **Reveal Round** → users see their match + countdown
+4. Repeat for Rounds 2 and 3
+
+**Verify dating constraint (after running matching):**
+
+```bash
+# Uses event_id from scripts/.seed-output/dating30.json automatically
+npm run verify:dating-matching
+
+# Or pass event_id explicitly
+npx tsx scripts/verify-dating-matching.ts --event-id <uuid>
+```
+
+Exits 0 if all pairs are male↔female. Exits 1 and lists violations if any same-gender pair is found.
+
+**Cleanup:**
+
+```bash
+SEED_CONFIRM=true npx tsx scripts/cleanup-test-data.ts --label dating30
+```
+
+Deletes: answers, attendees, questions, ticket_types, event, profiles, auth users — everything tagged with the `dating30` seed_run_id.
+
+**Re-running:** If users from a previous run still exist in auth, the script detects "already registered" and reuses the existing auth user ID (no duplicate error). Attendees and answers are upserted idempotently.
+
 ### Cleanup seeded test data
 
 Clean up by label or `seed_run_id`. **Reset (clean + seed) in one go:** `npm run reset:test-data` — cleanup runs with default label `test-seed` (no args needed), then seed.

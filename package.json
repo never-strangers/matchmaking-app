@@ -20,7 +20,8 @@
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:report": "playwright show-report",
     "download-media": "node scripts/download-media.js",
-    "seed:dating-30": "SEED_CONFIRM=true npx tsx scripts/seed-dating-event-30.ts"
+    "seed:dating-30": "SEED_CONFIRM=true npx tsx scripts/seed-dating-event-30.ts",
+    "verify:dating-matching": "npx tsx scripts/verify-dating-matching.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.8.0",

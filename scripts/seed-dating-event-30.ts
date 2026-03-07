@@ -9,7 +9,6 @@
  *   SEED_CONFIRM=true npx tsx scripts/cleanup-test-data.ts --label dating30
  */
 import "dotenv/config";
-import crypto from "crypto";
 import fs from "fs";
 import path from "path";
 import { createClient } from "@supabase/supabase-js";
@@ -20,16 +19,14 @@ const SEED_PREFIX = "[SEED:DATING30]";
 const EMAIL_PREFIX = "seed+dating30+";
 const CITY = "Bangkok";
 const EVENT_TITLE = `${SEED_PREFIX} Bangkok Dating Night`;
-const TICKET_PRICE_CENTS = 4900; // ~$49 USD
+const TICKET_PRICE_CENTS = 4900;
 const TICKET_CAP = 50;
 
-// 18 women + 12 men = 30
 const WOMEN_COUNT = 18;
 const MEN_COUNT = 12;
 const TOTAL = WOMEN_COUNT + MEN_COUNT;
 
 // Archetype answer vectors (scale 1–4, 20 questions)
-// 4 archetypes × 20 questions
 type AnswerVec = number[];
 const ARCHETYPES: Record<string, AnswerVec> = {
   social_extrovert: [4,3,4,4,3,4,3,4,4,3,3,2,3,2,3,3,4,3,3,2],
@@ -39,7 +36,6 @@ const ARCHETYPES: Record<string, AnswerVec> = {
 };
 const ARCHETYPE_KEYS = Object.keys(ARCHETYPES);
 
-// Realistic names
 const FEMALE_FIRST = [
   "Anya","Priya","Mei","Sofia","Natasha","Lena","Aisha","Hana",
   "Yuki","Chloe","Zara","Suki","Mira","Dina","Linh","Rin","Aria","Tara",
@@ -54,7 +50,6 @@ const LAST_NAMES = [
   "Wang","Garcia","Reyes","Andersen","Mäkinen","Osman","Nakamura","Steele",
   "Ito","Martins","Fischer","Popov",
 ];
-
 const INSTAGRAM_HANDLES = [
   "@anya.explores","@priya.life","@mei_bkk","@sofia.moments","@natashavibes",
   "@lenaway","@aisha.days","@hana_gram","@yukiworld","@chloekroo",
@@ -64,7 +59,6 @@ const INSTAGRAM_HANDLES = [
   "@sventravel","@ethanvibe","@ryogram","@oliverway","@felixpix",
   "@nicojourneys","@kianlife",
 ];
-
 const REASONS = [
   "Tired of swipe culture. Looking for something real.",
   "I want to meet people at an actual event, not on an app.",
@@ -78,13 +72,11 @@ const REASONS = [
 
 function clamp(v: number, lo = 1, hi = 4) { return Math.max(lo, Math.min(hi, v)); }
 
-/** Generate answers with archetype base + noise */
 function makeAnswers(archetype: string): number[] {
   const base = ARCHETYPES[archetype];
   return base.map((v) => clamp(Math.round(v + (Math.random() - 0.5) * 1.4)));
 }
 
-/** Deterministic DOB: age 24–38 */
 function randomDob(salt: string): string {
   const seed = Buffer.from(salt).reduce((a, b) => a + b, 0);
   const ageYears = 24 + (seed % 15);
@@ -161,7 +153,7 @@ async function main() {
   const eventId: string = event.id;
   console.log(`  event_id: ${eventId}`);
 
-  // ── 4. Create event questions from templates ────────────────────────────
+  // ── 4. Create event questions ───────────────────────────────────────────
   console.log("\n❓ Creating event questions from templates…");
   const questionRows = templates.map((t: {
     prompt: string; type: string; options: unknown; weight: number; order: number;
@@ -207,9 +199,7 @@ async function main() {
   const ticketTypeId: string = ticketType.id;
   console.log(`  ticket_type_id: ${ticketTypeId}`);
 
-  // ── 6. Create 30 users ─────────────────────────────────────────────────
-  console.log(`\n👥 Creating ${TOTAL} users (${WOMEN_COUNT}F / ${MEN_COUNT}M)…`);
-
+  // ── 6. Build user list ─────────────────────────────────────────────────
   const userList: Array<{
     email: string; password: string; gender: string;
     first_name: string; last_name: string; archetype: string;
@@ -240,27 +230,51 @@ async function main() {
     });
   }
 
-  const createdProfiles: Array<{ email: string; password: string; profileId: string; gender: string }> = [];
+  // ── 7. Create users, profiles, attendees, answers ──────────────────────
+  console.log(`\n👥 Creating ${TOTAL} users (${WOMEN_COUNT}F / ${MEN_COUNT}M)…`);
+
+  const createdProfiles: Array<{
+    email: string; password: string; profileId: string; gender: string;
+    first_name: string; last_name: string;
+  }> = [];
+  const now = new Date().toISOString();
 
   for (let i = 0; i < userList.length; i++) {
     const u = userList[i];
     process.stdout.write(`  [${i + 1}/${TOTAL}] ${u.email}… `);
 
-    // Create auth user
+    // Try to create auth user; if already registered, look up existing ID
+    let userId: string | null = null;
     const { data: authUser, error: authErr } = await supabase.auth.admin.createUser({
       email: u.email,
       password: u.password,
       email_confirm: true,
     });
-    if (authErr || !authUser?.user) {
+
+    if (authUser?.user) {
+      userId = authUser.user.id;
+    } else if (authErr?.message?.toLowerCase().includes("already been registered")) {
+      // Look up existing user by scanning pages (service role)
+      for (let page = 1; page <= 5 && !userId; page++) {
+        const { data: listData } = await supabase.auth.admin.listUsers({ page, perPage: 100 });
+        const found = listData?.users?.find(
+          (usr) => (usr.email ?? "").toLowerCase() === u.email.toLowerCase()
+        );
+        if (found) userId = found.id;
+        if (!listData?.users?.length) break;
+      }
+      if (userId) {
+        process.stdout.write(`(reusing existing auth user) `);
+      } else {
+        console.log(`SKIP (could not find existing user)`);
+        continue;
+      }
+    } else {
       console.log(`SKIP (${authErr?.message})`);
       continue;
     }
-    const userId = authUser.user.id;
 
-    // instagram (some users only)
-    const instagramIdx = i < INSTAGRAM_HANDLES.length ? i : -1;
-    const instagram = instagramIdx >= 0 ? INSTAGRAM_HANDLES[instagramIdx] : null;
+    const instagram = i < INSTAGRAM_HANDLES.length ? INSTAGRAM_HANDLES[i] : null;
 
     // Upsert profile
     const { error: pErr } = await supabase.from("profiles").upsert({
@@ -281,60 +295,94 @@ async function main() {
     }, { onConflict: "id" });
     if (pErr) { console.log(`PROFILE ERR (${pErr.message})`); continue; }
 
-    createdProfiles.push({ email: u.email, password: u.password, profileId: userId, gender: u.gender });
-    console.log(`✓`);
-
-    // Create attendee row
-    const { error: attErr } = await supabase.from("event_attendees").insert({
+    // Upsert attendee (idempotent on event+profile)
+    const { error: attErr } = await supabase.from("event_attendees").upsert({
       event_id: eventId,
       profile_id: userId,
       ticket_type_id: ticketTypeId,
       payment_status: "paid",
       ticket_status: "paid",
-      paid_at: new Date().toISOString(),
+      paid_at: now,
       checked_in: true,
-      checked_in_at: new Date().toISOString(),
+      checked_in_at: now,
       seed_run_id: seedRunId,
-    });
-    if (attErr) { console.error(`  ❌ attendee: ${attErr.message}`); continue; }
+    }, { onConflict: "event_id,profile_id" });
+    if (attErr) { console.log(`ATTENDEE ERR (${attErr.message})`); continue; }
 
-    // Insert answers for all questions
-    const answerVec = makeAnswers(u.archetype);
-    const answerRows = questionIds.map((qid: string, qi: number) => ({
-      event_id: eventId,
-      profile_id: userId,
-      question_id: qid,
-      answer: { value: answerVec[qi] ?? 3 },
-      seed_run_id: seedRunId,
-    }));
-    const { error: ansErr } = await supabase.from("answers").insert(answerRows);
-    if (ansErr) { console.error(`  ❌ answers: ${ansErr.message}`); }
+    // Insert answers (skip if already present for this event+profile)
+    const { data: existingAnswers } = await supabase
+      .from("answers")
+      .select("question_id", { count: "exact", head: false })
+      .eq("event_id", eventId)
+      .eq("profile_id", userId)
+      .limit(1);
+
+    if (!existingAnswers?.length) {
+      const answerVec = makeAnswers(u.archetype);
+      const answerRows = questionIds.map((qid: string, qi: number) => ({
+        event_id: eventId,
+        profile_id: userId,
+        question_id: qid,
+        answer: { value: answerVec[qi] ?? 3 },
+        seed_run_id: seedRunId,
+      }));
+      const { error: ansErr } = await supabase.from("answers").insert(answerRows);
+      if (ansErr) { console.log(`ANSWERS ERR (${ansErr.message})`); continue; }
+    }
+
+    createdProfiles.push({
+      email: u.email,
+      password: u.password,
+      profileId: userId,
+      gender: u.gender,
+      first_name: u.first_name,
+      last_name: u.last_name,
+    });
+    console.log(`✓`);
   }
 
-  console.log(`\n✅ Created ${createdProfiles.length} users out of ${TOTAL} attempted.`);
+  console.log(`\n✅ Created/updated ${createdProfiles.length} users out of ${TOTAL} attempted.`);
 
-  // ── 7. Write output JSON ────────────────────────────────────────────────
+  // ── 8. Write output JSON ────────────────────────────────────────────────
   const outputDir = path.join(__dirname, ".seed-output");
   if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
+
+  const females = createdProfiles.filter((u) => u.gender === "female");
+  const males   = createdProfiles.filter((u) => u.gender === "male");
 
   const output = {
     seed_run_id: seedRunId,
     event_id: eventId,
     event_title: EVENT_TITLE,
-    event_url: `${appUrl}/admin/events/${eventId}`,
+    event_url: `${appUrl}/events/${eventId}`,
+    admin_event_url: `${appUrl}/admin/events/${eventId}`,
     city: CITY,
     total_users: createdProfiles.length,
-    women: createdProfiles.filter((u) => u.gender === "female").length,
-    men: createdProfiles.filter((u) => u.gender === "male").length,
+    women: females.length,
+    men: males.length,
     all_paid: true,
     all_checked_in: true,
     questionnaire_questions: questionIds.length,
-    note: "All attendees are paid + checked-in + questionnaire complete. Do NOT pre-generate matches — use Admin UI.",
+    demo_accounts: {
+      female: females[0]
+        ? { email: females[0].email, password: females[0].password, name: `${females[0].first_name} ${females[0].last_name}` }
+        : null,
+      male: males[0]
+        ? { email: males[0].email, password: males[0].password, name: `${males[0].first_name} ${males[0].last_name}` }
+        : null,
+    },
+    note: [
+      "All attendees are paid + checked-in + questionnaire complete.",
+      "Do NOT pre-generate matches — use Admin UI: Run Matching → Reveal Round.",
+      "Dating constraint: matching produces male↔female pairs only (no same-gender).",
+      `Verify: npx tsx scripts/verify-dating-matching.ts --event-id ${eventId}`,
+    ].join(" "),
     cleanup_command: `SEED_CONFIRM=true npx tsx scripts/cleanup-test-data.ts --label ${SEED_LABEL}`,
     users: createdProfiles.map((u) => ({
       email: u.email,
       password: u.password,
       gender: u.gender,
+      name: `${u.first_name} ${u.last_name}`,
     })),
   };
 
@@ -343,13 +391,20 @@ async function main() {
 
   console.log(`\n📝 Output written to ${outPath}`);
   console.log(`\n📊 Summary:`);
-  console.log(`   Event:       ${EVENT_TITLE}`);
-  console.log(`   Event ID:    ${eventId}`);
-  console.log(`   City:        ${CITY}`);
-  console.log(`   Women:       ${output.women}`);
-  console.log(`   Men:         ${output.men}`);
-  console.log(`   Questions:   ${questionIds.length}`);
-  console.log(`\n🔗 Admin URL: ${output.event_url}`);
+  console.log(`   Event:          ${EVENT_TITLE}`);
+  console.log(`   Event ID:       ${eventId}`);
+  console.log(`   City:           ${CITY}`);
+  console.log(`   Women:          ${output.women}`);
+  console.log(`   Men:            ${output.men}`);
+  console.log(`   Questions:      ${questionIds.length}`);
+  if (output.demo_accounts.female) {
+    console.log(`\n   Demo ♀:  ${output.demo_accounts.female.email} / ${output.demo_accounts.female.password}`);
+  }
+  if (output.demo_accounts.male) {
+    console.log(`   Demo ♂:  ${output.demo_accounts.male.email} / ${output.demo_accounts.male.password}`);
+  }
+  console.log(`\n🔗 Admin URL:  ${output.admin_event_url}`);
+  console.log(`🔗 Event URL:  ${output.event_url}`);
   console.log(`\n🧹 Cleanup: ${output.cleanup_command}`);
 }
 
