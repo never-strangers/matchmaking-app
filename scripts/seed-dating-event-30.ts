@@ -164,7 +164,7 @@ async function main() {
     type: t.type ?? "scale",
     options: t.options ?? null,
     weight: t.weight ?? 1,
-    order_index: t.order ?? idx + 1,
+    order_index: idx + 1,
   }));
   const { data: insertedQs, error: qErr } = await supabase
     .from("questions")
