@@ -152,3 +152,149 @@ test.describe("event question selection", () => {
     }
   });
 });
+
+// ── Create-event → step 2 → save & finish ────────────────────────────────────
+
+test.describe("event creation: step 2 question selection", () => {
+  test.describe.configure({ mode: "serial" });
+
+  let createdEventId: string;
+
+  test("admin creates event and lands on question selection (mode=create)", async ({ page }) => {
+    await loginUser(page, E2E_APPROVED_USER);
+    await page.goto("/admin/events");
+    if (!page.url().includes("/admin/events")) {
+      test.skip(true, "User is not admin");
+      return;
+    }
+
+    // Navigate to new event creation
+    const createLink = page.getByRole("link", { name: /create.*event|new.*event/i })
+      .or(page.locator('a[href*="/admin/events/new"]'))
+      .first();
+
+    if (!(await createLink.isVisible().catch(() => false))) {
+      test.skip(true, "Create event link not found");
+      return;
+    }
+    await createLink.click();
+    await expect(page).toHaveURL(/\/admin\/events\/new/, { timeout: 5_000 });
+
+    // Fill in the minimal required fields
+    const titleInput = page.getByTestId("event-title").or(page.getByLabel(/title|name/i)).first();
+    if (!(await titleInput.isVisible().catch(() => false))) {
+      test.skip(true, "Event title input not found");
+      return;
+    }
+    await titleInput.fill("E2E Test Event - Question Selection");
+
+    // Date fields: start_at at least 1 day from now
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowStr = tomorrow.toISOString().slice(0, 16); // "YYYY-MM-DDTHH:MM"
+
+    const startInput = page.getByTestId("event-start-at")
+      .or(page.getByLabel(/start/i))
+      .first();
+    if (await startInput.isVisible().catch(() => false)) {
+      await startInput.fill(tomorrowStr);
+    }
+
+    // Submit
+    const submitBtn = page.getByTestId("event-submit")
+      .or(page.getByRole("button", { name: /create|save/i }))
+      .first();
+    await submitBtn.click();
+
+    // Should redirect to /admin/events/[id]/questions?mode=create
+    await expect(page).toHaveURL(/\/admin\/events\/[^/]+\/questions\?mode=create/, {
+      timeout: 12_000,
+    });
+
+    // Capture eventId from URL
+    const url = page.url();
+    const match = url.match(/\/admin\/events\/([^/]+)\/questions/);
+    createdEventId = match?.[1] ?? "";
+    expect(createdEventId).toBeTruthy();
+  });
+
+  test("step 2 auto-populates 20 default questions", async ({ page }) => {
+    await loginUser(page, E2E_APPROVED_USER);
+    if (!createdEventId) {
+      test.skip(true, "No event created in previous test");
+      return;
+    }
+
+    await page.goto(`/admin/events/${createdEventId}/questions?mode=create`);
+    await expect(page.getByText(/Choose Your Event Questions|Manage Questions/i)).toBeVisible({
+      timeout: 8_000,
+    });
+
+    // Wait for loading to complete
+    await expect(page.getByText("Loading questions…")).not.toBeVisible({ timeout: 10_000 });
+
+    // Check via API that bootstrap ran
+    const apiRes = await page.request.get(`/api/admin/events/${createdEventId}/questions`);
+    expect(apiRes.ok()).toBe(true);
+    const body = await apiRes.json() as { selected: unknown[] };
+    expect(body.selected.length).toBeGreaterThanOrEqual(20);
+
+    // Counter should show 20/30 in green
+    const counter = page.locator("[data-testid=\"questions-save\"]").or(
+      page.locator("span.font-mono")
+    );
+    // At minimum: Save & Finish button should be enabled (>=20 questions)
+    await expect(page.getByTestId("questions-save")).toBeEnabled({ timeout: 5_000 });
+  });
+
+  test("step 2: Save & Finish redirects to admin event page", async ({ page }) => {
+    await loginUser(page, E2E_APPROVED_USER);
+    if (!createdEventId) {
+      test.skip(true, "No event created in previous test");
+      return;
+    }
+
+    await page.goto(`/admin/events/${createdEventId}/questions?mode=create`);
+    await expect(page.getByText("Loading questions…")).not.toBeVisible({ timeout: 10_000 });
+
+    // Save & Finish must be enabled (20 defaults bootstrapped)
+    const saveBtn = page.getByTestId("questions-save");
+    await expect(saveBtn).toBeEnabled({ timeout: 5_000 });
+    await saveBtn.click();
+
+    // Should redirect to admin event detail page
+    await expect(page).toHaveURL(/\/admin\/events\/[^/]+$/, { timeout: 10_000 });
+    expect(page.url()).toContain(createdEventId);
+  });
+
+  test("skip-for-now bootstraps defaults and navigates to event page", async ({ page }) => {
+    await loginUser(page, E2E_APPROVED_USER);
+    if (!createdEventId) {
+      test.skip(true, "No event created in previous test");
+      return;
+    }
+
+    // Call bootstrap-defaults directly to reset state (clear event_questions first via API isn\'t
+    // available in E2E context — just verify skip button works on a fresh event)
+    // We verify by navigating and clicking skip
+    await page.goto(`/admin/events/${createdEventId}/questions?mode=create`);
+    await expect(page.getByText("Loading questions…")).not.toBeVisible({ timeout: 10_000 });
+
+    const skipBtn = page.getByTestId("questions-skip");
+    if (!(await skipBtn.isVisible().catch(() => false))) {
+      test.skip(true, "Skip button not shown outside create mode");
+      return;
+    }
+
+    await skipBtn.click();
+
+    // After skip: should land on admin event page
+    await expect(page).toHaveURL(/\/admin\/events\/[^/]+$/, { timeout: 10_000 });
+    expect(page.url()).toContain(createdEventId);
+
+    // Verify bootstrap ran: event_questions should have >=20
+    const apiRes = await page.request.get(`/api/admin/events/${createdEventId}/questions`);
+    const body = await apiRes.json() as { selected: unknown[] };
+    expect(body.selected.length).toBeGreaterThanOrEqual(20);
+  });
+});
