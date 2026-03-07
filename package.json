@@ -23,7 +23,9 @@
     "seed:dating-30": "SEED_CONFIRM=true npx tsx scripts/seed-dating-event-30.ts",
     "verify:dating-matching": "npx tsx scripts/verify-dating-matching.ts",
     "seed:friends-30": "SEED_CONFIRM=true npx tsx scripts/seed-friends-event-30.ts",
-    "test:pairing": "npx tsx scripts/test-pairing-logic.ts"
+    "test:pairing": "npx tsx scripts/test-pairing-logic.ts",
+    "backfill:answer-eq-id": "npx tsx scripts/backfill-answer-event-question-id.ts",
+    "backfill:answer-eq-id:dry": "npx tsx scripts/backfill-answer-event-question-id.ts --dry-run"
   },
   "dependencies": {
     "@supabase/ssr": "^0.8.0",

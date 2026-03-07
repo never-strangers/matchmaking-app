@@ -123,20 +123,40 @@ export default function AdminEventQuestionsPage() {
   async function resetToDefaults() {
     setLoading(true);
     setError(null);
-    // Load all default templates
     const res = await fetch(`/api/admin/events/${eventId}/questions`);
-    const data = await res.json() as { selected: EventQuestion[]; available: QuestionTemplate[]; has_answers: boolean };
-    // Reset: clear selected, put all available back, then re-fetch
-    // This just reloads; a proper reset would call an API to delete all event_questions
-    setSelected([]);
-    setAvailable([...data.selected.map((eq) => ({
-      id: eq.template_id ?? eq.id,
-      prompt: eq.prompt,
-      type: eq.type,
-      tags: null,
-      weight: eq.weight,
-      order: eq.sort_order,
-    })), ...data.available]);
+    if (!res.ok) { setError("Failed to load questions"); setLoading(false); return; }
+    const data = await res.json() as {
+      selected: EventQuestion[];
+      available: QuestionTemplate[];
+      has_answers: boolean;
+    };
+
+    // All templates (currently selected + available), ordered deterministically by template "order"
+    const allTemplates: QuestionTemplate[] = [
+      ...data.selected.map((eq) => ({
+        id: eq.template_id ?? eq.id,
+        prompt: eq.prompt,
+        type: eq.type,
+        tags: null,
+        weight: eq.weight,
+        order: eq.sort_order,
+      })),
+      ...data.available,
+    ].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+    // Default: first 20 templates selected (deterministic by template order)
+    const defaultSelected: EventQuestion[] = allTemplates.slice(0, 20).map((tpl, idx) => ({
+      id: `_new_${tpl.id}`,
+      template_id: tpl.id,
+      prompt: tpl.prompt,
+      type: tpl.type,
+      weight: tpl.weight,
+      sort_order: idx,
+    }));
+    const defaultSelectedIds = new Set(defaultSelected.map((q) => q.template_id));
+
+    setSelected(defaultSelected);
+    setAvailable(allTemplates.filter((t) => !defaultSelectedIds.has(t.id)));
     setHasAnswers(data.has_answers);
     setLoading(false);
     setSuccess(false);
@@ -180,8 +200,8 @@ export default function AdminEventQuestionsPage() {
             color: "var(--text)",
           }}
         >
-          <strong>⚠ Users have already answered.</strong> You can add questions but
-          cannot remove existing ones.
+          <strong>⚠ Questions locked — answers exist.</strong> You can add new questions
+          but cannot remove existing ones. Reset to defaults is disabled.
         </div>
       )}
 
@@ -204,9 +224,19 @@ export default function AdminEventQuestionsPage() {
               <h2 className="font-semibold" style={{ color: "var(--text)" }}>
                 Selected Questions
               </h2>
-              <span className="text-sm font-mono" style={{ color: countColor }}>
-                {count} / 20–30
-              </span>
+              <div className="flex items-center gap-2">
+                {hasAnswers && (
+                  <span
+                    className="text-xs px-2 py-0.5 rounded-full font-medium"
+                    style={{ background: "rgba(180,130,0,0.12)", color: "rgba(140,100,0,1)" }}
+                  >
+                    Locked
+                  </span>
+                )}
+                <span className="text-sm font-mono" style={{ color: countColor }}>
+                  {count} / 20–30
+                </span>
+              </div>
             </div>
 
             {selected.length === 0 ? (
