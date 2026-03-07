@@ -156,27 +156,50 @@ export async function POST(
     });
   }
 
-  const { data: dbQuestions, error: questionsError } = await supabase
-    .from("questions")
-    .select("id, prompt, weight")
-    .eq("event_id", eventId)
-    .order("order_index", { ascending: true });
+  // Load questions: prefer event_questions (new), fall back to questions (legacy)
+  let questions: Question[] = [];
+  {
+    const { data: eventQuestions } = await supabase
+      .from("event_questions")
+      .select("id, prompt, weight")
+      .eq("event_id", eventId)
+      .order("sort_order", { ascending: true });
 
-  if (questionsError) {
-    console.error("Error loading questions:", questionsError);
-    return new Response("Failed to load questions", { status: 500 });
+    if (eventQuestions && eventQuestions.length > 0) {
+      questions = eventQuestions.map((q: { id: string; prompt: string; weight?: number }) => ({
+        id: String(q.id),
+        text: q.prompt,
+        category: "Custom" as Question["category"],
+        weight: Number(q.weight ?? 1),
+        isDealbreaker: false,
+      }));
+    } else {
+      // Legacy fallback: questions table
+      const { data: dbQuestions, error: questionsError } = await supabase
+        .from("questions")
+        .select("id, prompt, weight")
+        .eq("event_id", eventId)
+        .order("order_index", { ascending: true });
+
+      if (questionsError) {
+        console.error("Error loading questions:", questionsError);
+        return new Response("Failed to load questions", { status: 500 });
+      }
+      questions = (dbQuestions || []).map((q: { id: string; prompt: string; weight?: number }) => ({
+        id: String(q.id),
+        text: q.prompt,
+        category: "Custom" as Question["category"],
+        weight: Number(q.weight ?? 1),
+        isDealbreaker: false,
+      }));
+    }
   }
 
-  const questions: Question[] = (dbQuestions || []).map((q: { id: string; prompt: string; weight?: number }) => ({
-    id: String(q.id),
-    text: q.prompt,
-    category: "Custom" as Question["category"],
-    weight: Number(q.weight ?? 1),
-    isDealbreaker: false,
-  }));
-
-  if (questions.length === 0) {
-    return new Response("No questions configured for this event", { status: 400 });
+  if (questions.length < 20) {
+    return new Response(
+      `Event needs at least 20 questions before matching can run (found ${questions.length}).`,
+      { status: 400 }
+    );
   }
 
   const { data: dbAnswers, error: answersError } = await supabase

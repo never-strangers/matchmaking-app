@@ -162,13 +162,20 @@ export default async function AdminEventDetailPage({
         subtitle={`${dateLabel} · ${event.status}`}
       />
 
-      <div className="mb-4">
+      <div className="mb-4 flex gap-4 flex-wrap">
         <Link
           href={`/admin/events/${eventId}/edit`}
           className="text-sm hover:underline py-2 inline-block touch-manipulation"
           style={{ color: "var(--text-muted)" }}
         >
           Edit event →
+        </Link>
+        <Link
+          href={`/admin/events/${eventId}/questions`}
+          className="text-sm hover:underline py-2 inline-block touch-manipulation"
+          style={{ color: "var(--text-muted)" }}
+        >
+          Manage Questions →
         </Link>
       </div>
 

@@ -47,20 +47,40 @@ async function getEventQuestionsData(eventId: string, profileId: string) {
     .eq("is_active", true)
     .order("sort_order", { ascending: true });
 
-  // Load questions
-  const { data: questions, error: questionsError } = await supabase
-    .from("questions")
-    .select("id, prompt, order_index")
+  // Load questions: prefer event_questions (new), fall back to questions (legacy)
+  const { data: eventQuestions } = await supabase
+    .from("event_questions")
+    .select("id, prompt, sort_order")
     .eq("event_id", eventId)
-    .order("order_index", { ascending: true });
+    .order("sort_order", { ascending: true });
 
-  if (questionsError) {
-    console.error("Error loading questions:", questionsError);
+  let questions: Array<{ id: string; prompt: string; order_index: number }> | null = null;
+  let questionsError: unknown = null;
+
+  if (eventQuestions && eventQuestions.length > 0) {
+    // New: event_questions table
+    questions = eventQuestions.map((eq: { id: string; prompt: string; sort_order: number }) => ({
+      id: eq.id,
+      prompt: eq.prompt,
+      order_index: eq.sort_order,
+    }));
+  } else {
+    // Legacy: questions table (existing seeded events)
+    const legacyRes = await supabase
+      .from("questions")
+      .select("id, prompt, order_index")
+      .eq("event_id", eventId)
+      .order("order_index", { ascending: true });
+    questions = legacyRes.data;
+    questionsError = legacyRes.error;
+    if (questionsError) {
+      console.error("Error loading questions:", questionsError);
+    }
   }
 
   const { data: answers, error: answersError } = await supabase
     .from("answers")
-    .select("question_id, answer")
+    .select("question_id, event_question_id, answer")
     .eq("event_id", eventId)
     .eq("profile_id", profileId);
 
@@ -69,7 +89,7 @@ async function getEventQuestionsData(eventId: string, profileId: string) {
   }
 
   const answersMap: Record<string, number> = {};
-  (answers || []).forEach((row: DbAnswer) => {
+  (answers || []).forEach((row: DbAnswer & { event_question_id?: string | null }) => {
     const v = row.answer as any;
     const n =
       typeof v === "number"
@@ -78,7 +98,9 @@ async function getEventQuestionsData(eventId: string, profileId: string) {
         ? v.value
         : null;
     if (n === 1 || n === 2 || n === 3 || n === 4) {
-      answersMap[row.question_id] = n;
+      // Support both new (event_question_id) and legacy (question_id) keys
+      const key = row.event_question_id ?? row.question_id;
+      answersMap[key] = n;
     }
   });
 
