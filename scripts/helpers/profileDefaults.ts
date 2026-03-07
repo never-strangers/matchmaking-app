@@ -81,3 +81,21 @@ export function buildSeedPreferences(opts: { gender: Gender }): {
   const orientation = { lookingFor: ["date"] };
   return { gender, attracted_to, orientation };
 }
+
+/**
+ * Build a complete set of seed preference fields for a friends-event profile.
+ *
+ * Convention for friends seed:
+ *   - female | male → attracted_to: "men,women", looking_for: "friends"
+ *   - other         → attracted_to: null (unspecified), looking_for: "friends"
+ */
+export function buildFriendsPreferences(opts: { gender: Gender }): {
+  gender: Gender;
+  attracted_to: string | null;
+  orientation: { lookingFor: string[] };
+} {
+  const { gender } = opts;
+  const attracted_to = gender === "other" ? null : "men,women";
+  const orientation = { lookingFor: ["friends"] };
+  return { gender, attracted_to, orientation };
+}

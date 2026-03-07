@@ -265,7 +265,7 @@ export async function POST(
     matchUsers,
     questions,
     existingPairKeys,
-    { datingOnly: isDatingEvent }
+    { pairingMode: isDatingEvent ? "dating" : "friends" }
   );
 
   const resultsToInsert: Array<{
@@ -312,7 +312,7 @@ export async function POST(
     roundComputed: roundToCompute,
     pairsCount: pairs.length,
     attendeesInRound: eligibleForRound.length,
-    datingConstraint: isDatingEvent,
+    pairingMode: isDatingEvent ? "dating" : "friends",
   });
 }
 

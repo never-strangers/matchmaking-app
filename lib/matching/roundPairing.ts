@@ -8,8 +8,12 @@ export type PairWithScore = {
 };
 
 export type PairingOptions = {
-  /** When true, only opposite-gender pairs are considered (dating events). */
-  datingOnly?: boolean;
+  /**
+   * Controls how pairs are filtered by gender:
+   *   'dating'  — only male↔female pairs (both genders must be known)
+   *   'friends' — no gender filter; any pair is allowed (default)
+   */
+  pairingMode?: "friends" | "dating";
 };
 
 /**
@@ -25,12 +29,12 @@ export function buildAllPairs(
   options: PairingOptions = {}
 ): PairWithScore[] {
   const pairMap = new Map<string, number>();
-  const { datingOnly = false } = options;
+  const { pairingMode = "friends" } = options;
 
   for (const user of users) {
     const candidates = users.filter((u) => {
       if (u.id === user.id) return false;
-      if (datingOnly) {
+      if (pairingMode === "dating") {
         const g1 = user.gender?.toLowerCase();
         const g2 = u.gender?.toLowerCase();
         // Strict opposite-gender only: both genders must be known and different
