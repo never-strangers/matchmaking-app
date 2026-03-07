@@ -265,6 +265,7 @@ async function main() {
     // Upsert profile
     const { error: pErr } = await supabase.from("profiles").upsert({
       id: userId,
+      email: u.email,
       name: `${u.first_name} ${u.last_name}`,
       full_name: `${u.first_name} ${u.last_name}`,
       display_name: u.first_name,
