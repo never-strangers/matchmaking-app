@@ -12,6 +12,7 @@ import "dotenv/config";
 import fs from "fs";
 import path from "path";
 import { createClient } from "@supabase/supabase-js";
+import { buildSeedPreferences, type Gender } from "./helpers/profileDefaults";
 
 // ── Config ────────────────────────────────────────────────────────────────
 const SEED_LABEL = "dating30";
@@ -277,6 +278,7 @@ async function main() {
     const instagram = i < INSTAGRAM_HANDLES.length ? INSTAGRAM_HANDLES[i] : null;
 
     // Upsert profile
+    const prefs = buildSeedPreferences({ gender: u.gender as Gender });
     const { error: pErr } = await supabase.from("profiles").upsert({
       id: userId,
       email: u.email,
@@ -284,7 +286,9 @@ async function main() {
       full_name: `${u.first_name} ${u.last_name}`,
       display_name: u.first_name,
       city: CITY,
-      gender: u.gender,
+      gender: prefs.gender,
+      attracted_to: prefs.attracted_to,
+      orientation: prefs.orientation,
       dob: randomDob(u.email),
       status: "approved",
       role: "user",
@@ -343,7 +347,30 @@ async function main() {
 
   console.log(`\n✅ Created/updated ${createdProfiles.length} users out of ${TOTAL} attempted.`);
 
-  // ── 8. Write output JSON ────────────────────────────────────────────────
+  // ── 8. Validate inserted profiles ────────────────────────────────────────
+  if (createdProfiles.length > 0) {
+    console.log("\n🔎 Validating profile preference fields…");
+    const sampleIds = createdProfiles.slice(0, 5).map((p) => p.profileId);
+    const { data: sample, error: sampleErr } = await supabase
+      .from("profiles")
+      .select("id, gender, attracted_to, orientation")
+      .in("id", sampleIds);
+    if (sampleErr) {
+      console.warn("  ⚠️  Could not validate profiles:", sampleErr.message);
+    } else {
+      const bad = (sample ?? []).filter(
+        (p: { gender: unknown; attracted_to: unknown; orientation: unknown }) =>
+          !p.gender || !p.attracted_to || !p.orientation
+      );
+      if (bad.length > 0) {
+        console.error("  ❌ Profiles missing preference fields:", bad.map((p: { id: string }) => p.id));
+        throw new Error(`${bad.length} seeded profile(s) are missing gender/attracted_to/orientation`);
+      }
+      console.log(`  ✓ All sampled profiles have gender, attracted_to, and orientation set`);
+    }
+  }
+
+  // ── 9. Write output JSON ────────────────────────────────────────────────
   const outputDir = path.join(__dirname, ".seed-output");
   if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
 
