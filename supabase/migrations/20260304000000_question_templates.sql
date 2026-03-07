@@ -1,16 +1,19 @@
--- question_templates: reusable library of questions
+-- question_templates: create if not exists, then add missing columns idempotently
 CREATE TABLE IF NOT EXISTS public.question_templates (
   id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   prompt     TEXT        NOT NULL,
-  type       TEXT        NOT NULL DEFAULT 'scale',
-  options    JSONB       NULL,
-  tags       TEXT[]      NULL,
-  weight     NUMERIC     NOT NULL DEFAULT 1,
-  "order"    INT         NOT NULL DEFAULT 0,
-  is_default BOOLEAN     NOT NULL DEFAULT false,
-  is_active  BOOLEAN     NOT NULL DEFAULT true,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Add all columns idempotently so this is safe whether or not the table pre-existed
+ALTER TABLE public.question_templates
+  ADD COLUMN IF NOT EXISTS type       TEXT        NOT NULL DEFAULT 'scale',
+  ADD COLUMN IF NOT EXISTS options    JSONB       NULL,
+  ADD COLUMN IF NOT EXISTS tags       TEXT[]      NULL,
+  ADD COLUMN IF NOT EXISTS weight     NUMERIC     NOT NULL DEFAULT 1,
+  ADD COLUMN IF NOT EXISTS "order"    INT         NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS is_default BOOLEAN     NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS is_active  BOOLEAN     NOT NULL DEFAULT true;
 
 -- event_questions: selected question snapshot per event
 CREATE TABLE IF NOT EXISTS public.event_questions (
@@ -26,7 +29,8 @@ CREATE TABLE IF NOT EXISTS public.event_questions (
   UNIQUE (event_id, template_id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_event_questions_event ON public.event_questions(event_id, sort_order);
+CREATE INDEX IF NOT EXISTS idx_event_questions_event
+  ON public.event_questions(event_id, sort_order);
 
 -- Backward compat: add event_question_id to answers (nullable, old rows keep question_id)
 ALTER TABLE public.answers
