@@ -23,13 +23,14 @@ export async function POST(
 
   const { data: event, error: eventError } = await supabase
     .from("events")
-    .select("id, payment_required")
+    .select("id, payment_required, category")
     .eq("id", eventId)
     .maybeSingle();
   if (eventError || !event) {
     return new Response("Event not found", { status: 404 });
   }
   const paymentRequired = (event as { payment_required?: boolean }).payment_required !== false;
+  const isDatingEvent = (event as { category?: string }).category === "dating";
 
   // Load match_rounds to determine next round to compute (do not reset reveal state)
   const { data: roundsRow, error: roundsError } = await supabase
@@ -139,6 +140,22 @@ export async function POST(
     });
   }
 
+  // For dating events: load gender for each attendee profile
+  const genderById = new Map<string, string>();
+  if (isDatingEvent) {
+    const { data: profileRows, error: profilesErr } = await supabase
+      .from("profiles")
+      .select("id, gender")
+      .in("id", attendeeIds);
+    if (profilesErr) {
+      console.error("Error loading profile genders:", profilesErr);
+      return new Response("Failed to load attendee profiles", { status: 500 });
+    }
+    (profileRows || []).forEach((p: { id: string; gender: string | null }) => {
+      if (p.gender) genderById.set(String(p.id), p.gender.toLowerCase());
+    });
+  }
+
   const { data: dbQuestions, error: questionsError } = await supabase
     .from("questions")
     .select("id, prompt, weight")
@@ -240,10 +257,16 @@ export async function POST(
     id,
     name: id,
     city: "",
+    gender: genderById.get(id),
     answers: answersByProfile.get(id)!,
   }));
 
-  const pairs = computeSingleRound(matchUsers, questions, existingPairKeys);
+  const pairs = computeSingleRound(
+    matchUsers,
+    questions,
+    existingPairKeys,
+    { datingOnly: isDatingEvent }
+  );
 
   const resultsToInsert: Array<{
     event_id: string;
@@ -289,6 +312,7 @@ export async function POST(
     roundComputed: roundToCompute,
     pairsCount: pairs.length,
     attendeesInRound: eligibleForRound.length,
+    datingConstraint: isDatingEvent,
   });
 }
 

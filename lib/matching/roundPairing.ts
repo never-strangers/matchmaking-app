@@ -7,18 +7,39 @@ export type PairWithScore = {
   score: number;
 };
 
+export type PairingOptions = {
+  /** When true, only opposite-gender pairs are considered (dating events). */
+  datingOnly?: boolean;
+};
+
 /**
  * Build all candidate pairs for eligible users with scores.
  * Pairs are normalized (a < b lexicographically). Sorted by score desc, then a, then b for determinism.
+ *
+ * When options.datingOnly is true, only male↔female pairs are generated.
+ * MatchUser.gender must be 'male' or 'female' (other/missing values are included freely).
  */
 export function buildAllPairs(
   users: MatchUser[],
-  questions: Question[]
+  questions: Question[],
+  options: PairingOptions = {}
 ): PairWithScore[] {
   const pairMap = new Map<string, number>();
+  const { datingOnly = false } = options;
 
   for (const user of users) {
-    const candidates = users.filter((u) => u.id !== user.id);
+    const candidates = users.filter((u) => {
+      if (u.id === user.id) return false;
+      if (datingOnly) {
+        const g1 = user.gender?.toLowerCase();
+        const g2 = u.gender?.toLowerCase();
+        // Only include pair if genders are known and strictly opposite
+        if (g1 === "male" && g2 === "male") return false;
+        if (g1 === "female" && g2 === "female") return false;
+      }
+      return true;
+    });
+
     const matches = getMatchesForUser(user, candidates, questions);
     for (const m of matches) {
       const other = m.user;
@@ -85,10 +106,11 @@ export function pairKey(a: string, b: string): string {
 export function computeSingleRound(
   users: MatchUser[],
   questions: Question[],
-  excludePairKeys: Set<string>
+  excludePairKeys: Set<string>,
+  options: PairingOptions = {}
 ): PairWithScore[] {
   if (users.length < 2) return [];
-  const allPairs = buildAllPairs(users, questions);
+  const allPairs = buildAllPairs(users, questions, options);
   const excludeCopy = new Set(excludePairKeys);
   return pickDisjointPairs(allPairs, excludeCopy);
 }
@@ -99,23 +121,15 @@ export function computeSingleRound(
  */
 export function computeRoundPairings(
   users: MatchUser[],
-  questions: Question[]
+  questions: Question[],
+  options: PairingOptions = {}
 ): { round1: PairWithScore[]; round2: PairWithScore[]; round3: PairWithScore[] } {
-  const allPairs = buildAllPairs(users, questions);
+  const allPairs = buildAllPairs(users, questions, options);
   const usedPairKeys = new Set<string>();
 
-  const round1 = pickDisjointPairs(
-    allPairs,
-    usedPairKeys
-  );
-  const round2 = pickDisjointPairs(
-    allPairs,
-    usedPairKeys
-  );
-  const round3 = pickDisjointPairs(
-    allPairs,
-    usedPairKeys
-  );
+  const round1 = pickDisjointPairs(allPairs, usedPairKeys);
+  const round2 = pickDisjointPairs(allPairs, usedPairKeys);
+  const round3 = pickDisjointPairs(allPairs, usedPairKeys);
 
   return { round1, round2, round3 };
 }
