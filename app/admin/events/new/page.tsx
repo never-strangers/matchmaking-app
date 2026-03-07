@@ -126,7 +126,7 @@ export default function AdminCreateEventPage() {
         }
       }
       if (eventId) {
-        router.push(`/admin/events/${eventId}`);
+        router.push(`/admin/events/${eventId}/questions?mode=create`);
       } else {
         router.push("/admin/events");
       }
