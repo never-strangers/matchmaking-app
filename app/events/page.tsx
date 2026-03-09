@@ -2,9 +2,9 @@ import Link from "next/link";
 import { requireApprovedUser } from "@/lib/auth/requireApprovedUser";
 import { getServiceSupabaseClient } from "@/lib/supabase/serverClient";
 import { cityForFilter } from "@/lib/constants/profileOptions";
+import { CITIES_META } from "@/lib/geo/cities";
 import { Button } from "@/components/ui/Button";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { EmptyState } from "@/components/ui/EmptyState";
 import { EventsListClient } from "@/app/events/EventsListClient";
 
 type DbEvent = {
@@ -12,6 +12,7 @@ type DbEvent = {
   title: string;
   status: string;
   city?: string | null;
+  category?: string | null;
   created_at?: string | null;
   start_at?: string | null;
   poster_path?: string | null;
@@ -32,9 +33,15 @@ type EventsPageData = {
     }
   >;
   isAdmin: boolean;
+  userCity: string | null;
+  /** Unique city labels present in all live events (for the city filter dropdown) */
+  availableCities: string[];
 };
 
-async function getEventsPageData(profileId: string, role: string): Promise<EventsPageData> {
+async function getEventsPageData(
+  profileId: string,
+  role: string,
+): Promise<EventsPageData> {
   const supabase = getServiceSupabaseClient();
   const now = new Date().toISOString();
 
@@ -55,61 +62,51 @@ async function getEventsPageData(profileId: string, role: string): Promise<Event
     if (invited?.city) userCity = invited.city;
   }
 
-  // Normalize so "sg" matches events stored as "Singapore" (and vice versa)
-  const filterCity = userCity ? cityForFilter(userCity) : null;
-
+  // Fetch ALL live events (client will handle city/category filtering via URL params)
   let events: (DbEvent & { payment_required?: boolean; price_cents?: number })[] | null = null;
   let error: unknown = null;
 
-  if (filterCity) {
-    const res = await supabase
+  const res = await supabase
+    .from("events")
+    .select(
+      "id, title, status, city, category, created_at, start_at, payment_required, price_cents, poster_path"
+    )
+    .eq("status", "live")
+    .order("start_at", { ascending: true, nullsFirst: false });
+
+  events = res.data;
+  error = res.error;
+
+  // Graceful column-missing fallback (older DB schema)
+  if (error && (error as { message?: string }).message?.includes("column")) {
+    error = null;
+    const fallback = await supabase
       .from("events")
-      .select("id, title, status, city, created_at, start_at, payment_required, price_cents, poster_path")
-      .eq("status", "live")
-      .or(`city.eq.${filterCity},city.is.null`)
-      .order("created_at", { ascending: true });
-    events = res.data;
-    error = res.error;
-    if (error && ((error as { message?: string }).message?.includes("column"))) {
-      error = null;
-      const fallback = await supabase
-        .from("events")
-        .select("id, title, status, created_at")
-        .eq("status", "live")
-        .order("created_at", { ascending: true });
-      events = fallback.data as typeof events;
-      error = fallback.error;
-    }
-  } else {
-    const res = await supabase
-      .from("events")
-      .select("id, title, status, city, created_at, start_at, payment_required, price_cents, poster_path")
+      .select("id, title, status, created_at")
       .eq("status", "live")
       .order("created_at", { ascending: true });
-    events = res.data;
-    error = res.error;
-    if (error && ((error as { message?: string }).message?.includes("column"))) {
-      const fallback = await supabase
-        .from("events")
-        .select("id, title, status, created_at")
-        .eq("status", "live")
-        .order("created_at", { ascending: true });
-      events = fallback.data as typeof events;
-      error = fallback.error;
-    }
+    events = fallback.data as typeof events;
+    error = fallback.error;
   }
 
   if (error) {
     console.error("Error loading events:", error);
-    return { events: [], isAdmin: role === "admin" };
+    return { events: [], isAdmin: role === "admin", userCity, availableCities: [] };
   }
 
   const baseEvents: DbEvent[] = events || [];
   const eventIds = baseEvents.map((e) => e.id);
 
   if (eventIds.length === 0) {
-    return { events: [], isAdmin: role === "admin" };
+    return { events: [], isAdmin: role === "admin", userCity, availableCities: [] };
   }
+
+  // Derive available cities from event data (deduplicated, sorted by CITIES_META order)
+  const citiesInEvents = [...new Set(baseEvents.map((e) => e.city).filter(Boolean) as string[])];
+  const availableCities = [
+    ...CITIES_META.map((m) => m.label).filter((l) => citiesInEvents.includes(l)),
+    ...citiesInEvents.filter((c) => !CITIES_META.some((m) => m.label === c)),
+  ];
 
   // Which events has this user joined?
   const { data: attendeeRows } = await supabase
@@ -198,25 +195,40 @@ async function getEventsPageData(profileId: string, role: string): Promise<Event
     };
   });
 
+  const futureEvents = enrichedEvents.filter((event) => {
+    const sortDate = (event.start_at || event.created_at || now) as string;
+    return sortDate >= now;
+  });
+
   return {
-    events: enrichedEvents.filter((event) => {
-      const sortDate = (event.start_at || event.created_at || now) as string;
-      return sortDate >= now;
-    }),
+    events: futureEvents,
     isAdmin: role === "admin",
+    userCity,
+    availableCities,
   };
 }
 
-export default async function EventsPage() {
+export default async function EventsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const session = await requireApprovedUser();
 
-  const { events, isAdmin } = await getEventsPageData(
+  const { events, isAdmin, userCity, availableCities } = await getEventsPageData(
     session.profile_id,
     session.role
   );
 
+  const resolvedParams = await searchParams;
+  const initialCity = (resolvedParams.city as string | undefined) ?? null;
+  const initialCategory = (resolvedParams.category as string | undefined) ?? null;
+
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8 sm:py-12" style={{ backgroundColor: "var(--bg)" }}>
+    <div
+      className="max-w-5xl mx-auto px-4 py-8 sm:py-12"
+      style={{ backgroundColor: "var(--bg)" }}
+    >
       <PageHeader
         title="Upcoming Events"
         subtitle="Join curated gatherings in your city"
@@ -234,14 +246,13 @@ export default async function EventsPage() {
         Upcoming Events
       </h2>
 
-      {events.length === 0 ? (
-        <EmptyState
-          title="No events available"
-          description="Check back soon for upcoming gatherings in your city."
-        />
-      ) : (
-        <EventsListClient events={events} />
-      )}
+      <EventsListClient
+        events={events}
+        availableCities={availableCities}
+        userCity={userCity}
+        initialCity={initialCity}
+        initialCategory={initialCategory}
+      />
     </div>
   );
 }
