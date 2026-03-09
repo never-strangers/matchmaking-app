@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
@@ -18,6 +18,8 @@ import {
   normalizeCityForSelect,
 } from "@/lib/constants/profileOptions";
 import { Button } from "@/components/ui/Button";
+import { AvatarSquare } from "@/components/ui/AvatarSquare";
+import { getAvatarPublicUrl } from "@/lib/supabase/avatar";
 
 const LABEL_WHY =
   "Let's know more about you. Tell us why Never Strangers is for you!";
@@ -29,6 +31,8 @@ const MIN_PASSWORD_LENGTH = 6;
 type ProfileRow = {
   name: string | null;
   full_name: string | null;
+  avatar_path: string | null;
+  avatar_updated_at: string | null;
   city: string | null;
   dob: string | null;
   gender: string | null;
@@ -120,6 +124,11 @@ function StyledTextarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>
 export default function ProfilePage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+  const [avatarPath, setAvatarPath] = useState<string | null>(null);
+  const [avatarUpdatedAt, setAvatarUpdatedAt] = useState<string | null>(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
@@ -157,7 +166,7 @@ export default function ProfilePage() {
       setEmailInput(email ?? "");
       supabase
         .from("profiles")
-        .select("name, full_name, city, dob, gender, attracted_to, orientation, preferred_language, instagram, reason")
+        .select("name, full_name, city, dob, gender, attracted_to, orientation, preferred_language, instagram, reason, avatar_path, avatar_updated_at")
         .eq("id", user.id)
         .single()
         .then(({ data }: { data: ProfileRow | null }) => {
@@ -189,6 +198,8 @@ export default function ProfilePage() {
               instagram: data.instagram ?? null,
               reason: data.reason ?? null,
             });
+            setAvatarPath(data.avatar_path ?? null);
+            setAvatarUpdatedAt(data.avatar_updated_at ?? null);
           } else {
             setProfile(null);
           }
@@ -286,6 +297,31 @@ export default function ProfilePage() {
     }
     setPasswordSubmitting(false);
   };
+
+
+  async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAvatarUploading(true);
+    setAvatarError(null);
+    const formData = new FormData();
+    formData.append("file", file);
+    try {
+      const res = await fetch("/api/profile/avatar/upload", { method: "POST", body: formData });
+      const data = await res.json() as { ok?: boolean; error?: string; avatar_path?: string; avatar_updated_at?: string };
+      if (!res.ok || !data.ok) {
+        setAvatarError(data.error ?? "Upload failed.");
+      } else {
+        setAvatarPath(data.avatar_path ?? null);
+        setAvatarUpdatedAt(data.avatar_updated_at ?? null);
+      }
+    } catch {
+      setAvatarError("Network error. Please try again.");
+    } finally {
+      setAvatarUploading(false);
+      if (avatarInputRef.current) avatarInputRef.current.value = "";
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -396,6 +432,62 @@ export default function ProfilePage() {
       <p style={{ fontSize: 14, color: "var(--text-muted)", marginBottom: 32 }}>
         Update your details. You must be 21+ to use Never Strangers.
       </p>
+
+      {/* Avatar section */}
+      <div style={{ display: "flex", alignItems: "center", gap: 20, marginBottom: 32 }}>
+        <div style={{ position: "relative" }}>
+          <AvatarSquare
+            avatarPath={avatarPath}
+            cacheBust={avatarUpdatedAt}
+            size={88}
+          />
+          {avatarUploading && (
+            <div
+              style={{
+                position: "absolute", inset: 0, borderRadius: 12,
+                background: "rgba(0,0,0,0.4)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}
+            >
+              <span style={{ color: "#fff", fontSize: 11 }}>Uploading…</span>
+            </div>
+          )}
+        </div>
+        <div>
+          <button
+            type="button"
+            onClick={() => avatarInputRef.current?.click()}
+            disabled={avatarUploading}
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              padding: "8px 16px",
+              fontSize: 13, fontWeight: 600, fontFamily: "var(--font-sans)",
+              color: "var(--primary)", background: "transparent",
+              border: "1px solid var(--primary)",
+              borderRadius: "var(--radius-pill)",
+              cursor: avatarUploading ? "not-allowed" : "pointer",
+              opacity: avatarUploading ? 0.5 : 1,
+            }}
+            data-testid="profile-avatar-change"
+          >
+            {avatarPath ? "Change photo" : "Add photo"}
+          </button>
+          <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 6 }}>
+            JPG, PNG or WebP · max 5 MB
+          </p>
+          {avatarError && (
+            <p style={{ fontSize: 12, color: "var(--danger)", marginTop: 4 }}>{avatarError}</p>
+          )}
+        </div>
+        <input
+          ref={avatarInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          style={{ display: "none" }}
+          onChange={handleAvatarChange}
+          data-testid="profile-avatar-input"
+        />
+      </div>
 
       <div
         style={{
