@@ -8,9 +8,10 @@ type Props = {
   eventId: string;
   attendeeId: string;
   checkedIn: boolean;
+  testId?: string;
 };
 
-export function AttendeeCheckInButton({ eventId, attendeeId, checkedIn }: Props) {
+export function AttendeeCheckInButton({ eventId, attendeeId, checkedIn, testId }: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [localCheckedIn, setLocalCheckedIn] = useState(checkedIn);
@@ -55,7 +56,7 @@ export function AttendeeCheckInButton({ eventId, attendeeId, checkedIn }: Props)
       variant={localCheckedIn ? "secondary" : "primary"}
       onClick={handleToggle}
       disabled={loading}
-      data-testid="admin-checkin-btn"
+      data-testid={testId ?? "admin-checkin-btn"}
     >
       {loading ? "…" : localCheckedIn ? "Undo check-in" : "Check-in"}
     </Button>
