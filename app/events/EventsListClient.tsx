@@ -96,7 +96,7 @@ export function EventsListClient({
   const isFirstRender = useRef(true);
   useEffect(() => {
     if (isFirstRender.current) { isFirstRender.current = false; return; }
-    const params = new URLSearchParams(searchParams?.toString() ?? "");
+    const params = new URLSearchParams(searchParams.toString());
     if (selectedCity) {
       params.set("city", selectedCity);
     } else {
@@ -194,13 +194,13 @@ export function EventsListClient({
     <>
       {/* ── Filter bar ──────────────────────────────────────────── */}
       <div
-        className="flex flex-col sm:flex-row gap-3 mb-6"
+        className="flex flex-col sm:flex-row gap-3 mb-6 overflow-visible"
         role="group"
         aria-label="Event filters"
       >
-        {/* City selector */}
+        {/* City selector: overflow-visible + touch-friendly height so native dropdown isn't clipped on mobile */}
         {availableCities.length > 0 && (
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 overflow-visible w-full sm:w-auto">
             <label htmlFor="events-filter-city" className="sr-only">
               Filter by city
             </label>
@@ -209,13 +209,12 @@ export function EventsListClient({
               data-testid="events-filter-city"
               value={selectedCity}
               onChange={(e) => setSelectedCity(e.target.value)}
-              className="w-full text-sm px-3 py-2 rounded-lg focus:outline-none focus:ring-2 transition-colors"
+              className="w-full text-sm px-3 py-2.5 min-h-[44px] rounded-lg focus:outline-none focus:ring-2 transition-colors touch-manipulation"
               style={{
                 backgroundColor: "var(--bg-panel)",
                 border: "1px solid var(--border)",
                 color: "var(--text)",
                 fontFamily: "var(--font-sans)",
-                // ring color via CSS variable fallback
               }}
             >
               {cityOptions.map((opt) => (
@@ -227,9 +226,9 @@ export function EventsListClient({
           </div>
         )}
 
-        {/* Category pills */}
+        {/* Category pills: wrap on narrow screens so they don't overflow */}
         <div
-          className="flex gap-2"
+          className="flex flex-wrap gap-2"
           role="group"
           aria-label="Filter by category"
           data-testid="events-filter-category"
@@ -242,7 +241,7 @@ export function EventsListClient({
                 type="button"
                 onClick={() => setSelectedCategory(opt.value)}
                 aria-pressed={active}
-                className="px-4 py-2 text-sm font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 whitespace-nowrap"
+                className="px-4 py-2 min-h-[44px] text-sm font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 whitespace-nowrap touch-manipulation flex items-center justify-center"
                 style={{
                   backgroundColor: active ? "var(--primary)" : "var(--bg-panel)",
                   color: active ? "var(--primary-fg, #fff)" : "var(--text-subtle)",

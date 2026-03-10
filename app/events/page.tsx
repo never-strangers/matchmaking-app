@@ -226,7 +226,7 @@ export default async function EventsPage({
 
   return (
     <div
-      className="max-w-5xl mx-auto px-4 py-8 sm:py-12"
+      className="max-w-5xl mx-auto px-4 py-8 sm:py-12 overflow-visible"
       style={{ backgroundColor: "var(--bg)" }}
     >
       <PageHeader

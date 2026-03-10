@@ -26,11 +26,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Current State**: The app is fully functional in **demo mode** using localStorage for all data persistence. Supabase schema and migrations exist but are not yet fully integrated for production.
 
-### Workspace: avoid duplicate folders (iCloud / multiple paths)
+### Workspace: avoid duplicate folders (iCloud / paths with spaces)
 
-On macOS with iCloud Drive you may see two similar paths (e.g. two "Documents - Mikhail's MacBook Pro" with a `neverstrangers` folder each). Only **one** of them is the real Git repo (has a `.git` directory).
+On macOS with iCloud Drive you may see two similar paths (e.g. two "Documents - Mikhail's MacBook Pro" with a `neverstrangers` folder each). Only **one** of them is the real Git repo (has a `.git` directory). Paths with spaces can also cause tools (and AI assistants) to resolve the wrong folder or create duplicate references.
 
-- **Always open this project in Cursor/IDE from the folder where `git status` works** (the one that contains `.git`). If you open the other path, edits won’t be in the repo and you’ll see "nothing to commit."
+- **Recommended:** Use a path **without spaces**. Clone or move the repo to e.g. `~/Projects/neverstrangers` or `~/dev/neverstrangers`, then open that folder in Cursor. This avoids iCloud duplicate confusion and space-in-path issues.
+  ```bash
+  mkdir -p ~/Projects
+  cp -R "/Users/$(whoami)/Documents/Documents - Mikhail's MacBook Pro/neverstrangers" ~/Projects/neverstrangers
+  # Or: git clone <your-repo-url> ~/Projects/neverstrangers
+  cd ~/Projects/neverstrangers
+  ```
+  Then in Cursor: **File → Open Folder →** `~/Projects/neverstrangers`.
+- **If you stay in Documents:** Always open this project in Cursor/IDE from the folder where `git status` works (the one that contains `.git`). If you open the other path, edits won’t be in the repo and you’ll see "nothing to commit."
 - **Single source of truth**: use one canonical path. In Terminal, run `pwd` when you’re in the correct neverstrangers folder and use that path when opening the project.
 - **Check**: from project root, `ls -la .git` should list the `.git` directory. If it fails, you’re in the duplicate; close and open the other folder.
 - Running `npm run dev` (or `npm run build`) will fail with a clear message if you’re not in the Git repo.
