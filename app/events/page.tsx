@@ -29,12 +29,12 @@ type EventsPageData = {
       paymentStatus: string;
       paymentRequired: boolean;
       paid: boolean;
-      canViewMatches: boolean;
+      checkedIn: boolean;
+      hasRevealedMatches: boolean;
     }
   >;
   isAdmin: boolean;
   userCity: string | null;
-  /** Unique city labels present in all live events (for the city filter dropdown) */
   availableCities: string[];
 };
 
@@ -62,7 +62,7 @@ async function getEventsPageData(
     if (invited?.city) userCity = invited.city;
   }
 
-  // Fetch ALL live events (client will handle city/category filtering via URL params)
+  // Fetch ALL live events
   let events: (DbEvent & { payment_required?: boolean; price_cents?: number })[] | null = null;
   let error: unknown = null;
 
@@ -77,7 +77,6 @@ async function getEventsPageData(
   events = res.data;
   error = res.error;
 
-  // Graceful column-missing fallback (older DB schema)
   if (error && (error as { message?: string }).message?.includes("column")) {
     error = null;
     const fallback = await supabase
@@ -101,32 +100,34 @@ async function getEventsPageData(
     return { events: [], isAdmin: role === "admin", userCity, availableCities: [] };
   }
 
-  // Derive available cities from event data (deduplicated, sorted by CITIES_META order)
+  // Available cities
   const citiesInEvents = [...new Set(baseEvents.map((e) => e.city).filter(Boolean) as string[])];
   const availableCities = [
     ...CITIES_META.map((m) => m.label).filter((l) => citiesInEvents.includes(l)),
     ...citiesInEvents.filter((c) => !CITIES_META.some((m) => m.label === c)),
   ];
 
-  // Which events has this user joined?
+  // Attendees: payment_status + checked_in
   const { data: attendeeRows } = await supabase
     .from("event_attendees")
-    .select("event_id, payment_status")
+    .select("event_id, payment_status, checked_in")
     .eq("profile_id", profileId)
     .in("event_id", eventIds);
 
-  const joinedSet = new Set<string>(
-    (attendeeRows || []).map((r: any) => String(r.event_id))
-  );
+  const joinedSet = new Set<string>();
   const paymentStatusByEvent: Record<string, string> = {};
+  const checkedInByEvent: Record<string, boolean> = {};
   (attendeeRows || []).forEach((r: any) => {
-    paymentStatusByEvent[String(r.event_id)] = r.payment_status ?? "unpaid";
+    const id = String(r.event_id);
+    joinedSet.add(id);
+    paymentStatusByEvent[id] = r.payment_status ?? "unpaid";
+    checkedInByEvent[id] = r.checked_in ?? false;
   });
 
-  // Answers per event for this profile
+  // Answers per event for this profile (count rows)
   const { data: answerRows } = await supabase
     .from("answers")
-    .select("event_id, question_id")
+    .select("event_id")
     .eq("profile_id", profileId)
     .in("event_id", eventIds);
 
@@ -136,19 +137,39 @@ async function getEventsPageData(
     answerCountByEvent[id] = (answerCountByEvent[id] || 0) + 1;
   });
 
-  // Question counts per event
-  const { data: questionRows } = await supabase
-    .from("questions")
+  // ── Question counts: prefer event_questions (new), fall back to questions (legacy) ──
+  // Step 1: query event_questions
+  const { data: eqRows } = await supabase
+    .from("event_questions")
     .select("event_id, id")
     .in("event_id", eventIds);
 
-  const questionCountByEvent: Record<string, number> = {};
-  (questionRows || []).forEach((row: any) => {
+  const eqCountByEvent: Record<string, number> = {};
+  (eqRows || []).forEach((row: any) => {
     const id = String(row.event_id);
-    questionCountByEvent[id] = (questionCountByEvent[id] || 0) + 1;
+    eqCountByEvent[id] = (eqCountByEvent[id] || 0) + 1;
   });
 
-  // Events for which admin has run matching (match_runs with status = 'done')
+  // Step 2: legacy questions only for events not covered by event_questions
+  const legacyIds = eventIds.filter((id) => !eqCountByEvent[id]);
+  const legacyQCountByEvent: Record<string, number> = {};
+  if (legacyIds.length > 0) {
+    const { data: legacyQRows } = await supabase
+      .from("questions")
+      .select("event_id, id")
+      .in("event_id", legacyIds);
+    (legacyQRows || []).forEach((row: any) => {
+      const id = String(row.event_id);
+      legacyQCountByEvent[id] = (legacyQCountByEvent[id] || 0) + 1;
+    });
+  }
+
+  const questionCountByEvent: Record<string, number> = {
+    ...legacyQCountByEvent,
+    ...eqCountByEvent,
+  };
+
+  // Match runs
   const { data: runRows } = await supabase
     .from("match_runs")
     .select("event_id")
@@ -158,6 +179,29 @@ async function getEventsPageData(
   const matchesRunSet = new Set<string>(
     (runRows || []).map((r: any) => String(r.event_id))
   );
+
+  // Reveal state: any revealed match for this user per event
+  const eventsWithRun = eventIds.filter((id) => matchesRunSet.has(id));
+  const hasRevealedMatchesByEvent: Record<string, boolean> = {};
+  if (eventsWithRun.length > 0) {
+    const { data: revealRows, error: revealErr } = await supabase
+      .from("match_reveals")
+      .select("event_id")
+      .eq("viewer_user_id", profileId)
+      .in("event_id", eventsWithRun)
+      .not("revealed_at", "is", null);
+
+    if (!revealErr && revealRows) {
+      revealRows.forEach((r: any) => {
+        hasRevealedMatchesByEvent[String(r.event_id)] = true;
+      });
+    } else {
+      // Fallback: if table missing, treat matchesRun as revealed
+      eventsWithRun.forEach((id) => {
+        hasRevealedMatchesByEvent[id] = true;
+      });
+    }
+  }
 
   const enrichedEvents = baseEvents.map((e) => {
     const id = String(e.id);
@@ -176,7 +220,15 @@ async function getEventsPageData(
       paymentStatus === "paid" ||
       paymentStatus === "free" ||
       paymentStatus === "not_required";
-    const canViewMatches = matchesRun && (!paymentRequired || paid);
+    const checkedIn = checkedInByEvent[id] ?? false;
+    const hasRevealedMatches = hasRevealedMatchesByEvent[id] ?? false;
+
+    if (process.env.NODE_ENV !== "production" && joined) {
+      console.log(
+        `[events/page] event=${id} totalQ=${totalQuestions} answers=${answerCount} ` +
+        `completed=${completed} checkedIn=${checkedIn} matchesRun=${matchesRun} revealed=${hasRevealedMatches}`
+      );
+    }
 
     return {
       ...e,
@@ -188,7 +240,8 @@ async function getEventsPageData(
       paymentStatus,
       paymentRequired,
       paid,
-      canViewMatches,
+      checkedIn,
+      hasRevealedMatches,
       posterUrl: (e as { poster_path?: string | null }).poster_path
         ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/event-posters/${(e as { poster_path: string }).poster_path}`
         : null,

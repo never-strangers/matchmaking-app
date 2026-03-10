@@ -28,7 +28,8 @@ type ListEvent = {
   paymentStatus: string;
   paymentRequired: boolean;
   paid: boolean;
-  canViewMatches: boolean;
+  checkedIn: boolean;
+  hasRevealedMatches: boolean;
   posterUrl?: string | null;
 };
 
@@ -65,7 +66,7 @@ function formatEventDate(dateStr: string | null | undefined): string {
   );
 }
 
-/** Normalize a city label for comparison (handles codes like "sg" → "Singapore") */
+/** Normalize a city label for comparison */
 function normalizeCityLabel(city: string | null): string | null {
   if (!city) return null;
   return cityForFilter(city) ?? city;
@@ -82,7 +83,6 @@ export function EventsListClient({
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  // Resolve initial city: URL param → user city (normalised to label) → ""
   const resolvedUserCityLabel = normalizeCityLabel(userCity) ?? "";
 
   const [selectedCity, setSelectedCity] = useState<string>(
@@ -92,7 +92,6 @@ export function EventsListClient({
     initialCategory ?? ""
   );
 
-  // Sync URL params when filters change (replace so back-button works naturally)
   const isFirstRender = useRef(true);
   useEffect(() => {
     if (isFirstRender.current) { isFirstRender.current = false; return; }
@@ -112,7 +111,6 @@ export function EventsListClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCity, selectedCategory]);
 
-  // Client-side filtering
   const filteredEvents = events.filter((ev) => {
     if (selectedCity) {
       const evCityLabel = normalizeCityLabel(ev.city ?? null);
@@ -124,7 +122,7 @@ export function EventsListClient({
     return true;
   });
 
-  // --- Modal state ---
+  // Modal state
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [previewEvent, setPreviewEvent] = useState<EventPreviewData | null>(null);
@@ -181,7 +179,6 @@ export function EventsListClient({
     }
   }, [selectedEventId]);
 
-  // Build dropdown city options
   const cityOptions = [
     { value: "", label: "All cities" },
     ...availableCities.map((c) => ({
@@ -192,13 +189,12 @@ export function EventsListClient({
 
   return (
     <>
-      {/* ── Filter bar ──────────────────────────────────────────── */}
+      {/* Filter bar */}
       <div
         className="flex flex-col sm:flex-row gap-3 mb-6 overflow-visible"
         role="group"
         aria-label="Event filters"
       >
-        {/* City selector: overflow-visible + touch-friendly height so native dropdown isn't clipped on mobile */}
         {availableCities.length > 0 && (
           <div className="flex-1 min-w-0 overflow-visible w-full sm:w-auto">
             <label htmlFor="events-filter-city" className="sr-only">
@@ -226,7 +222,6 @@ export function EventsListClient({
           </div>
         )}
 
-        {/* Category pills: wrap on narrow screens so they don't overflow */}
         <div
           className="flex flex-wrap gap-2"
           role="group"
@@ -255,7 +250,7 @@ export function EventsListClient({
         </div>
       </div>
 
-      {/* ── Event grid ──────────────────────────────────────────── */}
+      {/* Event grid */}
       {filteredEvents.length === 0 ? (
         <EmptyState
           title="No events found"
@@ -273,32 +268,49 @@ export function EventsListClient({
           {filteredEvents.map((event) => {
             const {
               joined, completed, answerCount, totalQuestions,
-              matchesRun, paymentRequired, paid, canViewMatches,
+              matchesRun, paymentRequired, paid, checkedIn, hasRevealedMatches,
             } = event;
 
+            // ── CTA state machine ──────────────────────────────────────────
             let primaryLabel = "Enter Event";
             let primaryHref = `/events/${event.id}/questions`;
             let showPrimary = true;
             let isEnterEvent = false;
+            // Status message shown below badges when there's no button
+            let statusMessage: string | null = null;
 
-            if (joined && paymentRequired && !paid) {
+            if (!joined) {
+              // A) Not joined
+              isEnterEvent = true;
+            } else if (paymentRequired && !paid) {
+              // B) Joined but unpaid
               primaryLabel = "Pay to confirm";
               primaryHref = "";
-            } else if (joined && !completed) {
+            } else if (!completed) {
+              // C) Paid (or free) but questionnaire not done
               primaryLabel = "Complete Questions";
               primaryHref = `/events/${event.id}/questions`;
-            } else if (joined && completed) {
-              if (canViewMatches) {
-                primaryLabel = "View Matches";
-                primaryHref = `/match?event=${encodeURIComponent(event.id)}`;
-              } else {
-                primaryLabel = "Matches pending";
-                primaryHref = "#";
-                showPrimary = false;
-              }
+            } else if (!checkedIn) {
+              // D) Questions done, awaiting host check-in
+              primaryLabel = "Awaiting check-in";
+              showPrimary = false;
+              statusMessage = "Your spot is confirmed. The host will check you in at the event.";
+            } else if (!matchesRun) {
+              // E) Checked in, matching not yet run
+              primaryLabel = "Matches pending";
+              showPrimary = false;
+              statusMessage = "Matches will appear after the host runs matching.";
+            } else if (!hasRevealedMatches) {
+              // F) Matching done, no reveals yet
+              primaryLabel = "Ready — waiting for reveal";
+              showPrimary = false;
+              statusMessage = "Your matches are ready. The host will reveal them soon.";
             } else {
-              isEnterEvent = true;
+              // G) Has revealed matches
+              primaryLabel = "View Matches";
+              primaryHref = `/match?event=${encodeURIComponent(event.id)}`;
             }
+            // ──────────────────────────────────────────────────────────────
 
             return (
               <div
@@ -370,7 +382,7 @@ export function EventsListClient({
                     {formatEventDate(event.start_at || event.created_at)}
                   </p>
 
-                  {/* City + category meta line */}
+                  {/* City + category */}
                   {(event.city || event.category) && (
                     <p
                       className="text-xs mb-2"
@@ -410,21 +422,25 @@ export function EventsListClient({
                     {joined && !completed && totalQuestions > 0 && (
                       <Badge variant="warning">{answerCount}/{totalQuestions} answered</Badge>
                     )}
-                    {joined && completed && !matchesRun && (
+                    {joined && completed && checkedIn && !matchesRun && (
                       <Badge variant="warning">Matches pending</Badge>
+                    )}
+                    {joined && completed && checkedIn && matchesRun && !hasRevealedMatches && (
+                      <Badge variant="info">Ready — waiting for reveal</Badge>
                     )}
                   </div>
 
-                  {joined && completed && !matchesRun && (
+                  {/* Status message for non-button states */}
+                  {statusMessage && (
                     <p className="text-sm mb-3" style={{ color: "var(--text-muted)" }}>
-                      Matches will appear after the host runs matching.
+                      {statusMessage}
                     </p>
                   )}
 
                   {/* CTA */}
-                  {showPrimary && (
-                    <div className="mt-auto pt-2">
-                      {primaryLabel === "Pay to confirm" ? (
+                  <div className="mt-auto pt-2">
+                    {showPrimary ? (
+                      primaryLabel === "Pay to confirm" ? (
                         <PayToConfirmButton eventId={event.id} />
                       ) : isEnterEvent ? (
                         <Button
@@ -439,9 +455,9 @@ export function EventsListClient({
                         <Button href={primaryHref} size="md" fullWidth>
                           {primaryLabel}
                         </Button>
-                      )}
-                    </div>
-                  )}
+                      )
+                    ) : null}
+                  </div>
                 </div>
               </div>
             );
