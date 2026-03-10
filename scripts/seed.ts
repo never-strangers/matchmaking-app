@@ -507,8 +507,10 @@ async function runSeed(cfg: SeedConfig, dryRun: boolean) {
           const answerRows = ids.map((qid, qi) => ({
             event_id: eventId,
             profile_id: userId,
+            // question_id is NOT NULL in DB; when using event_questions path,
+            // store the event_question id there as a stand-in value.
             event_question_id: useEq ? qid : null,
-            question_id: useEq ? null : qid,
+            question_id: qid,
             answer: { value: answerVec[qi] ?? 3 },
             seed_run_id: seedRunId,
           }));
