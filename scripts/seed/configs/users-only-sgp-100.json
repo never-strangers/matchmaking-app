@@ -1,0 +1,18 @@
+{
+  "label": "users-only-sgp-100",
+  "city": "Singapore",
+  "users": {
+    "total": 100,
+    "genderSplit": {
+      "female": 55,
+      "male": 45
+    },
+    "statuses": {
+      "approved": 70,
+      "pending": 20,
+      "rejected": 10
+    },
+    "dobMinAge": 22,
+    "includeInstagram": false
+  }
+}

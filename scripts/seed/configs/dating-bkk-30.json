@@ -1,0 +1,47 @@
+{
+  "label": "demo-bkk-dating-30",
+  "city": "Bangkok",
+  "event": {
+    "titlePrefix": "[SEED:DATING30]",
+    "category": "dating",
+    "startAt": "+14d",
+    "payment": {
+      "required": true,
+      "priceCents": 4900,
+      "currency": "thb"
+    }
+  },
+  "users": {
+    "total": 30,
+    "genderSplit": {
+      "female": 18,
+      "male": 12
+    },
+    "statuses": {
+      "approved": 30,
+      "pending": 0,
+      "rejected": 0
+    },
+    "dobMinAge": 21,
+    "archetypes": [
+      "social_extrovert",
+      "deep_talker",
+      "balanced",
+      "adventurous"
+    ]
+  },
+  "attendees": {
+    "joinAllApproved": true,
+    "checkedIn": {
+      "mode": "all"
+    },
+    "questionnaire": {
+      "complete": true,
+      "questionsCount": 20,
+      "selection": "defaults"
+    },
+    "paymentStatus": {
+      "paidPercent": 100
+    }
+  }
+}

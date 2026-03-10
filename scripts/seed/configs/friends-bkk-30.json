@@ -1,0 +1,38 @@
+{
+  "label": "demo-bkk-friends-30",
+  "city": "Bangkok",
+  "event": {
+    "titlePrefix": "[SEED:FRIENDS30]",
+    "category": "friends",
+    "startAt": "+21d",
+    "payment": {
+      "required": false
+    }
+  },
+  "users": {
+    "total": 30,
+    "genderSplit": {
+      "female": 15,
+      "male": 14
+    },
+    "statuses": {
+      "approved": 30,
+      "pending": 0,
+      "rejected": 0
+    },
+    "dobMinAge": 21,
+    "includeInstagram": true
+  },
+  "attendees": {
+    "joinAllApproved": true,
+    "checkedIn": {
+      "mode": "percent",
+      "value": 70
+    },
+    "questionnaire": {
+      "complete": true,
+      "questionsCount": 25,
+      "selection": "defaults"
+    }
+  }
+}
