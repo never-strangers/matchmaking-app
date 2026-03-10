@@ -611,7 +611,7 @@ async function main() {
     console.log(`\n🧹 --force: cleaning existing label "${merged.label}" first…`);
     const { execSync } = await import("child_process");
     execSync(
-      `SEED_CONFIRM=true npx tsx ${path.join(__dirname, "cleanup.ts")} --label "${merged.label}"`,
+      `SEED_CONFIRM=true npx tsx "${path.join(__dirname, "cleanup.ts")}" --label "${merged.label}"`,
       { stdio: "inherit" }
     );
   }
