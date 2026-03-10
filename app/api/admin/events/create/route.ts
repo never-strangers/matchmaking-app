@@ -73,21 +73,37 @@ async function createEventWithDirectInserts(
   }
 
   const eventId = String(event.id);
-  const questionRows = DEFAULT_QUESTIONS.map((q) => ({
-    event_id: eventId,
-    prompt: q.prompt,
-    type: q.type,
-    options: q.options,
-    weight: q.weight,
-    order_index: q.order_index,
-  }));
 
-  const { error: questionsError } = await supabase.from("questions").insert(questionRows);
+  // A DB trigger may have already inserted default questions when the event was created.
+  // Check before inserting to avoid a duplicate-key error.
+  const { count: existingCount } = await supabase
+    .from("questions")
+    .select("id", { count: "exact", head: true })
+    .eq("event_id", eventId);
 
-  if (questionsError) {
-    console.error("Error inserting questions:", questionsError);
-    await supabase.from("events").delete().eq("id", eventId);
-    return null;
+  if (!existingCount || existingCount === 0) {
+    const questionRows = DEFAULT_QUESTIONS.map((q) => ({
+      event_id: eventId,
+      prompt: q.prompt,
+      type: q.type,
+      options: q.options,
+      weight: q.weight,
+      order_index: q.order_index,
+    }));
+
+    const { error: questionsError } = await supabase.from("questions").insert(questionRows);
+
+    if (questionsError) {
+      if (questionsError.code === "23505") {
+        // Race condition: trigger inserted questions between our count check and insert.
+        // The event itself was created successfully — carry on.
+        console.warn("Questions already seeded by trigger for event", eventId);
+      } else {
+        console.error("Error inserting questions:", questionsError);
+        await supabase.from("events").delete().eq("id", eventId);
+        return null;
+      }
+    }
   }
 
   return eventId;
@@ -151,8 +167,30 @@ export async function POST(req: NextRequest) {
     return Response.json({ ok: true, event_id: eventId });
   }
 
-  if (error?.code === "PGRST202" || (error && String(error.message).includes("function"))) {
-    const id = await createEventWithDirectInserts(supabase, name, description, startAt, endAt, city, category, whatsIncluded, priceCents, paymentRequired);
+  // Fall back to direct inserts when:
+  //   - The RPC function does not exist (PGRST202 / "function" in message)
+  //   - The RPC conflicts on the questions table (23505) — this happens when a DB
+  //     trigger pre-seeds questions on event insert AND the RPC also tries to insert them.
+  //     Postgres rolls back the whole RPC transaction in that case, so no partial data
+  //     is left behind and the direct-insert path can safely retry.
+  const isRpcMissing =
+    error?.code === "PGRST202" ||
+    String(error?.message ?? "").toLowerCase().includes("function");
+  const isQuestionConflict =
+    error?.code === "23505" &&
+    String(error?.message ?? "").toLowerCase().includes("question");
+
+  if (isRpcMissing || isQuestionConflict) {
+    if (isQuestionConflict) {
+      console.warn(
+        "RPC create_event_with_default_questions conflicted on questions (trigger already seeded them). " +
+        "Falling back to direct-insert path with trigger-aware question handling."
+      );
+    }
+    const id = await createEventWithDirectInserts(
+      supabase, name, description, startAt, endAt, city, category,
+      whatsIncluded, priceCents, paymentRequired
+    );
     if (id) {
       return Response.json({ ok: true, event_id: id });
     }
@@ -163,5 +201,8 @@ export async function POST(req: NextRequest) {
   }
 
   console.error("Error creating event:", error);
-  return new Response(error.message || "Failed to create event", { status: 500 });
+  return new Response(
+    JSON.stringify({ message: error.message || "Failed to create event" }),
+    { status: 500, headers: { "Content-Type": "application/json" } }
+  );
 }
