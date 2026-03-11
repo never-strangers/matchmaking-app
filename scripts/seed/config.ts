@@ -18,13 +18,15 @@ export type SeedConfig = {
   city: string;
 
   event?: {
+    /** If set, skip event creation and attach to this existing event UUID. */
+    id?: string;
     titlePrefix?: string;
-    category: "friends" | "dating";
-    /** ISO datetime or "+Nd" offset from now (e.g. "+14d") */
-    startAt: string;
-    /** ISO datetime or "+Nd" offset from now */
+    /** Required when creating a new event (id not set). */
+    category?: "friends" | "dating";
+    /** ISO datetime or "+Nd" offset from now. Required when creating a new event. */
+    startAt?: string;
     endAt?: string;
-    payment: {
+    payment?: {
       required: boolean;
       priceCents?: number;
       currency?: string;
@@ -50,6 +52,20 @@ export type SeedConfig = {
       questionsCount: number;
     } & QuestionSelection;
     paymentStatus?: { paidPercent: number };
+  };
+
+  /**
+   * When enabled, attach existing profiles instead of creating new users.
+   * Requires an event (either new or existing via event.id).
+   */
+  existingUsers?: {
+    enabled: boolean;
+    /** Filter profiles by city. Defaults to cfg.city or the event's city. */
+    city?: string;
+    /** Filter profiles by status. Default: "approved". */
+    status?: "approved" | "pending" | "any";
+    /** Explicit list of profile IDs. Overrides city/status filters. */
+    profileIds?: string[];
   };
 };
 
@@ -78,6 +94,7 @@ export function mergeWithDefaults(cfg: Partial<SeedConfig>): SeedConfig {
     event: cfg.event,
     users,
     attendees,
+    existingUsers: cfg.existingUsers,
   };
 }
 
@@ -86,17 +103,35 @@ export function validateConfig(cfg: SeedConfig): string[] {
   const errors: string[] = [];
 
   if (!cfg.label?.trim()) errors.push("label is required");
-  if (!cfg.city?.trim()) errors.push("city is required");
 
-  const { total, statuses, genderSplit } = cfg.users;
-  const statusSum = (statuses.approved ?? 0) + (statuses.pending ?? 0) + (statuses.rejected ?? 0);
-  if (statusSum !== total) {
-    errors.push(`users.statuses sum (${statusSum}) must equal users.total (${total})`);
+  const usingExistingEvent = !!cfg.event?.id;
+  const usingExistingUsers = cfg.existingUsers?.enabled === true;
+
+  // City is required unless we're attaching existing users to an existing event
+  // (in that case, city will be derived from the event row in the DB)
+  if (!cfg.city?.trim() && !(usingExistingEvent && usingExistingUsers)) {
+    errors.push("city is required");
   }
-  if (genderSplit) {
-    const gSum = (genderSplit.female ?? 0) + (genderSplit.male ?? 0);
-    if (gSum > total) {
-      errors.push(`genderSplit sum (${gSum}) exceeds users.total (${total})`);
+
+  // New-event fields are only required when not using an existing event
+  if (cfg.event && !usingExistingEvent) {
+    if (!cfg.event.category) errors.push("event.category is required when creating a new event");
+    if (!cfg.event.startAt) errors.push("event.startAt is required when creating a new event");
+    if (!cfg.event.payment) errors.push("event.payment is required when creating a new event");
+  }
+
+  // statuses sum check — skip for existing-user mode (total is used as a DB query limit)
+  if (!usingExistingUsers) {
+    const { total, statuses, genderSplit } = cfg.users;
+    const statusSum = (statuses.approved ?? 0) + (statuses.pending ?? 0) + (statuses.rejected ?? 0);
+    if (statusSum !== total) {
+      errors.push(`users.statuses sum (${statusSum}) must equal users.total (${total})`);
+    }
+    if (genderSplit) {
+      const gSum = (genderSplit.female ?? 0) + (genderSplit.male ?? 0);
+      if (gSum > total) {
+        errors.push(`genderSplit sum (${gSum}) exceeds users.total (${total})`);
+      }
     }
   }
 

@@ -109,6 +109,11 @@ type CliArgs = {
   checkedInValue?: number;
   force: boolean;
   dryRun: boolean;
+  eventId?: string;
+  existingUsers?: boolean;
+  existingUserCity?: string;
+  existingUserStatus?: string;
+  profileIds?: string[];
 };
 
 function parseArgs(argv: string[]): CliArgs {
@@ -129,6 +134,11 @@ function parseArgs(argv: string[]): CliArgs {
     else if (a === "--checkedInValue" && next) { args.checkedInValue = parseInt(next, 10); i++; }
     else if (a === "--force") { args.force = true; }
     else if (a === "--dry-run") { args.dryRun = true; }
+    else if (a === "--eventId" && next) { args.eventId = next; i++; }
+    else if (a === "--existingUsers") { args.existingUsers = true; }
+    else if (a === "--existingUserCity" && next) { args.existingUserCity = next; i++; }
+    else if (a === "--existingUserStatus" && next) { args.existingUserStatus = next; i++; }
+    else if (a === "--profileIds" && next) { args.profileIds = next.split(",").map(s => s.trim()); i++; }
   }
   return args;
 }
@@ -138,16 +148,22 @@ function buildConfigFromArgs(cli: CliArgs): Partial<SeedConfig> {
   if (cli.label) cfg.label = cli.label;
   if (cli.city) cfg.city = cli.city;
   if (cli.users) cfg.users = { total: cli.users, statuses: { approved: cli.users, pending: 0, rejected: 0 }, dobMinAge: 21 };
+  if (cli.eventId) cfg.event = { ...cfg.event, id: cli.eventId };
   if (cli.category || cli.paid || cli.price) {
     cfg.event = {
-      category: cli.category ?? "friends",
-      startAt: "+14d",
+      ...cfg.event,
+      category: cli.category ?? cfg.event?.category ?? "friends",
+      startAt: cfg.event?.startAt ?? "+14d",
       payment: {
         required: cli.paid ?? false,
         priceCents: cli.price,
       },
     };
   }
+  if (cli.existingUsers) cfg.existingUsers = { enabled: true };
+  if (cli.existingUserCity) cfg.existingUsers = { ...cfg.existingUsers, enabled: cfg.existingUsers?.enabled ?? false, city: cli.existingUserCity };
+  if (cli.existingUserStatus) cfg.existingUsers = { ...cfg.existingUsers, enabled: cfg.existingUsers?.enabled ?? false, status: cli.existingUserStatus as "approved" | "pending" | "any" };
+  if (cli.profileIds) cfg.existingUsers = { ...cfg.existingUsers, enabled: cfg.existingUsers?.enabled ?? false, profileIds: cli.profileIds };
   if (cli.questions || cli.questionsCount || cli.checkedIn) {
     const selection = cli.questions ?? "defaults";
     cfg.attendees = {
@@ -214,6 +230,42 @@ async function loadQuestionTemplates(
   return templates.slice(0, count);
 }
 
+
+// ── Answer insertion helper ───────────────────────────────────────────────────
+
+async function insertAnswersForProfile(
+  profileId: string,
+  eventId: string,
+  seedRunId: string,
+  archetypeIndex: number,
+  eventQuestionIds: string[],
+  questionIds: string[],
+  questionsCount: number,
+): Promise<string | null> {
+  const { data: existingAns } = await sb()
+    .from("answers")
+    .select("id")
+    .eq("event_id", eventId)
+    .eq("profile_id", profileId)
+    .limit(1);
+
+  if (existingAns?.length) return null; // already answered
+
+  const answerVec = makeAnswers(archetypeIndex, Math.max(eventQuestionIds.length, questionIds.length, questionsCount));
+  const useEq = eventQuestionIds.length > 0;
+  const ids = useEq ? eventQuestionIds : questionIds;
+  const answerRows = ids.map((qid, qi) => ({
+    event_id: eventId,
+    profile_id: profileId,
+    event_question_id: useEq ? qid : null,
+    question_id: qid,
+    answer: { value: answerVec[qi] ?? 3 },
+    seed_run_id: seedRunId,
+  }));
+  const { error: ansErr } = await sb().from("answers").insert(answerRows);
+  return ansErr ? ansErr.message : null;
+}
+
 // ── Gender distribution ───────────────────────────────────────────────────────
 
 function buildGenderList(cfg: SeedConfig): Gender[] {
@@ -241,26 +293,38 @@ function printDryRun(cfg: SeedConfig) {
   console.log("\n📋 Dry-run plan:\n");
   console.log(`  label:    ${cfg.label}`);
   console.log(`  city:     ${cfg.city}`);
-  const genders = buildGenderList(cfg);
-  const fCount = genders.filter((g) => g === "female").length;
-  const mCount = genders.filter((g) => g === "male").length;
-  const oCount = genders.filter((g) => g === "other").length;
-  console.log(`  users:    ${cfg.users.total} (${fCount}F / ${mCount}M${oCount ? ` / ${oCount}O` : ""})`);
-  console.log(`  statuses: approved=${cfg.users.statuses.approved} pending=${cfg.users.statuses.pending} rejected=${cfg.users.statuses.rejected}`);
+  if (cfg.existingUsers?.enabled) {
+    console.log(`  users:    ${cfg.users.total} (existing profiles)`);
+  } else {
+    const genders = buildGenderList(cfg);
+    const fCount = genders.filter((g) => g === "female").length;
+    const mCount = genders.filter((g) => g === "male").length;
+    const oCount = genders.filter((g) => g === "other").length;
+    console.log(`  users:    ${cfg.users.total} (${fCount}F / ${mCount}M${oCount ? ` / ${oCount}O` : ""})`);
+  }
+  if (!cfg.existingUsers?.enabled) {
+    console.log(`  statuses: approved=${cfg.users.statuses.approved} pending=${cfg.users.statuses.pending} rejected=${cfg.users.statuses.rejected}`);
+  }
 
-  if (cfg.event) {
-    const startAt = parseStartAt(cfg.event.startAt);
+  if (cfg.event?.id) {
+    console.log(`  event:    existing id=${cfg.event.id}`);
+  } else if (cfg.event) {
+    const startAt = parseStartAt(cfg.event.startAt ?? "+14d");
     const endAt = cfg.event.endAt ? parseStartAt(cfg.event.endAt) : new Date(new Date(startAt).getTime() + 4*3600_000).toISOString();
     console.log(`  event:    "${cfg.event.titlePrefix ?? "[SEED]"} ${cfg.city} ${cfg.event.category}" @ ${startAt.slice(0,16)}`);
     console.log(`            ends ${endAt.slice(0,16)}`);
-    console.log(`  payment:  ${cfg.event.payment.required ? `required (${cfg.event.payment.priceCents ?? 0} ${cfg.event.payment.currency ?? "thb"})` : "free"}`);
+    console.log(`  payment:  ${cfg.event.payment?.required ? `required (${cfg.event.payment.priceCents ?? 0} ${cfg.event.payment.currency ?? "thb"})` : "free"}`);
+  }
+  if (cfg.existingUsers?.enabled) {
+    console.log(`  users:    attach existing (city=${cfg.existingUsers.city ?? cfg.city} status=${cfg.existingUsers.status ?? "approved"})`);
+    if (cfg.existingUsers.profileIds?.length) console.log(`  profileIds: ${cfg.existingUsers.profileIds.join(", ")}`);
   }
 
   if (cfg.attendees) {
     const att = cfg.attendees;
     console.log(`  attendees: joinAll=${att.joinAllApproved} checkedIn=${JSON.stringify(att.checkedIn)}`);
     console.log(`  questions: ${att.questionnaire.questionsCount} (${att.questionnaire.selection}) complete=${att.questionnaire.complete}`);
-    const paidPct = att.paymentStatus?.paidPercent ?? (cfg.event?.payment.required ? 100 : 100);
+    const paidPct = att.paymentStatus?.paidPercent ?? (cfg.event?.payment?.required ? 100 : 100);
     console.log(`  paidPct:  ${paidPct}%`);
   }
 
@@ -305,29 +369,82 @@ async function runSeed(cfg: SeedConfig, dryRun: boolean) {
   const seedRunId: string = seedRun.id;
   console.log(`  seed_run_id: ${seedRunId}`);
 
-  // 4. Create event
+  // 4. Create event (or load existing)
   let eventId: string | null = null;
   let questionIds: string[] = [];
   let eventQuestionIds: string[] = []; // event_questions.id values (may be empty if table n/a)
   let ticketTypeId: string | null = null;
 
-  if (cfg.event) {
+  if (cfg.event?.id) {
+    // ── Existing event mode ────────────────────────────────────────────
+    const { data: existingEvent, error: evtErr } = await sb()
+      .from("events")
+      .select("id, city, category, payment_required, price_cents")
+      .eq("id", cfg.event.id)
+      .maybeSingle();
+
+    if (evtErr || !existingEvent) {
+      console.error(`❌ Event not found: ${cfg.event.id}`);
+      process.exit(1);
+    }
+
+    eventId = String(existingEvent.id);
+    // Derive city/category from the event row when not explicitly set
+    if (!cfg.city || cfg.city === "Bangkok") cfg.city = existingEvent.city ?? cfg.city;
+    if (!cfg.event.category) (cfg.event as { category?: string }).category = existingEvent.category;
+
+    console.log(`📌 Using existing event: ${eventId}`);
+    console.log(`   city=${existingEvent.city} category=${existingEvent.category}`);
+
+    // Load existing questions
+    if (cfg.attendees?.questionnaire?.complete) {
+      const { data: eqData } = await sb()
+        .from("event_questions")
+        .select("id, sort_order")
+        .eq("event_id", eventId)
+        .order("sort_order", { ascending: true });
+
+      if (eqData?.length) {
+        eventQuestionIds = eqData.map((q: { id: string }) => q.id);
+        console.log(`  ✓ Found ${eventQuestionIds.length} event_questions`);
+        if (eventQuestionIds.length < (cfg.attendees.questionnaire.questionsCount ?? 20)) {
+          console.warn(`  ⚠️  Only ${eventQuestionIds.length} event_questions (wanted ${cfg.attendees.questionnaire.questionsCount})`);
+        }
+      } else {
+        const { data: legacyQ } = await sb()
+          .from("questions")
+          .select("id, order_index")
+          .eq("event_id", eventId)
+          .order("order_index", { ascending: true });
+        if (legacyQ?.length) {
+          questionIds = legacyQ.map((q: { id: string }) => q.id);
+          console.log(`  ✓ Found ${questionIds.length} legacy questions`);
+        } else {
+          console.error(`❌ Event has no questions — cannot seed questionnaire answers`);
+          process.exit(1);
+        }
+      }
+    }
+
+  } else if (cfg.event) {
+    // ── New event mode ─────────────────────────────────────────────────
     console.log("\n🎉 Creating event…");
-    const startAt = parseStartAt(cfg.event.startAt);
-    const endAt = cfg.event.endAt
-      ? parseStartAt(cfg.event.endAt)
+    const evCfg = cfg.event as Required<Pick<NonNullable<typeof cfg.event>, "category" | "startAt" | "payment">> & typeof cfg.event;
+    const startAt = parseStartAt(evCfg.startAt);
+    const endAt = evCfg.endAt
+      ? parseStartAt(evCfg.endAt)
       : new Date(new Date(startAt).getTime() + 4 * 3600_000).toISOString();
-    const title = `${cfg.event.titlePrefix ?? "[SEED]"} ${cfg.city} ${cfg.event.category === "dating" ? "Dating Night" : "Friends Mixer"}`;
+    const title = `${evCfg.titlePrefix ?? "[SEED]"} ${cfg.city} ${evCfg.category === "dating" ? "Dating Night" : "Friends Mixer"}`;
     const { data: evt, error: evtErr } = await sb().from("events").insert({
       title,
-      description: `Seeded data (${cfg.label}) for admin testing. Category: ${cfg.event.category}.`,
+      description: `Seeded data (${cfg.label}) for admin testing. Category: ${evCfg.category}.`,
       city: cfg.city,
       start_at: startAt,
       end_at: endAt,
       status: "live",
-      category: cfg.event.category,
-      payment_required: cfg.event.payment.required,
-      price_cents: cfg.event.payment.priceCents ?? (cfg.event.payment.required ? 4900 : 0),
+      category: evCfg.category,
+      payment_required: evCfg.payment.required,
+      price_cents: evCfg.payment.priceCents ?? (evCfg.payment.required ? 4900 : 0),
       seed_run_id: seedRunId,
     }).select("id").single();
     if (evtErr || !evt) { console.error("❌ event:", evtErr?.message); process.exit(1); }
@@ -376,13 +493,13 @@ async function runSeed(cfg: SeedConfig, dryRun: boolean) {
     }
 
     // 4b. Ticket type
-    if (cfg.event.payment.required) {
+    if (evCfg.payment.required) {
       const { data: tt, error: ttErr } = await sb().from("event_ticket_types").insert({
         event_id: eventId,
         code: "general",
         name: "General Entry",
-        price_cents: cfg.event.payment.priceCents ?? 4900,
-        currency: cfg.event.payment.currency ?? "thb",
+        price_cents: evCfg.payment.priceCents ?? 4900,
+        currency: evCfg.payment.currency ?? "thb",
         cap: cfg.users.total + 10,
         sold: cfg.users.statuses.approved,
         is_active: true,
@@ -392,7 +509,7 @@ async function runSeed(cfg: SeedConfig, dryRun: boolean) {
     }
   }
 
-  // 5. Determine checked-in set
+  // 5. Determine checked-in count for new-user path
   const approvedCount = cfg.users.statuses.approved;
   let checkedInCount = approvedCount;
   const ciMode = cfg.attendees?.checkedIn ?? { mode: "all" };
@@ -402,129 +519,205 @@ async function runSeed(cfg: SeedConfig, dryRun: boolean) {
     checkedInCount = approvedCount - Math.max(1, Math.round(approvedCount * 0.1));
   }
 
-  // 6. Build user list
-  const genders = buildGenderList(cfg);
+  // 6. Create / attach users
   const dobMinAge = cfg.users.dobMinAge ?? 21;
   const now = new Date().toISOString();
   const paidPct = cfg.attendees?.paymentStatus?.paidPercent ?? 100;
 
-  console.log(`\n👥 Creating ${cfg.users.total} users…`);
-
   type CreatedProfile = { email: string; password: string; profileId: string; gender: Gender; firstName: string; lastName: string };
   const createdProfiles: CreatedProfile[] = [];
 
-  for (let i = 0; i < cfg.users.total; i++) {
-    const gender = genders[i] ?? "other";
-    const isOther = gender === "other";
-    const firstPool = gender === "female" ? FEMALE_FIRST : gender === "male" ? MALE_FIRST : [...FEMALE_FIRST, ...MALE_FIRST];
-    const firstName = firstPool[i % firstPool.length];
-    const lastName = LAST_NAMES[(i * 7 + 3) % LAST_NAMES.length];
-    const email = `seed+${cfg.label}+${String(i + 1).padStart(3, "0")}@neverstrangers.test`;
-    const password = `Seed1234!`;
-    const statusIdx = i < cfg.users.statuses.approved ? 0 : i < cfg.users.statuses.approved + cfg.users.statuses.pending ? 1 : 2;
-    const status = statusIdx === 0 ? "approved" : statusIdx === 1 ? "pending_verification" : "rejected";
-    const archIdx = i % ARCHETYPE_KEYS.length;
+  if (cfg.existingUsers?.enabled) {
+    // ── Existing-user mode: attach profiles from DB ───────────────────────
+    console.log(`\n👥 Selecting existing users…`);
 
-    process.stdout.write(`  [${i + 1}/${cfg.users.total}] ${email}… `);
+    let profileIdsToAttach: string[] = [];
 
-    // Create auth user
-    let userId: string | null = null;
-    const { data: authData, error: authErr } = await sb().auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-    });
-    if (authData?.user) {
-      userId = authData.user.id;
-    } else if (authErr?.message?.toLowerCase().includes("already been registered")) {
-      for (let pg = 1; pg <= 5 && !userId; pg++) {
-        const { data: listData } = await sb().auth.admin.listUsers({ page: pg, perPage: 100 });
-        const found = listData?.users?.find((u) => u.email?.toLowerCase() === email.toLowerCase());
-        if (found) userId = found.id;
-        if (!listData?.users?.length) break;
+    if (cfg.existingUsers.profileIds?.length) {
+      profileIdsToAttach = cfg.existingUsers.profileIds;
+      console.log(`  Using ${profileIdsToAttach.length} explicit profileIds`);
+    } else {
+      const city = cfg.existingUsers.city ?? cfg.city;
+      const status = cfg.existingUsers.status ?? "approved";
+      const limit = cfg.users.total;
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let query: any = sb()
+        .from("profiles")
+        .select("id")
+        .order("created_at", { ascending: true })
+        .limit(limit);
+
+      if (city) query = query.eq("city", city);
+      if (status !== "any") query = query.eq("status", status === "approved" ? "approved" : "pending_verification");
+
+      const { data: profileRows, error: profileErr } = await query;
+      if (profileErr) {
+        console.error("❌ Failed to load profiles:", profileErr.message);
+        process.exit(1);
       }
-      if (userId) process.stdout.write("(existing) ");
+
+      profileIdsToAttach = (profileRows || []).map((p: { id: string }) => p.id);
+      console.log(`  Found ${profileIdsToAttach.length} profiles (city=${city}, status=${status})`);
     }
-    if (!userId) { console.log(`SKIP (${authErr?.message})`); continue; }
 
-    // Build profile
-    const prefs = isOther || cfg.event?.category !== "dating"
-      ? buildFriendsPreferences({ gender: isOther ? "other" : gender as Gender })
-      : buildSeedPreferences({ gender: gender as "male" | "female" });
+    if (profileIdsToAttach.length === 0) {
+      console.error("❌ No profiles matched filters — aborting");
+      process.exit(1);
+    }
 
-    const { error: pErr } = await sb().from("profiles").upsert({
-      id: userId,
-      email,
-      name: `${firstName} ${lastName}`,
-      full_name: `${firstName} ${lastName}`,
-      display_name: firstName,
-      city: cfg.city,
-      gender: prefs.gender,
-      attracted_to: prefs.attracted_to,
-      orientation: prefs.orientation,
-      dob: deterministicDob(email, dobMinAge),
-      status,
-      role: "user",
-      instagram: cfg.users.includeInstagram ? `@${firstName.toLowerCase()}.${lastName.toLowerCase().slice(0,4)}` : null,
-      preferred_language: i % 6 === 0 ? "th" : "en",
-      reason: REASONS[i % REASONS.length],
-      seed_run_id: seedRunId,
-    }, { onConflict: "id" });
-    if (pErr) { console.log(`PROFILE ERR (${pErr.message})`); continue; }
+    if (eventId && cfg.attendees?.joinAllApproved !== false) {
+      console.log(`\n📋 Attaching ${profileIdsToAttach.length} users to event…`);
+      const paymentRequired = cfg.event?.payment?.required ?? false;
+      const euCheckedInCount = (() => {
+        const total = profileIdsToAttach.length;
+        const mode = cfg.attendees?.checkedIn ?? { mode: "all" };
+        if (mode.mode === "percent" && "value" in mode) return Math.round(total * (mode.value / 100));
+        if (mode.mode === "late") return total - Math.max(1, Math.round(total * 0.1));
+        return total;
+      })();
 
-    // Attendee (only approved users + event exists)
-    if (eventId && status === "approved" && cfg.attendees?.joinAllApproved) {
-      const approvedIndex = createdProfiles.filter(p => p.gender !== undefined).length; // track order
-      const isCheckedIn = approvedIndex < checkedInCount;
-      const isPaid = paidPct >= 100 || Math.random() * 100 < paidPct || !cfg.event?.payment.required;
-      const paymentStatus = !cfg.event?.payment.required
-        ? "free"
-        : isPaid
-        ? "paid"
-        : "unpaid";
-      const ticketStatus = isPaid ? "paid" : "reserved";
+      for (let i = 0; i < profileIdsToAttach.length; i++) {
+        const profileId = profileIdsToAttach[i];
+        const isCheckedIn = i < euCheckedInCount;
+        const isPaid = paidPct >= 100 || (i / profileIdsToAttach.length) * 100 < paidPct || !paymentRequired;
+        const paymentStatus = !paymentRequired ? "not_required" : isPaid ? "paid" : "unpaid";
 
-      const { error: attErr } = await sb().from("event_attendees").upsert({
-        event_id: eventId,
-        profile_id: userId,
-        ticket_type_id: ticketTypeId,
-        payment_status: paymentStatus,
-        ticket_status: ticketStatus,
-        paid_at: isPaid ? now : null,
-        checked_in: isCheckedIn,
-        checked_in_at: isCheckedIn ? now : null,
+        const { error: attErr } = await sb().from("event_attendees").upsert({
+          event_id: eventId,
+          profile_id: profileId,
+          payment_status: paymentStatus,
+          ticket_type_id: ticketTypeId,
+          checked_in: isCheckedIn,
+          checked_in_at: isCheckedIn ? now : null,
+          joined_at: now,
+          seed_run_id: seedRunId,
+        }, { onConflict: "event_id,profile_id" });
+        if (attErr) { process.stdout.write(`  [${i+1}/${profileIdsToAttach.length}] ${profileId} ATTENDEE ERR (${attErr.message})\n`); continue; }
+
+        if (cfg.attendees?.questionnaire.complete && isCheckedIn) {
+          const errMsg = await insertAnswersForProfile(
+            profileId, eventId, seedRunId, i % 4,
+            eventQuestionIds, questionIds,
+            cfg.attendees.questionnaire.questionsCount,
+          );
+          if (errMsg) { process.stdout.write(`  [${i+1}/${profileIdsToAttach.length}] ${profileId} ANSWERS ERR (${errMsg})\n`); continue; }
+        }
+
+        process.stdout.write(`  [${i+1}/${profileIdsToAttach.length}] ${profileId} ✓\n`);
+        createdProfiles.push({ email: profileId, password: "", profileId, gender: "other", firstName: profileId.slice(0, 8), lastName: "" });
+      }
+    }
+
+    console.log(`\n  ✅ ${createdProfiles.length}/${profileIdsToAttach.length} users attached`);
+
+  } else {
+    // ── New-user mode: create profiles from scratch ───────────────────────
+    const genders = buildGenderList(cfg);
+
+    console.log(`\n👥 Creating ${cfg.users.total} users…`);
+
+    for (let i = 0; i < cfg.users.total; i++) {
+      const gender = genders[i] ?? "other";
+      const isOther = gender === "other";
+      const firstPool = gender === "female" ? FEMALE_FIRST : gender === "male" ? MALE_FIRST : [...FEMALE_FIRST, ...MALE_FIRST];
+      const firstName = firstPool[i % firstPool.length];
+      const lastName = LAST_NAMES[(i * 7 + 3) % LAST_NAMES.length];
+      const email = `seed+${cfg.label}+${String(i + 1).padStart(3, "0")}@neverstrangers.test`;
+      const password = `Seed1234!`;
+      const statusIdx = i < cfg.users.statuses.approved ? 0 : i < cfg.users.statuses.approved + cfg.users.statuses.pending ? 1 : 2;
+      const status = statusIdx === 0 ? "approved" : statusIdx === 1 ? "pending_verification" : "rejected";
+      const archIdx = i % ARCHETYPE_KEYS.length;
+
+      process.stdout.write(`  [${i + 1}/${cfg.users.total}] ${email}… `);
+
+      // Create auth user
+      let userId: string | null = null;
+      const { data: authData, error: authErr } = await sb().auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+      });
+      if (authData?.user) {
+        userId = authData.user.id;
+      } else if (authErr?.message?.toLowerCase().includes("already been registered")) {
+        for (let pg = 1; pg <= 5 && !userId; pg++) {
+          const { data: listData } = await sb().auth.admin.listUsers({ page: pg, perPage: 100 });
+          const found = listData?.users?.find((u) => u.email?.toLowerCase() === email.toLowerCase());
+          if (found) userId = found.id;
+          if (!listData?.users?.length) break;
+        }
+        if (userId) process.stdout.write("(existing) ");
+      }
+      if (!userId) { console.log(`SKIP (${authErr?.message})`); continue; }
+
+      // Build profile
+      const prefs = isOther || cfg.event?.category !== "dating"
+        ? buildFriendsPreferences({ gender: isOther ? "other" : gender as Gender })
+        : buildSeedPreferences({ gender: gender as "male" | "female" });
+
+      const { error: pErr } = await sb().from("profiles").upsert({
+        id: userId,
+        email,
+        name: `${firstName} ${lastName}`,
+        full_name: `${firstName} ${lastName}`,
+        display_name: firstName,
+        city: cfg.city,
+        gender: prefs.gender,
+        attracted_to: prefs.attracted_to,
+        orientation: prefs.orientation,
+        dob: deterministicDob(email, dobMinAge),
+        status,
+        role: "user",
+        instagram: cfg.users.includeInstagram ? `@${firstName.toLowerCase()}.${lastName.toLowerCase().slice(0,4)}` : null,
+        preferred_language: i % 6 === 0 ? "th" : "en",
+        reason: REASONS[i % REASONS.length],
         seed_run_id: seedRunId,
-      }, { onConflict: "event_id,profile_id" });
-      if (attErr) { console.log(`ATTENDEE ERR (${attErr.message})`); continue; }
+      }, { onConflict: "id" });
+      if (pErr) { console.log(`PROFILE ERR (${pErr.message})`); continue; }
 
-      // Answers
-      if (cfg.attendees.questionnaire.complete && isCheckedIn) {
-        const { data: existingAns } = await sb().from("answers").select("id").eq("event_id", eventId).eq("profile_id", userId).limit(1);
-        if (!existingAns?.length) {
-          const answerVec = makeAnswers(archIdx, Math.max(eventQuestionIds.length, questionIds.length, 20));
-          const useEq = eventQuestionIds.length > 0;
-          const ids = useEq ? eventQuestionIds : questionIds;
-          const answerRows = ids.map((qid, qi) => ({
-            event_id: eventId,
-            profile_id: userId,
-            // question_id is NOT NULL in DB; when using event_questions path,
-            // store the event_question id there as a stand-in value.
-            event_question_id: useEq ? qid : null,
-            question_id: qid,
-            answer: { value: answerVec[qi] ?? 3 },
-            seed_run_id: seedRunId,
-          }));
-          const { error: ansErr } = await sb().from("answers").insert(answerRows);
-          if (ansErr) { console.log(`ANSWERS ERR (${ansErr.message})`); continue; }
+      // Attendee (only approved users + event exists)
+      if (eventId && status === "approved" && cfg.attendees?.joinAllApproved) {
+        const approvedIndex = createdProfiles.filter(p => p.gender !== undefined).length;
+        const isCheckedIn = approvedIndex < checkedInCount;
+        const isPaid = paidPct >= 100 || Math.random() * 100 < paidPct || !cfg.event?.payment?.required;
+        const paymentStatus = !cfg.event?.payment?.required
+          ? "free"
+          : isPaid
+          ? "paid"
+          : "unpaid";
+        const ticketStatus = isPaid ? "paid" : "reserved";
+
+        const { error: attErr } = await sb().from("event_attendees").upsert({
+          event_id: eventId,
+          profile_id: userId,
+          ticket_type_id: ticketTypeId,
+          payment_status: paymentStatus,
+          ticket_status: ticketStatus,
+          paid_at: isPaid ? now : null,
+          checked_in: isCheckedIn,
+          checked_in_at: isCheckedIn ? now : null,
+          seed_run_id: seedRunId,
+        }, { onConflict: "event_id,profile_id" });
+        if (attErr) { console.log(`ATTENDEE ERR (${attErr.message})`); continue; }
+
+        // Answers — use shared helper
+        if (cfg.attendees.questionnaire.complete && isCheckedIn) {
+          const errMsg = await insertAnswersForProfile(
+            userId, eventId, seedRunId, archIdx,
+            eventQuestionIds, questionIds,
+            cfg.attendees.questionnaire.questionsCount,
+          );
+          if (errMsg) { console.log(`ANSWERS ERR (${errMsg})`); continue; }
         }
       }
+
+      createdProfiles.push({ email, password, profileId: userId, gender: gender as Gender, firstName, lastName });
+      console.log("✓");
     }
 
-    createdProfiles.push({ email, password, profileId: userId, gender: gender as Gender, firstName, lastName });
-    console.log("✓");
+    console.log(`\n  ✅ ${createdProfiles.length}/${cfg.users.total} users created`);
   }
-
-  console.log(`\n  ✅ ${createdProfiles.length}/${cfg.users.total} users created`);
 
   // 7. Write output JSON
   const outputDir = path.join(__dirname, ".seed-output");
@@ -541,7 +734,7 @@ async function runSeed(cfg: SeedConfig, dryRun: boolean) {
     women: createdProfiles.filter((u) => u.gender === "female").length,
     men: createdProfiles.filter((u) => u.gender === "male").length,
     questions: eventQuestionIds.length || questionIds.length,
-    demo_accounts: {
+    demo_accounts: cfg.existingUsers?.enabled ? null : {
       female: createdProfiles.find((u) => u.gender === "female")
         ? { email: createdProfiles.find((u) => u.gender === "female")!.email, password: "Seed1234!", name: `${createdProfiles.find((u) => u.gender === "female")!.firstName} ${createdProfiles.find((u) => u.gender === "female")!.lastName}` }
         : null,
@@ -558,12 +751,18 @@ async function runSeed(cfg: SeedConfig, dryRun: boolean) {
   // 8. Print summary
   console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
   console.log("✅ Seed complete");
+  if (cfg.existingUsers?.enabled) {
+    console.log(`   Mode:        attach existing users`);
+    console.log(`   Profiles:    ${createdProfiles.length}`);
+  }
   if (eventId) {
     console.log(`   Event:       ${appUrl}/events/${eventId}`);
     console.log(`   Admin event: ${appUrl}/admin/events/${eventId}`);
   }
-  if (output.demo_accounts.female) console.log(`   Female demo: ${output.demo_accounts.female.email} / Seed1234!`);
-  if (output.demo_accounts.male)   console.log(`   Male demo:   ${output.demo_accounts.male.email} / Seed1234!`);
+  if (!cfg.existingUsers?.enabled && output.demo_accounts) {
+    if (output.demo_accounts.female) console.log(`   Female demo: ${output.demo_accounts.female.email} / Seed1234!`);
+    if (output.demo_accounts.male)   console.log(`   Male demo:   ${output.demo_accounts.male.email} / Seed1234!`);
+  }
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
 }
 

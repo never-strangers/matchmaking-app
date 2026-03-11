@@ -1,0 +1,36 @@
+{
+  "label": "attach-sg-30",
+  "city": "Singapore",
+  "event": {
+    "id": "REPLACE_WITH_EVENT_UUID"
+  },
+  "users": {
+    "total": 30,
+    "dobMinAge": 21,
+    "statuses": {
+      "approved": 30,
+      "pending": 0,
+      "rejected": 0
+    }
+  },
+  "existingUsers": {
+    "enabled": true,
+    "city": "Singapore",
+    "status": "approved"
+  },
+  "attendees": {
+    "joinAllApproved": true,
+    "checkedIn": {
+      "mode": "percent",
+      "value": 70
+    },
+    "questionnaire": {
+      "complete": true,
+      "questionsCount": 20,
+      "selection": "defaults"
+    },
+    "paymentStatus": {
+      "paidPercent": 100
+    }
+  }
+}
