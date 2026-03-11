@@ -68,15 +68,29 @@ export async function getAttendeesByEvent(
     profileMap.set(p.id, { display_name: p.display_name, phone_e164: last4 });
   });
 
-  const { data: questionRows } = await supabase
-    .from("questions")
+  // Prefer event_questions (new-style events); fall back to legacy questions table.
+  const { data: eqRows } = await supabase
+    .from("event_questions")
     .select("event_id, id")
     .in("event_id", eventIds);
-  const totalByEvent: Record<string, number> = {};
-  (questionRows || []).forEach((r: { event_id: string }) => {
+  const eqCountByEvent: Record<string, number> = {};
+  (eqRows || []).forEach((r: { event_id: string }) => {
     const eid = String(r.event_id);
-    totalByEvent[eid] = (totalByEvent[eid] || 0) + 1;
+    eqCountByEvent[eid] = (eqCountByEvent[eid] || 0) + 1;
   });
+  const legacyIds = eventIds.filter((id) => !eqCountByEvent[id]);
+  const legacyTotalByEvent: Record<string, number> = {};
+  if (legacyIds.length > 0) {
+    const { data: questionRows } = await supabase
+      .from("questions")
+      .select("event_id, id")
+      .in("event_id", legacyIds);
+    (questionRows || []).forEach((r: { event_id: string }) => {
+      const eid = String(r.event_id);
+      legacyTotalByEvent[eid] = (legacyTotalByEvent[eid] || 0) + 1;
+    });
+  }
+  const totalByEvent: Record<string, number> = { ...legacyTotalByEvent, ...eqCountByEvent };
 
   const { data: answerRows } = await supabase
     .from("answers")
