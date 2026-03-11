@@ -6,7 +6,8 @@
  *
  * Delete order (FK-safe):
  *   messages → conversations → match_results → match_rounds →
- *   answers → event_attendees → event_questions → questions → events →
+ *   match_runs → match_reveals → answers → event_attendees →
+ *   event_questions → questions → events →
  *   profiles → auth users → seed_runs
  */
 import "dotenv/config";
@@ -147,10 +148,14 @@ async function main() {
     results.push(await countAndDelete("conversations", "event_id", eventIds, dryRun));
     results.push(await countAndDelete("match_results", "event_id", eventIds, dryRun));
     results.push(await countAndDelete("match_rounds", "event_id", eventIds, dryRun));
+    results.push(await countAndDelete("match_runs", "event_id", eventIds, dryRun));
+    results.push(await countAndDelete("match_reveals", "event_id", eventIds, dryRun));
   } else {
     results.push({ table: "conversations", deleted: 0 });
     results.push({ table: "match_results", deleted: 0 });
     results.push({ table: "match_rounds", deleted: 0 });
+    results.push({ table: "match_runs", deleted: 0 });
+    results.push({ table: "match_reveals", deleted: 0 });
   }
 
   results.push(await countAndDelete("answers", "seed_run_id", runIds, dryRun));
