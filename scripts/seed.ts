@@ -595,7 +595,7 @@ async function runSeed(cfg: SeedConfig, dryRun: boolean) {
         }, { onConflict: "event_id,profile_id" });
         if (attErr) { process.stdout.write(`  [${i+1}/${profileIdsToAttach.length}] ${profileId} ATTENDEE ERR (${attErr.message})\n`); continue; }
 
-        if (cfg.attendees?.questionnaire.complete && isCheckedIn) {
+        if (cfg.attendees?.questionnaire.complete) {
           const errMsg = await insertAnswersForProfile(
             profileId, eventId, seedRunId, i % 4,
             eventQuestionIds, questionIds,
@@ -702,7 +702,7 @@ async function runSeed(cfg: SeedConfig, dryRun: boolean) {
         if (attErr) { console.log(`ATTENDEE ERR (${attErr.message})`); continue; }
 
         // Answers — use shared helper
-        if (cfg.attendees.questionnaire.complete && isCheckedIn) {
+        if (cfg.attendees.questionnaire.complete) {
           const errMsg = await insertAnswersForProfile(
             userId, eventId, seedRunId, archIdx,
             eventQuestionIds, questionIds,
