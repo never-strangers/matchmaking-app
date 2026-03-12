@@ -47,7 +47,7 @@ export async function assertPendingGating(page: Page): Promise<void> {
   await page.goto("/events");
   await expect(page).toHaveURL(/\/pending/);
 
-  await page.goto("/matches");
+  await page.goto("/match");
   await expect(page).toHaveURL(/\/pending/);
 }
 
@@ -57,7 +57,7 @@ export async function assertApprovedAccess(page: Page): Promise<void> {
   await expect(page.getByTestId("events-headline")).toBeVisible();
   await expect(page.getByTestId("events-list-container")).toBeVisible();
 
-  await page.goto("/matches");
+  await page.goto("/match");
   await expect(page).toHaveURL(/\/match/);
   // Page may show match list (headline + list) or empty state when there are no matches
   await expect(
