@@ -767,9 +767,10 @@ async function runSeed(cfg: SeedConfig, dryRun: boolean, e2e = false) {
     ...(e2e && e2eDesignees.admin && e2eDesignees.userA && e2eDesignees.userB && eventId ? {
       e2e: {
         paidEventId: eventId,
-        admin: { ...e2eDesignees.admin, passwordHint: "use SEED_USER_PASSWORD env when running E2E" },
-        userA: { ...e2eDesignees.userA, passwordHint: "use SEED_USER_PASSWORD env when running E2E" },
-        userB: { ...e2eDesignees.userB, passwordHint: "use SEED_USER_PASSWORD env when running E2E" },
+        password: "Seed1234!",
+        admin: e2eDesignees.admin,
+        userA: e2eDesignees.userA,
+        userB: e2eDesignees.userB,
       },
     } : {}),
   };

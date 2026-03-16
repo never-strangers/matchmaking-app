@@ -11,9 +11,10 @@ import { loginUser } from "./authHelpers";
 
 type SeedE2E = {
   paidEventId: string;
-  admin: { email: string; profileId: string; passwordHint: string };
-  userA: { email: string; profileId: string; passwordHint: string };
-  userB: { email: string; profileId: string; passwordHint: string };
+  password: string;
+  admin: { email: string; profileId: string };
+  userA: { email: string; profileId: string };
+  userB: { email: string; profileId: string };
 };
 
 function loadSeedE2E(): SeedE2E | null {
@@ -39,12 +40,8 @@ function loadSeedE2E(): SeedE2E | null {
   return null;
 }
 
-function getSeedPassword(): string {
-  const p =
-    process.env.E2E_SEED_PASSWORD ||
-    process.env.SEED_USER_PASSWORD;
-  if (!p) throw new Error("E2E_SEED_PASSWORD or SEED_USER_PASSWORD required for paid-event-to-chat E2E");
-  return p;
+function getSeedPassword(seed: SeedE2E): string {
+  return seed.password;
 }
 
 test.describe("paid event to chat", () => {
@@ -55,7 +52,7 @@ test.describe("paid event to chat", () => {
     browser,
     request,
   }) => {
-    const password = getSeedPassword();
+    const password = getSeedPassword(seed!);
     const baseURL = process.env.PLAYWRIGHT_BASE_URL || process.env.PLAYWRIGHT_TEST_BASE_URL || "http://localhost:3000";
 
     const userACreds = { email: seed!.userA.email, password };
