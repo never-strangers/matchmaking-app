@@ -114,6 +114,8 @@ type CliArgs = {
   existingUserCity?: string;
   existingUserStatus?: string;
   profileIds?: string[];
+  /** Emit an `e2e` section in the output JSON for use by paid-event-to-chat E2E test. */
+  e2e?: boolean;
 };
 
 function parseArgs(argv: string[]): CliArgs {
@@ -139,6 +141,7 @@ function parseArgs(argv: string[]): CliArgs {
     else if (a === "--existingUserCity" && next) { args.existingUserCity = next; i++; }
     else if (a === "--existingUserStatus" && next) { args.existingUserStatus = next; i++; }
     else if (a === "--profileIds" && next) { args.profileIds = next.split(",").map(s => s.trim()); i++; }
+    else if (a === "--e2e") { args.e2e = true; }
   }
   return args;
 }
@@ -333,7 +336,7 @@ function printDryRun(cfg: SeedConfig) {
 
 // ── Main seed ─────────────────────────────────────────────────────────────────
 
-async function runSeed(cfg: SeedConfig, dryRun: boolean) {
+async function runSeed(cfg: SeedConfig, dryRun: boolean, e2e = false) {
   console.log(`\n🌱 Seeding label="${cfg.label}" city="${cfg.city}"${dryRun ? " (DRY RUN)" : ""}…\n`);
 
   // 1. Check if seed_run already exists
@@ -527,6 +530,13 @@ async function runSeed(cfg: SeedConfig, dryRun: boolean) {
   type CreatedProfile = { email: string; password: string; profileId: string; gender: Gender; firstName: string; lastName: string };
   const createdProfiles: CreatedProfile[] = [];
 
+  // E2E designees: populated during the new-user loop when --e2e is set.
+  const e2eDesignees: {
+    admin?: { email: string; profileId: string };
+    userA?: { email: string; profileId: string };
+    userB?: { email: string; profileId: string };
+  } = {};
+
   if (cfg.existingUsers?.enabled) {
     // ── Existing-user mode: attach profiles from DB ───────────────────────
     console.log(`\n👥 Selecting existing users…`);
@@ -656,6 +666,12 @@ async function runSeed(cfg: SeedConfig, dryRun: boolean) {
         ? buildFriendsPreferences({ gender: isOther ? "other" : gender as Gender })
         : buildSeedPreferences({ gender: gender as "male" | "female" });
 
+      // Determine e2e role for this user (approvedIndex among currently created profiles)
+      const approvedIndexForRole = createdProfiles.filter(p => p.gender !== undefined).length;
+      const isE2EAdmin  = e2e && status === "approved" && approvedIndexForRole === 0;
+      const isE2EUserA  = e2e && status === "approved" && approvedIndexForRole === 1;
+      const isE2EUserB  = e2e && status === "approved" && approvedIndexForRole === 2;
+
       const { error: pErr } = await sb().from("profiles").upsert({
         id: userId,
         email,
@@ -668,7 +684,7 @@ async function runSeed(cfg: SeedConfig, dryRun: boolean) {
         orientation: prefs.orientation,
         dob: deterministicDob(email, dobMinAge),
         status,
-        role: "user",
+        role: isE2EAdmin ? "admin" : "user",
         instagram: cfg.users.includeInstagram ? `@${firstName.toLowerCase()}.${lastName.toLowerCase().slice(0,4)}` : null,
         preferred_language: i % 6 === 0 ? "th" : "en",
         reason: REASONS[i % REASONS.length],
@@ -676,11 +692,16 @@ async function runSeed(cfg: SeedConfig, dryRun: boolean) {
       }, { onConflict: "id" });
       if (pErr) { console.log(`PROFILE ERR (${pErr.message})`); continue; }
 
+      if (isE2EAdmin) e2eDesignees.admin = { email, profileId: userId };
+      if (isE2EUserA) e2eDesignees.userA = { email, profileId: userId };
+      if (isE2EUserB) e2eDesignees.userB = { email, profileId: userId };
+
       // Attendee (only approved users + event exists)
       if (eventId && status === "approved" && cfg.attendees?.joinAllApproved) {
         const approvedIndex = createdProfiles.filter(p => p.gender !== undefined).length;
-        const isCheckedIn = approvedIndex < checkedInCount;
-        const isPaid = paidPct >= 100 || Math.random() * 100 < paidPct || !cfg.event?.payment?.required;
+        // userA: paid but NOT checked in, NO answers (test will complete them)
+        const isCheckedIn = isE2EUserA ? false : approvedIndex < checkedInCount;
+        const isPaid = isE2EUserA || isE2EUserB || paidPct >= 100 || Math.random() * 100 < paidPct || !cfg.event?.payment?.required;
         const paymentStatus = !cfg.event?.payment?.required
           ? "free"
           : isPaid
@@ -701,8 +722,8 @@ async function runSeed(cfg: SeedConfig, dryRun: boolean) {
         }, { onConflict: "event_id,profile_id" });
         if (attErr) { console.log(`ATTENDEE ERR (${attErr.message})`); continue; }
 
-        // Answers — use shared helper
-        if (cfg.attendees.questionnaire.complete) {
+        // Answers — skip for userA so the test can complete them
+        if (cfg.attendees.questionnaire.complete && !isE2EUserA) {
           const errMsg = await insertAnswersForProfile(
             userId, eventId, seedRunId, archIdx,
             eventQuestionIds, questionIds,
@@ -743,6 +764,14 @@ async function runSeed(cfg: SeedConfig, dryRun: boolean) {
         : null,
     },
     generated_at: now,
+    ...(e2e && e2eDesignees.admin && e2eDesignees.userA && e2eDesignees.userB && eventId ? {
+      e2e: {
+        paidEventId: eventId,
+        admin: { ...e2eDesignees.admin, passwordHint: "use SEED_USER_PASSWORD env when running E2E" },
+        userA: { ...e2eDesignees.userA, passwordHint: "use SEED_USER_PASSWORD env when running E2E" },
+        userB: { ...e2eDesignees.userB, passwordHint: "use SEED_USER_PASSWORD env when running E2E" },
+      },
+    } : {}),
   };
   const outPath = path.join(outputDir, `${cfg.label}.json`);
   fs.writeFileSync(outPath, JSON.stringify(output, null, 2), "utf8");
@@ -815,7 +844,7 @@ async function main() {
     );
   }
 
-  await runSeed(merged, false);
+  await runSeed(merged, false, cli.e2e ?? false);
 }
 
 main().catch((e) => { console.error("Fatal:", e); process.exit(1); });

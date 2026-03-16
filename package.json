@@ -17,7 +17,7 @@
     "reset:events": "SEED_CONFIRM=true npx tsx scripts/cleanup.ts --label legacy-events && SEED_CONFIRM=true npx tsx scripts/seed.ts --label legacy-events --category friends --city Bangkok --users 10",
     "seed:test-data": "SEED_CONFIRM=true npx tsx scripts/seed.ts --label test-data --city Singapore --users 20 --category friends",
     "cleanup:test-data": "SEED_CONFIRM=true npx tsx scripts/cleanup.ts --label test-data",
-    "reset:test-data": "SEED_CONFIRM=true npx tsx scripts/cleanup.ts --label test-data && SEED_CONFIRM=true npx tsx scripts/seed.ts --label test-data --city Singapore --users 20 --category friends",
+    "reset:test-data": "SEED_CONFIRM=true npx tsx scripts/cleanup.ts --label test-data && SEED_CONFIRM=true npx tsx scripts/seed.ts --label test-data --city Singapore --users 20 --category friends --paid --e2e",
     "seed:demo": "node scripts/seed-demo.cjs",
     "seed:users": "node scripts/seed-e2e-users.cjs",
     "seed:question-templates": "SEED_CONFIRM=true npx tsx scripts/seed-question-templates.ts",

@@ -22,7 +22,8 @@ function loadSeedE2E(): SeedE2E | null {
   if (fs.existsSync(fixed)) {
     const raw = fs.readFileSync(fixed, "utf8");
     const data = JSON.parse(raw) as { e2e?: SeedE2E };
-    return data.e2e ?? null;
+    if (data.e2e) return data.e2e;
+    // fall through: test-data.json exists but has no e2e section (e.g. created by reset:test-data)
   }
   const dir = fs.readdirSync(base, { withFileTypes: true });
   const jsonFiles = dir
