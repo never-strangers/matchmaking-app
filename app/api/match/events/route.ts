@@ -37,7 +37,7 @@ export async function GET(_req: NextRequest) {
   const [{ data: eventRows }, { data: roundRows }] = await Promise.all([
     supabase
       .from("events")
-      .select("id, title, start_at, city, category, payment_required, poster_url")
+      .select("id, title, start_at, city, category, payment_required")
       .in("id", eventIds)
       .order("start_at", { ascending: false }),
     supabase
@@ -61,7 +61,7 @@ export async function GET(_req: NextRequest) {
 
   const events: MatchEventItem[] = (eventRows || []).map((ev: {
     id: string; title: string; start_at: string; city: string;
-    category: string; payment_required: boolean | null; poster_url: string | null;
+    category: string; payment_required: boolean | null;
   }) => {
     const paymentStatus = paymentStatusByEvent.get(String(ev.id)) ?? "unknown";
     const paymentRequired = ev.payment_required !== false;
@@ -77,7 +77,7 @@ export async function GET(_req: NextRequest) {
       start_at: ev.start_at,
       city: ev.city,
       category: ev.category as "friends" | "dating",
-      poster_url: ev.poster_url ?? null,
+      poster_url: null,
       hasRevealedMatches: lastRevealedRound > 0,
       revealedCount: lastRevealedRound,
       paymentStatus,
