@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/Card";
@@ -35,9 +35,11 @@ export function AdminEventsClient({ events, showCreateButton = true }: Props) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  useAdminRealtime(() => {
-    startTransition(() => router.refresh());
-  });
+  const handleRealtimeUpdate = useCallback(
+    () => startTransition(() => router.refresh()),
+    [router, startTransition]
+  );
+  useAdminRealtime(handleRealtimeUpdate);
 
   const refresh = () => startTransition(() => router.refresh());
 

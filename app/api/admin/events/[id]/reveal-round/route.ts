@@ -119,32 +119,39 @@ export async function POST(
     .eq("round", round);
 
   if (!pairsError && pairs && pairs.length > 0) {
-    for (const row of pairs as { id: string; a_profile_id: string; b_profile_id: string }[]) {
-      const a = String(row.a_profile_id);
-      const b = String(row.b_profile_id);
-      const { data: existing } = await supabase
+    const matchResultIds = pairs.map((r: { id: string }) => r.id);
+    const { data: existingConvos } = await supabase
+      .from("conversations")
+      .select("match_result_id")
+      .in("match_result_id", matchResultIds);
+    const existingMatchIds = new Set(
+      (existingConvos || []).map((c: { match_result_id: string }) => c.match_result_id)
+    );
+
+    const newPairs = (pairs as { id: string; a_profile_id: string; b_profile_id: string }[])
+      .filter((row) => !existingMatchIds.has(row.id));
+
+    if (newPairs.length > 0) {
+      const convosToInsert = newPairs.map((row) => ({
+        event_id: eventId,
+        match_result_id: row.id,
+        user_a_id: String(row.a_profile_id),
+        user_b_id: String(row.b_profile_id),
+      }));
+
+      const { data: insertedConvos } = await supabase
         .from("conversations")
-        .select("id")
-        .eq("match_result_id", row.id)
-        .maybeSingle();
-      if (existing) continue;
-      const { data: inserted } = await supabase
-        .from("conversations")
-        .insert({
-          event_id: eventId,
-          match_result_id: row.id,
-          user_a_id: a,
-          user_b_id: b,
-        })
-        .select("id")
-        .single();
-      if (inserted) {
-        await supabase.from("messages").insert({
-          conversation_id: inserted.id,
+        .insert(convosToInsert)
+        .select("id");
+
+      if (insertedConvos && insertedConvos.length > 0) {
+        const messagesToInsert = insertedConvos.map((c: { id: string }) => ({
+          conversation_id: c.id,
           sender_id: null,
           kind: "system",
-          body: "You've been matched. Say hi 👋",
-        });
+          body: "You’ve been matched. Say hi 👋",
+        }));
+        await supabase.from("messages").insert(messagesToInsert);
       }
     }
   }

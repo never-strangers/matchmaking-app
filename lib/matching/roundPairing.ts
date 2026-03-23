@@ -1,4 +1,4 @@
-import type { MatchUser, Question } from "@/types/questionnaire";
+import type { MatchUser, Question, AnswerValue } from "@/types/questionnaire";
 import { getMatchesForUser } from "./questionnaireMatch";
 
 export type PairWithScore = {
@@ -16,51 +16,60 @@ export type PairingOptions = {
   pairingMode?: "friends" | "dating";
 };
 
+function scoreOnly(
+  answersA: Record<string, AnswerValue>,
+  answersB: Record<string, AnswerValue>,
+  questions: Question[]
+): number | null {
+  let totalWeightedSim = 0;
+  let totalWeight = 0;
+  for (const q of questions) {
+    const a = answersA[q.id];
+    const b = answersB[q.id];
+    if (!a || !b) continue;
+    const diff = Math.abs(a - b);
+    if (q.isDealbreaker && diff >= 2) return null;
+    totalWeightedSim += (q.weight || 1) * (1 - diff / 3);
+    totalWeight += q.weight || 1;
+  }
+  return totalWeight === 0 ? 0 : Math.round((totalWeightedSim / totalWeight) * 100);
+}
+
+function isKnownGender(g: string | undefined): g is "male" | "female" {
+  return g === "male" || g === "female";
+}
+
 /**
  * Build all candidate pairs for eligible users with scores.
- * Pairs are normalized (a < b lexicographically). Sorted by score desc, then a, then b for determinism.
- *
- * When options.datingOnly is true, only male↔female pairs are generated.
- * MatchUser.gender must be 'male' or 'female'. Users with unknown/missing gender are excluded.
+ * Each unordered pair is scored exactly once (score is symmetric).
+ * Sorted by score desc, then a, then b for determinism.
  */
 export function buildAllPairs(
   users: MatchUser[],
   questions: Question[],
   options: PairingOptions = {}
 ): PairWithScore[] {
-  const pairMap = new Map<string, number>();
   const { pairingMode = "friends" } = options;
-
-  for (const user of users) {
-    const candidates = users.filter((u) => {
-      if (u.id === user.id) return false;
-      if (pairingMode === "dating") {
-        const g1 = user.gender?.toLowerCase();
-        const g2 = u.gender?.toLowerCase();
-        // Strict opposite-gender only: both genders must be known and different
-        const known = (g: string | undefined): g is "male" | "female" =>
-          g === "male" || g === "female";
-        if (!known(g1) || !known(g2)) return false; // exclude unknown genders
-        if (g1 === g2) return false;                 // exclude same-gender
-      }
-      return true;
-    });
-
-    const matches = getMatchesForUser(user, candidates, questions);
-    for (const m of matches) {
-      const other = m.user;
-      const [a, b] = [user.id, other.id].sort();
-      const key = `${a}_${b}`;
-      if (!pairMap.has(key)) {
-        pairMap.set(key, m.score);
-      }
-    }
-  }
-
   const pairs: PairWithScore[] = [];
-  for (const [key, score] of pairMap) {
-    const [a, b] = key.split("_");
-    pairs.push({ a, b, score });
+
+  for (let i = 0; i < users.length; i++) {
+    for (let j = i + 1; j < users.length; j++) {
+      const u1 = users[i];
+      const u2 = users[j];
+
+      if (pairingMode === "dating") {
+        const g1 = u1.gender?.toLowerCase();
+        const g2 = u2.gender?.toLowerCase();
+        if (!isKnownGender(g1) || !isKnownGender(g2)) continue;
+        if (g1 === g2) continue;
+      }
+
+      const score = scoreOnly(u1.answers, u2.answers, questions);
+      if (score === null) continue;
+
+      const [a, b] = [u1.id, u2.id].sort();
+      pairs.push({ a, b, score });
+    }
   }
 
   pairs.sort((x, y) => {

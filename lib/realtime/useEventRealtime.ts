@@ -1,13 +1,39 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { getSupabaseClient } from "@/lib/supabase/client";
+
+const DEBOUNCE_MS = 1500;
+
+function useDebouncedCallback(callback: () => void, delay: number) {
+  const callbackRef = useRef(callback);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  callbackRef.current = callback;
+
+  const debounced = useCallback(() => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      callbackRef.current();
+    }, delay);
+  }, [delay]);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
+
+  return debounced;
+}
 
 /**
  * Subscribe to match_runs, match_results, and likes for an event.
- * Calls onUpdate when any of these tables change for the given event_id.
+ * Calls onUpdate (debounced) when any of these tables change for the given event_id.
  */
 export function useEventRealtime(eventId: string, onUpdate: () => void) {
+  const debouncedUpdate = useDebouncedCallback(onUpdate, DEBOUNCE_MS);
+
   useEffect(() => {
     if (!eventId) return;
 
@@ -22,7 +48,7 @@ export function useEventRealtime(eventId: string, onUpdate: () => void) {
           table: "match_runs",
           filter: `event_id=eq.${eventId}`,
         },
-        () => onUpdate()
+        () => debouncedUpdate()
       )
       .on(
         "postgres_changes",
@@ -32,7 +58,7 @@ export function useEventRealtime(eventId: string, onUpdate: () => void) {
           table: "match_results",
           filter: `event_id=eq.${eventId}`,
         },
-        () => onUpdate()
+        () => debouncedUpdate()
       )
       .on(
         "postgres_changes",
@@ -42,14 +68,14 @@ export function useEventRealtime(eventId: string, onUpdate: () => void) {
           table: "likes",
           filter: `event_id=eq.${eventId}`,
         },
-        () => onUpdate()
+        () => debouncedUpdate()
       )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [eventId, onUpdate]);
+  }, [eventId, debouncedUpdate]);
 }
 
 /**
@@ -57,6 +83,8 @@ export function useEventRealtime(eventId: string, onUpdate: () => void) {
  * Use on admin dashboard to refresh when matching runs complete.
  */
 export function useAdminRealtime(onUpdate: () => void) {
+  const debouncedUpdate = useDebouncedCallback(onUpdate, DEBOUNCE_MS);
+
   useEffect(() => {
     const supabase = getSupabaseClient();
     const channel = supabase
@@ -68,7 +96,7 @@ export function useAdminRealtime(onUpdate: () => void) {
           schema: "public",
           table: "match_runs",
         },
-        () => onUpdate()
+        () => debouncedUpdate()
       )
       .on(
         "postgres_changes",
@@ -77,12 +105,12 @@ export function useAdminRealtime(onUpdate: () => void) {
           schema: "public",
           table: "match_results",
         },
-        () => onUpdate()
+        () => debouncedUpdate()
       )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [onUpdate]);
+  }, [debouncedUpdate]);
 }

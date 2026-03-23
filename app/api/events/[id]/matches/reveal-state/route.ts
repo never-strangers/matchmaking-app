@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { requireApprovedUserForApi } from "@/lib/auth/requireApprovedUser";
 import { getServiceSupabaseClient } from "@/lib/supabase/serverClient";
 import { getExplanationsForPair } from "@/lib/matching/questionnaireMatch";
-import type { QuestionnaireAnswers, Question } from "@/types/questionnaire";
+import { loadEventQuestionsAndAnswers } from "@/lib/matching/loadEventQuestions";
 
 export type RevealStatePayload = {
   revealedCount: number;
@@ -93,33 +93,10 @@ export async function GET(
     ])
   );
 
-  const { data: questionRows } = await supabase
-    .from("questions")
-    .select("id, prompt, weight")
-    .eq("event_id", eventId)
-    .order("order_index", { ascending: true });
-  const questions: Question[] = (questionRows || []).map((q: { id: string; prompt: string; weight: number }) => ({
-    id: String(q.id),
-    text: q.prompt,
-    category: "Custom" as Question["category"],
-    weight: Number(q.weight ?? 1),
-    isDealbreaker: false,
-  }));
-
-  const { data: answerRows } = await supabase
-    .from("answers")
-    .select("profile_id, question_id, answer")
-    .eq("event_id", eventId);
-  const answersByProfile = new Map<string, QuestionnaireAnswers>();
-  (answerRows || []).forEach((row: { profile_id: string; question_id: string; answer: unknown }) => {
-    const pid = String(row.profile_id);
-    const qid = String(row.question_id);
-    const v = row.answer as { value?: number } | number | null;
-    const n = typeof v === "number" ? v : typeof v?.value === "number" ? v.value : null;
-    if (!(n === 1 || n === 2 || n === 3 || n === 4)) return;
-    if (!answersByProfile.has(pid)) answersByProfile.set(pid, {});
-    answersByProfile.get(pid)![qid] = n as 1 | 2 | 3 | 4;
-  });
+  const { questions, answersByProfile } = await loadEventQuestionsAndAnswers(
+    supabase,
+    eventId
+  );
 
   const currentAnswers = answersByProfile.get(auth.profile_id);
   const profileIds = new Set<string>();
