@@ -180,25 +180,20 @@ async function getEventsPageData(
     (runRows || []).map((r: any) => String(r.event_id))
   );
 
-  // Reveal state: any revealed match for this user per event
+  // Reveal state: check match_rounds (source of truth for revealed rounds)
   const eventsWithRun = eventIds.filter((id) => matchesRunSet.has(id));
   const hasRevealedMatchesByEvent: Record<string, boolean> = {};
   if (eventsWithRun.length > 0) {
-    const { data: revealRows, error: revealErr } = await supabase
-      .from("match_reveals")
-      .select("event_id")
-      .eq("viewer_user_id", profileId)
-      .in("event_id", eventsWithRun)
-      .not("revealed_at", "is", null);
+    const { data: roundRows } = await supabase
+      .from("match_rounds")
+      .select("event_id, last_revealed_round")
+      .in("event_id", eventsWithRun);
 
-    if (!revealErr && revealRows) {
-      revealRows.forEach((r: any) => {
-        hasRevealedMatchesByEvent[String(r.event_id)] = true;
-      });
-    } else {
-      // Fallback: if table missing, treat matchesRun as revealed
-      eventsWithRun.forEach((id) => {
-        hasRevealedMatchesByEvent[id] = true;
+    if (roundRows) {
+      roundRows.forEach((r: { event_id: string; last_revealed_round: number }) => {
+        if (Number(r.last_revealed_round) > 0) {
+          hasRevealedMatchesByEvent[String(r.event_id)] = true;
+        }
       });
     }
   }
