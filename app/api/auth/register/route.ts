@@ -2,6 +2,8 @@ import { NextRequest } from "next/server";
 import { cookies } from "next/headers";
 import { getServiceSupabaseClient } from "@/lib/supabase/serverClient";
 import { verifyPendingInviteToken, signSessionToken, SessionRole } from "@/lib/auth/sessionToken";
+import { enqueueEmail } from "@/lib/email/send";
+import { applicationReceivedEmail } from "@/lib/email/templates";
 
 type RegisterBody = {
   display_name?: string;
@@ -241,6 +243,16 @@ export async function POST(req: NextRequest) {
     path: "/",
     maxAge: 7 * 24 * 60 * 60,
   });
+
+  // Fire-and-forget: application received email (only if user has a real email)
+  if (realEmail) {
+    void enqueueEmail(
+      `application-received:${String(inserted.id)}`,
+      "application_received",
+      realEmail,
+      applicationReceivedEmail((body.first_name ?? "").trim())
+    );
+  }
 
   return Response.json({ ok: true, redirect: "/pending" });
 }

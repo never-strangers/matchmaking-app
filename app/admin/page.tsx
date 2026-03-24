@@ -79,6 +79,19 @@ export default async function AdminPage() {
             </Button>
           </Card>
         </Link>
+        <Link href="/admin/emails">
+          <Card padding="lg" className="hover:shadow-md transition-shadow h-full">
+            <h3 className="text-base font-semibold mb-1" style={{ color: "var(--text)" }}>
+              Email Log
+            </h3>
+            <p className="text-sm mb-3" style={{ color: "var(--text-muted)" }}>
+              Audit log of all transactional emails sent by the platform.
+            </p>
+            <Button size="sm" variant="secondary">
+              View Emails →
+            </Button>
+          </Card>
+        </Link>
       </div>
     </div>
   );

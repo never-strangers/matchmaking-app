@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/adminClient";
+import { enqueueEmail } from "@/lib/email/send";
+import { applicationReceivedEmail } from "@/lib/email/templates";
 import {
   validateDob21Plus,
   parseDateOfBirth,
@@ -178,6 +180,14 @@ export async function POST(request: Request) {
         { status: 500 }
       );
     }
+
+    // Fire-and-forget: welcome email
+    void enqueueEmail(
+      `application-received:${userId}`,
+      "application_received",
+      normalizedEmail,
+      applicationReceivedEmail(first)
+    );
 
     return NextResponse.json({ ok: true, user_id: userId });
   } catch (e) {

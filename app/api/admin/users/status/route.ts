@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 import { getAuthUser } from "@/lib/auth/getAuthUser";
 import { getServiceSupabaseClient } from "@/lib/supabase/serverClient";
+import { enqueueEmail } from "@/lib/email/send";
+import { accountApprovedEmail, accountRejectedEmail } from "@/lib/email/templates";
 
 const VALID_STATUSES = ["approved", "rejected", "pending_verification"] as const;
 
@@ -66,6 +68,35 @@ export async function POST(req: NextRequest) {
         headers: { "Content-Type": "application/json" },
       }
     );
+  }
+
+  // Fire-and-forget: status change email
+  if (newStatus === "approved" || newStatus === "rejected") {
+    void (async () => {
+      try {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("email, name, city")
+          .eq("id", profileId)
+          .maybeSingle();
+        if (profile?.email && !profile.email.includes("@demo.local")) {
+          const firstName = (profile.name ?? "").split(" ")[0] ?? "";
+          const city = profile.city ?? "";
+          const tmpl =
+            newStatus === "approved"
+              ? accountApprovedEmail(firstName, city)
+              : accountRejectedEmail(firstName);
+          await enqueueEmail(
+            `status-${newStatus}:${profileId}`,
+            newStatus === "approved" ? "account_approved" : "account_rejected",
+            profile.email,
+            tmpl
+          );
+        }
+      } catch (err) {
+        console.error("[email] status email error:", err);
+      }
+    })();
   }
 
   return Response.json({ ok: true, profile: data });
