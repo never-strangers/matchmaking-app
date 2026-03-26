@@ -116,11 +116,13 @@ export default function RegisterPage() {
   const [attractedTo, setAttractedTo] = useState<string[]>([]);
   const [lookingFor, setLookingFor] = useState<string[]>([]);
   const [preferred_language, setPreferredLanguage] = useState("");
+  const [phone, setPhone] = useState("");
   const [instagram, setInstagram] = useState("");
   const [reason, setReason] = useState("");
   const [agreementMarketing, setAgreementMarketing] = useState(false);
   const [agreementAccurate, setAgreementAccurate] = useState(false);
   const [error, setError] = useState("");
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const toggleAttractedTo = (value: string) => {
@@ -163,25 +165,26 @@ export default function RegisterPage() {
 
     setSubmitting(true);
     try {
+      const fd = new FormData();
+      fd.append("email", email.trim());
+      fd.append("password", password);
+      fd.append("first_name", firstName.trim());
+      fd.append("last_name", lastName.trim());
+      fd.append("city", city.trim());
+      fd.append("dob", normalizedDob || "");
+      fd.append("gender", gender || "");
+      fd.append("attracted_to", JSON.stringify(attractedTo));
+      fd.append("looking_for", JSON.stringify(lookingFor));
+      fd.append("preferred_language", preferred_language || "");
+      fd.append("phone_e164", phone.trim());
+      fd.append("instagram", instagram.trim());
+      fd.append("reason", reason.trim());
+      fd.append("agreement_marketing", String(agreementMarketing));
+      fd.append("agreement_accurate", String(agreementAccurate));
+      if (photoFile) fd.append("photo", photoFile);
       const res = await fetch("/api/auth/signup", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: email.trim(),
-          password,
-          first_name: firstName.trim() || null,
-          last_name: lastName.trim() || null,
-          city: city.trim() || null,
-          dob: normalizedDob || null,
-          gender: gender || null,
-          attracted_to: attractedTo.length ? attractedTo : null,
-          looking_for: lookingFor.length ? lookingFor : null,
-          preferred_language: preferred_language || null,
-          instagram: instagram.trim() || null,
-          reason: reason.trim() || null,
-          agreement_marketing: agreementMarketing,
-          agreement_accurate: agreementAccurate,
-        }),
+        body: fd,
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -284,6 +287,22 @@ export default function RegisterPage() {
                 placeholder="Last name"
                 data-testid="register-last-name"
               />
+            </div>
+
+            <div>
+              <label htmlFor="phone" style={labelStyle}>Phone Number</label>
+              <StyledInput
+                id="phone"
+                type="tel"
+                autoComplete="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="+65 9123 4567"
+                data-testid="register-phone"
+              />
+              <p style={{ fontSize: 12, color: "var(--text-subtle)", marginTop: 4 }}>
+                Used for event & match communication. Optional.
+              </p>
             </div>
 
             <div>
@@ -421,6 +440,7 @@ export default function RegisterPage() {
                 type="file"
                 accept="image/jpeg,image/jpg,image/png,image/webp"
                 className="block w-full text-sm text-[var(--text-muted)] file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-[var(--primary)] file:text-white file:font-medium"
+                onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)}
                 data-testid="register-photo"
               />
               <p style={{ fontSize: 12, color: "var(--text-subtle)", marginTop: 4 }}>Optional</p>

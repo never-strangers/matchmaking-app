@@ -37,7 +37,10 @@ async function sendViaResend(opts: SendEmailOptions): Promise<SendEmailResult> {
     });
 
     if (error) {
-      return { status: "error", error: String(error) };
+      const msg = typeof error === "object" && error !== null && "message" in error
+        ? (error as { message: string }).message
+        : JSON.stringify(error);
+      return { status: "error", error: msg };
     }
     return { id: data?.id, status: "sent" };
   } catch (err) {

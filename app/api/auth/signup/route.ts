@@ -23,37 +23,52 @@ function extractMissingColumn(message: string | undefined): string | null {
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json().catch(() => ({}));
-    const {
-      email,
-      password,
-      first_name,
-      last_name,
-      city: cityBody,
-      dob,
-      gender,
-      attracted_to: attractedToBody,
-      looking_for: lookingForBody,
-      preferred_language,
-      instagram,
-      reason,
-    } = body;
+    // Accept both multipart/form-data (with photo) and application/json
+    let body: Record<string, unknown> = {};
+    let photoFile: File | null = null;
+    const contentType = request.headers.get("content-type") ?? "";
+    if (contentType.includes("multipart/form-data")) {
+      const fd = await request.formData();
+      for (const [key, value] of fd.entries()) {
+        if (key === "photo" && value instanceof File && value.size > 0) {
+          photoFile = value;
+        } else {
+          body[key] = value;
+        }
+      }
+    } else {
+      body = await request.json().catch(() => ({}));
+    }
+    const raw = body as Record<string, unknown>;
+    const email         = typeof raw.email          === "string" ? raw.email.trim()          : "";
+    const password      = typeof raw.password       === "string" ? raw.password               : "";
+    const first_name    = typeof raw.first_name     === "string" ? raw.first_name             : "";
+    const last_name     = typeof raw.last_name      === "string" ? raw.last_name              : "";
+    const cityBody      = typeof raw.city           === "string" ? raw.city                   : "";
+    const dobRaw        = typeof raw.dob            === "string" ? raw.dob.trim()             : "";
+    const gender        = typeof raw.gender         === "string" ? raw.gender                 : "";
+    const attractedToBody = raw.attracted_to;
+    const lookingForBody  = raw.looking_for;
+    const preferred_language = typeof raw.preferred_language === "string" ? raw.preferred_language : "";
+    const instagram     = typeof raw.instagram      === "string" ? raw.instagram.trim()       : "";
+    const reason        = typeof raw.reason         === "string" ? raw.reason.trim()          : "";
+    const phone_e164    = typeof raw.phone_e164     === "string" ? raw.phone_e164.trim()      : "";
 
-    if (!email || typeof email !== "string" || !email.trim()) {
+    if (!email) {
       return NextResponse.json(
         { error: "Email is required." },
         { status: 400 }
       );
     }
-    if (!password || typeof password !== "string" || password.length < 8) {
+    if (!password || password.length < 8) {
       return NextResponse.json(
         { error: "Password must be at least 8 characters." },
         { status: 400 }
       );
     }
 
-    const normalizedDob = dob ? (parseDateOfBirth(dob) ?? (!Number.isNaN(new Date(dob).getTime()) ? new Date(dob).toISOString().slice(0, 10) : null)) : null;
-    const dobError = validateDob21Plus(normalizedDob ?? dob);
+    const normalizedDob = dobRaw ? (parseDateOfBirth(dobRaw) ?? (!Number.isNaN(new Date(dobRaw).getTime()) ? new Date(dobRaw).toISOString().slice(0, 10) : null)) : null;
+    const dobError = validateDob21Plus(normalizedDob ?? dobRaw);
     if (dobError) {
       return NextResponse.json({ error: dobError }, { status: 400 });
     }
@@ -63,8 +78,7 @@ export async function POST(request: Request) {
     // Prevent re-application with the same email or Instagram if a profile
     // has already been explicitly rejected.
     const normalizedEmail = email.trim().toLowerCase();
-    const instagramValue =
-      typeof instagram === "string" ? instagram.trim() : "";
+    const instagramValue = instagram;
 
     const rejectionFilters: string[] = [];
     if (normalizedEmail) {
@@ -125,15 +139,19 @@ export async function POST(request: Request) {
       typeof cityBody === "string" && cityBody.trim()
         ? cityBody.trim().toLowerCase().slice(0, 20)
         : "sg";
-    const attractedToArr = Array.isArray(attractedToBody)
-      ? attractedToBody.filter((v) => typeof v === "string" && ["men", "women"].includes(String(v).toLowerCase()))
-      : typeof attractedToBody === "string" && attractedToBody.trim()
-        ? attractedToBody.split(/[,;]/).map((v) => v.trim().toLowerCase()).filter((v) => v === "men" || v === "women")
-        : [];
+    const parseStrArray = (v: unknown): string[] => {
+      if (Array.isArray(v)) return v.filter((x) => typeof x === "string");
+      if (typeof v === "string" && v.trim().startsWith("[")) {
+        try { return JSON.parse(v); } catch { /* fall through */ }
+      }
+      if (typeof v === "string" && v.trim()) return v.split(/[,;]/).map((s) => s.trim()).filter(Boolean);
+      return [];
+    };
+    const attractedToArr = parseStrArray(attractedToBody)
+      .filter((v) => ["men", "women"].includes(v.toLowerCase()));
     const attractedToStr = attractedToArr.length ? attractedToArr.join(",") : null;
-    const lookingForArr = Array.isArray(lookingForBody)
-      ? lookingForBody.filter((v) => typeof v === "string" && ["friends", "date"].includes(String(v).toLowerCase()))
-      : [];
+    const lookingForArr = parseStrArray(lookingForBody)
+      .filter((v) => ["friends", "date"].includes(v.toLowerCase()));
 
     const profileRow = {
       id: userId,
@@ -143,16 +161,16 @@ export async function POST(request: Request) {
       email: email.trim().toLowerCase(),
       city,
       status: "pending_verification",
-      dob: normalizedDob ?? (dob ? new Date(dob).toISOString().slice(0, 10) : null),
+      dob: normalizedDob ?? (dobRaw ? new Date(dobRaw).toISOString().slice(0, 10) : null),
       gender:
         normalizedGender && VALID_GENDERS.has(normalizedGender)
           ? normalizedGender
           : null,
       attracted_to: attractedToStr,
       preferred_language: lang && VALID_LANGUAGES.has(lang) ? lang : null,
-      instagram:
-        typeof instagram === "string" ? instagram.trim() || null : null,
-      reason: typeof reason === "string" ? reason.trim() || null : null,
+      instagram: instagram || null,
+      reason: reason || null,
+      phone_e164: phone_e164 || null,
       updated_at: new Date().toISOString(),
     };
     if (lookingForArr.length > 0) {
@@ -179,6 +197,28 @@ export async function POST(request: Request) {
         { error: profileError.message || "Profile save failed." },
         { status: 500 }
       );
+    }
+
+    // Upload avatar if provided
+    if (photoFile) {
+      const ALLOWED = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+      const EXT_MAP: Record<string, string> = { "image/jpeg": "jpg", "image/jpg": "jpg", "image/png": "png", "image/webp": "webp" };
+      if (ALLOWED.includes(photoFile.type) && photoFile.size <= 5 * 1024 * 1024) {
+        try {
+          const ext = EXT_MAP[photoFile.type] ?? "jpg";
+          const avatarPath = `${userId}/${crypto.randomUUID()}.${ext}`;
+          const buffer = Buffer.from(await photoFile.arrayBuffer());
+          const { error: uploadErr } = await supabase.storage
+            .from("avatars")
+            .upload(avatarPath, buffer, { contentType: photoFile.type, upsert: false });
+          if (!uploadErr) {
+            const now = new Date().toISOString();
+            await supabase.from("profiles").update({ avatar_path: avatarPath, avatar_updated_at: now }).eq("id", userId);
+          }
+        } catch {
+          // Non-fatal: profile created without avatar
+        }
+      }
     }
 
     // Fire-and-forget: welcome email

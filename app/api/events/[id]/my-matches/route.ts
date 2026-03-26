@@ -17,7 +17,7 @@ export type MyMatchesResponse = {
 };
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   const auth = await requireApprovedUserForApi();
@@ -26,12 +26,21 @@ export async function GET(
   const { id: eventId } = await context.params;
   const supabase = getServiceSupabaseClient();
 
-  const { data: attendee } = await supabase
-    .from("event_attendees")
-    .select("profile_id")
-    .eq("event_id", eventId)
-    .eq("profile_id", auth.profile_id)
-    .maybeSingle();
+  // --- Parallel group 1: attendee check + revealed round ---
+  const [{ data: attendee }, { data: roundsRow, error: roundsError }] =
+    await Promise.all([
+      supabase
+        .from("event_attendees")
+        .select("profile_id")
+        .eq("event_id", eventId)
+        .eq("profile_id", auth.profile_id)
+        .maybeSingle(),
+      supabase
+        .from("match_rounds")
+        .select("last_revealed_round")
+        .eq("event_id", eventId)
+        .maybeSingle(),
+    ]);
 
   if (!attendee) {
     return new Response(
@@ -39,12 +48,6 @@ export async function GET(
       { status: 403, headers: { "Content-Type": "application/json" } }
     );
   }
-
-  const { data: roundsRow, error: roundsError } = await supabase
-    .from("match_rounds")
-    .select("last_revealed_round")
-    .eq("event_id", eventId)
-    .maybeSingle();
 
   if (roundsError) {
     console.error("Error fetching match_rounds:", roundsError);
@@ -55,6 +58,12 @@ export async function GET(
   const nextRoundToWaitFor =
     lastRevealedRound < 3 ? lastRevealedRound + 1 : null;
 
+  // --- Cheap "nothing changed" check via sinceRound query param ---
+  const sinceRound = Number(req.nextUrl.searchParams.get("sinceRound") ?? "");
+  if (sinceRound > 0 && sinceRound === lastRevealedRound) {
+    return new Response(null, { status: 304 });
+  }
+
   if (lastRevealedRound < 1) {
     return Response.json({
       rounds: {},
@@ -64,27 +73,28 @@ export async function GET(
     } satisfies MyMatchesResponse);
   }
 
-  const { data: resultRows } = await supabase
-    .from("match_results")
-    .select("id, a_profile_id, b_profile_id, score, round")
-    .eq("event_id", eventId)
-    .lte("round", lastRevealedRound)
-    .order("round", { ascending: true });
+  // --- Parallel group 2: match results + questions/answers + current user profile ---
+  const [{ data: resultRows }, questionsAndAnswers, { data: myProfile }] =
+    await Promise.all([
+      supabase
+        .from("match_results")
+        .select("id, a_profile_id, b_profile_id, score, round")
+        .eq("event_id", eventId)
+        .lte("round", lastRevealedRound)
+        .order("round", { ascending: true }),
+      loadEventQuestionsAndAnswers(supabase, eventId),
+      supabase
+        .from("profiles")
+        .select("instagram")
+        .eq("id", auth.profile_id)
+        .maybeSingle(),
+    ]);
 
-  const matchResultIds = (resultRows || []).map((r: { id: string }) => r.id);
-  const { data: convRows } =
-    matchResultIds.length > 0
-      ? await supabase
-          .from("conversations")
-          .select("match_result_id, id")
-          .in("match_result_id", matchResultIds)
-      : { data: [] };
-  const conversationByMatchResult = new Map(
-    (convRows || []).map((c: { match_result_id: string; id: string }) => [
-      String(c.match_result_id),
-      String(c.id),
-    ])
-  );
+  const { questions, answersByProfile } = questionsAndAnswers;
+
+  const currentUserInstagram =
+    (myProfile as { instagram?: string | null } | null)?.instagram?.trim() ||
+    null;
 
   const myResults = (resultRows || []).filter(
     (r: { a_profile_id: string; b_profile_id: string }) =>
@@ -100,45 +110,34 @@ export async function GET(
     } satisfies MyMatchesResponse);
   }
 
-  const { data: myProfile } = await supabase
-    .from("profiles")
-    .select("instagram")
-    .eq("id", auth.profile_id)
-    .maybeSingle();
-  const currentUserInstagram =
-    (myProfile as { instagram?: string | null } | null)?.instagram?.trim() || null;
-
-  const conversationIds = myResults
-    .map((r) => conversationByMatchResult.get(String(r.id)))
-    .filter(Boolean) as string[];
-  const { data: sharedRows } =
-    conversationIds.length > 0
-      ? await supabase
-          .from("messages")
-          .select("conversation_id")
-          .eq("sender_id", auth.profile_id)
-          .eq("kind", "contact_share")
-          .in("conversation_id", conversationIds)
-      : { data: [] };
-  const conversationIdsWhereISharedInstagram = new Set(
-    (sharedRows || []).map((r: { conversation_id: string }) => r.conversation_id)
-  );
-
-  const { questions, answersByProfile } = await loadEventQuestionsAndAnswers(
-    supabase,
-    eventId
-  );
-
-  const currentAnswers = answersByProfile.get(auth.profile_id);
+  const matchResultIds = myResults.map((r: { id: string }) => r.id);
   const profileIds = new Set<string>();
   myResults.forEach((r: { a_profile_id: string; b_profile_id: string }) => {
     profileIds.add(String(r.a_profile_id));
     profileIds.add(String(r.b_profile_id));
   });
-  const { data: profileRows } = await supabase
-    .from("profiles")
-    .select("id, display_name")
-    .in("id", profileIds.size ? [...profileIds] : ["__none__"]);
+
+  // --- Parallel group 3: conversations + display names ---
+  const [{ data: convRows }, { data: profileRows }] = await Promise.all([
+    matchResultIds.length > 0
+      ? supabase
+          .from("conversations")
+          .select("match_result_id, id")
+          .in("match_result_id", matchResultIds)
+      : Promise.resolve({ data: [] as { match_result_id: string; id: string }[] }),
+    supabase
+      .from("profiles")
+      .select("id, display_name")
+      .in("id", [...profileIds]),
+  ]);
+
+  const conversationByMatchResult = new Map(
+    (convRows || []).map((c: { match_result_id: string; id: string }) => [
+      String(c.match_result_id),
+      String(c.id),
+    ])
+  );
+
   const profileNames = new Map(
     (profileRows || []).map(
       (p: { id: string; display_name: string | null }) => [
@@ -148,6 +147,28 @@ export async function GET(
     )
   );
 
+  // --- Parallel group 4: contact_share messages ---
+  const conversationIds = myResults
+    .map((r) => conversationByMatchResult.get(String(r.id)))
+    .filter(Boolean) as string[];
+
+  const { data: sharedRows } =
+    conversationIds.length > 0
+      ? await supabase
+          .from("messages")
+          .select("conversation_id")
+          .eq("sender_id", auth.profile_id)
+          .eq("kind", "contact_share")
+          .in("conversation_id", conversationIds)
+      : { data: [] };
+
+  const conversationIdsWhereISharedInstagram = new Set(
+    (sharedRows || []).map(
+      (r: { conversation_id: string }) => r.conversation_id
+    )
+  );
+
+  const currentAnswers = answersByProfile.get(auth.profile_id);
   const rounds: MyMatchesResponse["rounds"] = {};
 
   for (const r of myResults) {
@@ -169,7 +190,9 @@ export async function GET(
       score: Number(r.score),
       aligned: explanations.aligned,
       mismatched: explanations.mismatched,
-      instagramSharedByMe: cid ? conversationIdsWhereISharedInstagram.has(cid) : false,
+      instagramSharedByMe: cid
+        ? conversationIdsWhereISharedInstagram.has(cid)
+        : false,
     };
   }
 

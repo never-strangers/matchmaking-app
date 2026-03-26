@@ -30,18 +30,25 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 On macOS with iCloud Drive you may see two similar paths (e.g. two "Documents - Mikhail's MacBook Pro" with a `neverstrangers` folder each). Only **one** of them is the real Git repo (has a `.git` directory). Paths with spaces can also cause tools (and AI assistants) to resolve the wrong folder or create duplicate references.
 
-- **Recommended:** Use a path **without spaces**. Clone or move the repo to e.g. `~/Projects/neverstrangers` or `~/dev/neverstrangers`, then open that folder in Cursor. This avoids iCloud duplicate confusion and space-in-path issues.
+**CRITICAL — Apostrophe bug:** The real folder name contains a **curly/smart apostrophe** (Unicode U+2019 ‘’’) in "Mikhail’s". Some tools (AI agents, shell scripts, editors) write files using the **straight ASCII apostrophe** (U+0027 ‘\'’) instead, which silently creates a *second* folder that iCloud treats as a stub. This stub has no `.git`, so changes made there are invisible to version control.
+
+**Rules for AI agents and scripts:**
+- **NEVER** hard-code the path with a straight apostrophe (‘\'’). Always use the curly apostrophe (‘’’) or, better yet, resolve the path with a glob: `~/Documents/Documents*/neverstrangers`.
+- The `check-repo` script (`scripts/check-git-repo.cjs`) runs before `npm run dev` and `npm run build`. It auto-detects and **deletes** the stub folder if one appears.
+- If you must reference the Documents path, copy it from `pwd` output — never type the apostrophe manually.
+
+- **Recommended:** Use a path **without spaces or special characters**. Clone or move the repo to e.g. `~/Projects/neverstrangers` or `~/dev/neverstrangers`, then open that folder in Cursor. This avoids iCloud duplicate confusion entirely.
   ```bash
   mkdir -p ~/Projects
-  cp -R "/Users/$(whoami)/Documents/Documents - Mikhail's MacBook Pro/neverstrangers" ~/Projects/neverstrangers
+  cp -R ~/Documents/Documents*/neverstrangers ~/Projects/neverstrangers
   # Or: git clone <your-repo-url> ~/Projects/neverstrangers
   cd ~/Projects/neverstrangers
   ```
-  Then in Cursor: **File → Open Folder →** `~/Projects/neverstrangers`.
-- **If you stay in Documents:** Always open this project in Cursor/IDE from the folder where `git status` works (the one that contains `.git`). If you open the other path, edits won’t be in the repo and you’ll see "nothing to commit."
-- **Single source of truth**: use one canonical path. In Terminal, run `pwd` when you’re in the correct neverstrangers folder and use that path when opening the project.
-- **Check**: from project root, `ls -la .git` should list the `.git` directory. If it fails, you’re in the duplicate; close and open the other folder.
-- Running `npm run dev` (or `npm run build`) will fail with a clear message if you’re not in the Git repo.
+  Then in Cursor: **File > Open Folder >** `~/Projects/neverstrangers`.
+- **If you stay in Documents:** Always open this project in Cursor/IDE from the folder where `git status` works (the one that contains `.git`). If you open the other path, edits won't be in the repo and you'll see "nothing to commit."
+- **Single source of truth**: use one canonical path. In Terminal, run `pwd` when you're in the correct neverstrangers folder and use that path when opening the project.
+- **Check**: from project root, `ls -la .git` should list the `.git` directory. If it fails, you're in the duplicate; close and open the other folder.
+- Running `npm run dev` (or `npm run build`) will fail with a clear message if you're not in the Git repo.
 
 ## Common Development Commands
 

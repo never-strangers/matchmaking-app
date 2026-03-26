@@ -52,6 +52,7 @@ export async function POST(request: Request) {
       reason: reasonBody,
       reasons: _reasons, // accept typo from client
       username: _username, // intentionally ignore for WP migration compat
+      phone_e164,
     } = body;
     const reason = reasonBody ?? _reasons;
 
@@ -125,6 +126,10 @@ export async function POST(request: Request) {
     if (reason !== undefined) {
       updates.reason =
         typeof reason === "string" ? reason.trim() || null : null;
+    }
+    if (phone_e164 !== undefined) {
+      updates.phone_e164 =
+        typeof phone_e164 === "string" ? phone_e164.trim() || null : null;
     }
 
     if (Object.keys(updates).length === 0) {

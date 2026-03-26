@@ -41,6 +41,7 @@ type ProfileRow = {
   preferred_language: string | null;
   instagram: string | null;
   reason: string | null;
+  phone_e164: string | null;
 };
 
 const inputStyle: React.CSSProperties = {
@@ -143,6 +144,7 @@ export default function ProfilePage() {
     preferred_language: string | null;
     instagram: string | null;
     reason: string | null;
+    phone_e164: string | null;
   } | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [emailInput, setEmailInput] = useState("");
@@ -166,7 +168,7 @@ export default function ProfilePage() {
       setEmailInput(email ?? "");
       supabase
         .from("profiles")
-        .select("name, full_name, city, dob, gender, attracted_to, orientation, preferred_language, instagram, reason, avatar_path, avatar_updated_at")
+        .select("name, full_name, city, dob, gender, attracted_to, orientation, preferred_language, instagram, reason, avatar_path, avatar_updated_at, phone_e164")
         .eq("id", user.id)
         .single()
         .then(({ data }: { data: ProfileRow | null }) => {
@@ -197,6 +199,7 @@ export default function ProfilePage() {
               preferred_language: data.preferred_language ?? null,
               instagram: data.instagram ?? null,
               reason: data.reason ?? null,
+              phone_e164: data.phone_e164 ?? null,
             });
             setAvatarPath(data.avatar_path ?? null);
             setAvatarUpdatedAt(data.avatar_updated_at ?? null);
@@ -230,6 +233,7 @@ export default function ProfilePage() {
     preferred_language: null,
     instagram: null,
     reason: null,
+    phone_e164: null,
   });
 
   const toggleAttractedTo = (value: string) => {
@@ -363,6 +367,7 @@ export default function ProfilePage() {
           preferred_language: formData.get("preferred_language") || null,
           instagram: formData.get("instagram") || null,
           reason: formData.get("reason") || null,
+          phone_e164: formData.get("phone_e164") || null,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -383,6 +388,7 @@ export default function ProfilePage() {
         preferred_language: (formData.get("preferred_language") as string) || null,
         instagram: (formData.get("instagram") as string) || null,
         reason: (formData.get("reason") as string) || null,
+        phone_e164: (formData.get("phone_e164") as string) || null,
       });
     } catch {
       setError("Something went wrong. Please try again.");
@@ -543,6 +549,24 @@ export default function ProfilePage() {
             />
             <p style={{ fontSize: 12, color: "var(--text-subtle)", marginTop: 4 }}>
               Changing your email may require you to verify the new address.
+            </p>
+          </div>
+          <div>
+            <label htmlFor="phone_e164" style={labelStyle}>Phone Number</label>
+            <StyledInput
+              id="phone_e164"
+              name="phone_e164"
+              type="tel"
+              autoComplete="tel"
+              value={profile?.phone_e164 ?? ""}
+              onChange={(e) =>
+                setProfile((p) => (p ? { ...p, phone_e164: e.target.value || null } : { ...defaultProfile(), phone_e164: e.target.value || null }))
+              }
+              placeholder="+65 9123 4567"
+              data-testid="profile-phone"
+            />
+            <p style={{ fontSize: 12, color: "var(--text-subtle)", marginTop: 4 }}>
+              Used for event & match communication. Optional.
             </p>
           </div>
           <div>

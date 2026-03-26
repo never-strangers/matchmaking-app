@@ -59,7 +59,7 @@ export async function POST(
       .order("sort_order", { ascending: true }),
     supabase
       .from("answers")
-      .select("profile_id, question_id, answer")
+      .select("profile_id, question_id, event_question_id, answer")
       .eq("event_id", eventId),
     supabase
       .from("match_results")
@@ -195,19 +195,19 @@ export async function POST(
     }));
   }
 
-  if (questions.length < 20) {
+  if (questions.length < 1) {
     return new Response(
-      `Event needs at least 20 questions before matching can run (found ${questions.length}).`,
+      `Event needs at least 1 question before matching can run (found ${questions.length}).`,
       { status: 400 }
     );
   }
 
   // Build answers map
   const answersByProfile = new Map<string, QuestionnaireAnswers>();
-  (answersRes.data || []).forEach((row: { profile_id: string; question_id: string; answer: unknown }) => {
+  (answersRes.data || []).forEach((row: { profile_id: string; question_id: string; event_question_id: string | null; answer: unknown }) => {
     const pid = String(row.profile_id);
     if (!attendeeIds.includes(pid)) return;
-    const qid = String(row.question_id);
+    const qid = String(row.event_question_id ?? row.question_id);
     const v = row.answer as { value?: number } | number | null;
     const n =
       typeof v === "number"

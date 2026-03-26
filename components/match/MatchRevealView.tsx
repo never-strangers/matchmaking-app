@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { MatchCountdownOverlay } from "@/components/match/MatchCountdownOverlay";
@@ -13,29 +13,40 @@ type Props = {
   eventTitle: string;
 };
 
+const POLL_INTERVAL_WAITING = 5_000;
+const POLL_INTERVAL_IDLE = 30_000;
+
 export function MatchRevealView({ eventId, eventTitle }: Props) {
   const [data, setData] = useState<MyMatchesResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [phase, setPhase] = useState<"idle" | "countdown">("idle");
-  const [pendingRoundMatch, setPendingRoundMatch] = useState<RevealMatchPayload | null>(null);
+  const [pendingRoundMatch, setPendingRoundMatch] =
+    useState<RevealMatchPayload | null>(null);
   const [pendingRoundNum, setPendingRoundNum] = useState<number | null>(null);
   const [lastSeenRevealedRound, setLastSeenRevealedRound] = useState(0);
+  const lastSeenRef = useRef(0);
 
-  const fetchMyMatches = useCallback(async () => {
-    const res = await fetch(`/api/events/${eventId}/my-matches`, {
-      credentials: "include",
-    });
-    if (!res.ok) return null;
-    return (await res.json()) as MyMatchesResponse;
-  }, [eventId]);
+  const fetchMyMatches = useCallback(
+    async (sinceRound?: number) => {
+      const url = sinceRound
+        ? `/api/events/${eventId}/my-matches?sinceRound=${sinceRound}`
+        : `/api/events/${eventId}/my-matches`;
+      const res = await fetch(url, { credentials: "include" });
+      if (res.status === 304) return "not-modified" as const;
+      if (!res.ok) return null;
+      return (await res.json()) as MyMatchesResponse;
+    },
+    [eventId]
+  );
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       const d = await fetchMyMatches();
-      if (!cancelled && d) {
+      if (!cancelled && d && d !== "not-modified") {
         setData(d);
         setLastSeenRevealedRound(d.lastRevealedRound);
+        lastSeenRef.current = d.lastRevealedRound;
       }
       if (!cancelled) setLoading(false);
     })();
@@ -44,17 +55,23 @@ export function MatchRevealView({ eventId, eventTitle }: Props) {
     };
   }, [fetchMyMatches]);
 
-  // Poll for newly revealed round
   useEffect(() => {
     if (!data) return;
+
+    const allRevealed = data.nextRoundToWaitFor === null;
+    if (allRevealed) return;
+
     let cancelled = false;
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
     const poll = async () => {
       try {
-        const d = await fetchMyMatches();
+        const d = await fetchMyMatches(lastSeenRef.current);
         if (cancelled || !d) return;
-        if (d.lastRevealedRound > lastSeenRevealedRound) {
+
+        if (d === "not-modified") return;
+
+        if (d.lastRevealedRound > lastSeenRef.current) {
           const newRound = d.lastRevealedRound;
           const matchForNewRound = d.rounds[newRound as 1 | 2 | 3];
           if (matchForNewRound) {
@@ -62,23 +79,28 @@ export function MatchRevealView({ eventId, eventTitle }: Props) {
             setPendingRoundNum(newRound);
           }
           setLastSeenRevealedRound(d.lastRevealedRound);
+          lastSeenRef.current = d.lastRevealedRound;
           setData(d);
         }
       } catch {
-        // ignore
+        // ignore network errors
       } finally {
         if (!cancelled) {
-          timeoutId = setTimeout(poll, 3000);
+          const interval =
+            data.nextRoundToWaitFor != null
+              ? POLL_INTERVAL_WAITING
+              : POLL_INTERVAL_IDLE;
+          timeoutId = setTimeout(poll, interval);
         }
       }
     };
 
-    timeoutId = setTimeout(poll, 3000);
+    timeoutId = setTimeout(poll, POLL_INTERVAL_WAITING);
     return () => {
       cancelled = true;
       if (timeoutId) clearTimeout(timeoutId);
     };
-  }, [eventId, data, lastSeenRevealedRound, fetchMyMatches]);
+  }, [eventId, data, fetchMyMatches]);
 
   const onCountdownComplete = useCallback(() => {
     if (!pendingRoundMatch || pendingRoundNum == null) {
