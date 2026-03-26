@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 import { requireApprovedUserForApi } from "@/lib/auth/requireApprovedUser";
 import { getServiceSupabaseClient } from "@/lib/supabase/serverClient";
+import { enqueueEmail } from "@/lib/email/send";
+import { newMessageEmail } from "@/lib/email/templates";
 
 export async function GET(
   _req: NextRequest,
@@ -134,6 +136,40 @@ export async function POST(
       { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }
+
+  // Fire-and-forget: email the recipient on the first user message in the conversation
+  void (async () => {
+    try {
+      const { count: priorTextCount } = await supabase
+        .from("messages")
+        .select("*", { count: "exact", head: true })
+        .eq("conversation_id", conversationId)
+        .eq("kind", "text")
+        .neq("id", inserted.id);
+
+      if ((priorTextCount ?? 0) > 0) return;
+
+      const recipientId =
+        conv.user_a_id === auth.profile_id ? conv.user_b_id : conv.user_a_id;
+      const [recipientRes, senderRes] = await Promise.all([
+        supabase.from("profiles").select("email, name").eq("id", recipientId).maybeSingle(),
+        supabase.from("profiles").select("name").eq("id", auth.profile_id).maybeSingle(),
+      ]);
+      const recipient = recipientRes.data;
+      const sender = senderRes.data;
+      if (!recipient?.email || recipient.email.includes("@demo.local")) return;
+      const recipientFirstName = (recipient.name ?? "").split(" ")[0] ?? "";
+      const senderName = (sender?.name ?? "").split(" ")[0] || "Someone";
+      await enqueueEmail(
+        `first-message:${conversationId}`,
+        "new_message",
+        recipient.email,
+        newMessageEmail(recipientFirstName, senderName)
+      );
+    } catch (err) {
+      console.error("[email] first message notification error:", err);
+    }
+  })();
 
   return Response.json({
     id: inserted.id,

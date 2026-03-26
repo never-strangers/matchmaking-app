@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 import { getAuthUser } from "@/lib/auth/getAuthUser";
 import { getServiceSupabaseClient } from "@/lib/supabase/serverClient";
+import { enqueueEmail } from "@/lib/email/send";
+import { matchesRevealedEmail } from "@/lib/email/templates";
 
 type Round = 1 | 2 | 3;
 
@@ -37,7 +39,6 @@ export async function POST(
     );
   }
 
-  // Reveal requires this round to be computed first (match_results exist for this round)
   const { count: computedCount } = await supabase
     .from("match_results")
     .select("*", { count: "exact", head: true })
@@ -149,11 +150,58 @@ export async function POST(
           conversation_id: c.id,
           sender_id: null,
           kind: "system",
-          body: "You’ve been matched. Say hi 👋",
+          body: "You\u2019ve been matched. Say hi \uD83D\uDC4B",
         }));
         await supabase.from("messages").insert(messagesToInsert);
       }
     }
+
+    // Fire-and-forget: notify all matched participants via email
+    void (async () => {
+      try {
+        const profileIds = new Set<string>();
+        for (const p of pairs as { a_profile_id: string; b_profile_id: string }[]) {
+          profileIds.add(String(p.a_profile_id));
+          profileIds.add(String(p.b_profile_id));
+        }
+        const ids = Array.from(profileIds);
+        const [profilesRes, eventRes] = await Promise.all([
+          supabase.from("profiles").select("id, email, name").in("id", ids),
+          supabase.from("events").select("title").eq("id", eventId).maybeSingle(),
+        ]);
+        const eventTitle = (eventRes.data as { title?: string })?.title ?? "an event";
+        const profileMap = new Map(
+          (profilesRes.data || []).map((p: { id: string; email: string; name: string }) => [p.id, p])
+        );
+
+        // Count matches per profile in this round
+        const matchCounts = new Map<string, number>();
+        for (const p of pairs as { a_profile_id: string; b_profile_id: string }[]) {
+          const a = String(p.a_profile_id);
+          const b = String(p.b_profile_id);
+          matchCounts.set(a, (matchCounts.get(a) ?? 0) + 1);
+          matchCounts.set(b, (matchCounts.get(b) ?? 0) + 1);
+        }
+
+        const emailPromises: Promise<void>[] = [];
+        for (const [pid, count] of matchCounts) {
+          const profile = profileMap.get(pid) as { email?: string; name?: string } | undefined;
+          if (!profile?.email || profile.email.includes("@demo.local")) continue;
+          const firstName = (profile.name ?? "").split(" ")[0] ?? "";
+          emailPromises.push(
+            enqueueEmail(
+              `matches-revealed:${eventId}:r${round}:${pid}`,
+              "matches_revealed",
+              profile.email,
+              matchesRevealedEmail(firstName, eventTitle, count)
+            )
+          );
+        }
+        await Promise.all(emailPromises);
+      } catch (err) {
+        console.error("[email] matches revealed notification error:", err);
+      }
+    })();
   }
 
   const { count } = await supabase

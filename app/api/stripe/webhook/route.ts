@@ -2,11 +2,18 @@ import { NextRequest } from "next/server";
 import { headers } from "next/headers";
 import Stripe from "stripe";
 import { getServiceSupabaseClient } from "@/lib/supabase/serverClient";
+import { enqueueEmail } from "@/lib/email/send";
+import { paymentConfirmationEmail } from "@/lib/email/templates";
 
 function getStripe(): Stripe {
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key) throw new Error("STRIPE_SECRET_KEY is not set");
   return new Stripe(key, { apiVersion: "2025-02-24.acacia" });
+}
+
+function formatCurrency(cents: number, currency: string): string {
+  const major = (cents / 100).toFixed(2);
+  return `${currency.toUpperCase()} ${major}`;
 }
 
 export async function POST(req: NextRequest) {
@@ -84,6 +91,32 @@ export async function POST(req: NextRequest) {
       if (updateErr) {
         console.error("event_attendees update after checkout:", updateErr);
       }
+
+      // Fire-and-forget: payment confirmation email
+      void (async () => {
+        try {
+          const [profileRes, eventRes] = await Promise.all([
+            supabase.from("profiles").select("email, name").eq("id", profileId).maybeSingle(),
+            supabase.from("events").select("title, date, currency").eq("id", eventId).maybeSingle(),
+          ]);
+          const profile = profileRes.data;
+          const ev = eventRes.data;
+          if (!profile?.email || profile.email.includes("@demo.local")) return;
+          const firstName = (profile.name ?? "").split(" ")[0] ?? "";
+          const eventTitle = (ev as { title?: string })?.title ?? "an event";
+          const eventDate = (ev as { date?: string })?.date ?? "";
+          const currency = (ev as { currency?: string })?.currency ?? "sgd";
+          const amount = Number(session.amount_total ?? 0);
+          await enqueueEmail(
+            `payment-confirmed:${eventId}:${profileId}`,
+            "payment_confirmed",
+            profile.email,
+            paymentConfirmationEmail(firstName, eventTitle, eventDate, formatCurrency(amount, currency))
+          );
+        } catch (err) {
+          console.error("[email] payment confirmation error:", err);
+        }
+      })();
       break;
     }
     case "checkout.session.expired": {

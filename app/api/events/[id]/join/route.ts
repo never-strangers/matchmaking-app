@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 import { requireApprovedUserForApi } from "@/lib/auth/requireApprovedUser";
 import { getServiceSupabaseClient } from "@/lib/supabase/serverClient";
+import { enqueueEmail } from "@/lib/email/send";
+import { rsvpConfirmationEmail } from "@/lib/email/templates";
 
 export async function POST(
   _req: NextRequest,
@@ -14,7 +16,7 @@ export async function POST(
 
   const { data: event } = await supabase
     .from("events")
-    .select("id, payment_required, price_cents")
+    .select("id, title, date, payment_required, price_cents")
     .eq("id", eventId)
     .single();
 
@@ -46,8 +48,29 @@ export async function POST(
       .update({ payment_status: "free" })
       .eq("event_id", eventId)
       .eq("profile_id", auth.profile_id);
+
+    void (async () => {
+      try {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("email, name")
+          .eq("id", auth.profile_id)
+          .maybeSingle();
+        if (!profile?.email || profile.email.includes("@demo.local")) return;
+        const firstName = (profile.name ?? "").split(" ")[0] ?? "";
+        const eventTitle = (event as { title?: string })?.title ?? "an event";
+        const eventDate = (event as { date?: string })?.date ?? "";
+        await enqueueEmail(
+          `rsvp-confirmed:${eventId}:${auth.profile_id}`,
+          "rsvp_confirmed",
+          profile.email,
+          rsvpConfirmationEmail(firstName, eventTitle, eventDate)
+        );
+      } catch (err) {
+        console.error("[email] rsvp confirmation error:", err);
+      }
+    })();
   }
 
   return Response.json({ ok: true });
 }
-
