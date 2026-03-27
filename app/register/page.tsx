@@ -18,7 +18,7 @@ import {
 import { Button } from "@/components/ui/Button";
 
 const LABEL_WHY =
-  "Let's know more about you. Tell us why Never Strangers is for you!";
+  "Tell us a bit about yourself — this helps us find you a better match!";
 const LABEL_INSTAGRAM =
   "Vibe Check! What's Your Instagram? (With a clear picture of yourself in your display picture!)";
 const AGREEMENT_MARKETING =
@@ -150,12 +150,32 @@ export default function RegisterPage() {
       setError("Email is required.");
       return;
     }
+    if (!firstName.trim()) {
+      setError("First name is required.");
+      return;
+    }
     if (!password || password.length < 8) {
       setError("Password must be at least 8 characters.");
       return;
     }
     if (!city?.trim()) {
       setError("Please choose a city.");
+      return;
+    }
+    if (!gender) {
+      setError("Please select your gender.");
+      return;
+    }
+    if (attractedTo.length === 0) {
+      setError("Please select who you are attracted to.");
+      return;
+    }
+    if (lookingFor.length === 0) {
+      setError("Please select what you are looking for.");
+      return;
+    }
+    if (!reason.trim()) {
+      setError("Please tell us a bit about yourself — this helps us find you a better match.");
       return;
     }
     if (!agreementAccurate) {
@@ -417,7 +437,7 @@ export default function RegisterPage() {
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 rows={3}
-                placeholder="Tell us why you want to join"
+                placeholder="Share a bit about yourself, what you enjoy, and what you're looking for — the more you share, the better your matches"
                 data-testid="register-reason"
               />
             </div>

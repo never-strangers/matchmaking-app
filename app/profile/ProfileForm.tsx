@@ -86,6 +86,26 @@ export function ProfileForm({
       setLoading(false);
       return;
     }
+    if (!profile.dob?.trim()) {
+      setMessage({ type: "error", text: "Date of birth is required." });
+      setLoading(false);
+      return;
+    }
+    if (!profile.gender?.trim()) {
+      setMessage({ type: "error", text: "Please select your gender." });
+      setLoading(false);
+      return;
+    }
+    if (!profile.attracted_to?.trim()) {
+      setMessage({ type: "error", text: "Please select who you are attracted to." });
+      setLoading(false);
+      return;
+    }
+    if (!profile.reason?.trim()) {
+      setMessage({ type: "error", text: "Please tell us why Never Strangers is for you." });
+      setLoading(false);
+      return;
+    }
 
     const payload: ProfileUpdateInput = {
       username: profile.username || undefined,
