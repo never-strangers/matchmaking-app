@@ -5,6 +5,9 @@ import { getServiceSupabaseClient } from "@/lib/supabase/serverClient";
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
+import { AdminEventRow, DeletedEventRow } from "./AdminEventRows";
+
+const RECOVERY_DAYS = 30;
 
 type DbEvent = {
   id: string;
@@ -12,6 +15,7 @@ type DbEvent = {
   status: string;
   created_at: string | null;
   start_at?: string | null;
+  deleted_at?: string | null;
 };
 
 type EventsListData = {
@@ -20,37 +24,47 @@ type EventsListData = {
   totalMatches: number;
   upcoming: DbEvent[];
   past: DbEvent[];
+  trash: DbEvent[];
 };
 
 async function getEventsListData(
   supabase: ReturnType<typeof getServiceSupabaseClient>
 ): Promise<EventsListData> {
   const now = new Date().toISOString();
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - RECOVERY_DAYS);
+  const cutoffIso = cutoff.toISOString();
 
-  let events: DbEvent[] | null = null;
-  let eventsError: unknown = null;
-
-  const res = await supabase
+  // Active events
+  const { data: activeData, error: activeErr } = await supabase
     .from("events")
-    .select("id, title, status, created_at, start_at")
+    .select("id, title, status, created_at, start_at, deleted_at")
+    .is("deleted_at", null)
     .order("created_at", { ascending: true });
-  events = res.data as DbEvent[] | null;
-  eventsError = res.error;
 
-  if (eventsError) {
+  // Deleted events still within 30-day recovery window
+  const { data: trashData } = await supabase
+    .from("events")
+    .select("id, title, status, created_at, start_at, deleted_at")
+    .not("deleted_at", "is", null)
+    .gte("deleted_at", cutoffIso)
+    .order("deleted_at", { ascending: false });
+
+  let events: DbEvent[] = [];
+
+  if (activeErr) {
+    // Fallback: column may not exist yet (migration not applied)
     const fallback = await supabase
       .from("events")
       .select("id, title, status, created_at")
       .order("created_at", { ascending: true });
-    events = (fallback.data || []).map((e) => ({ ...e, start_at: null })) as DbEvent[];
-    if (fallback.error) {
-      console.error("Error loading events:", fallback.error);
-      return { totalEvents: 0, totalAttendees: 0, totalMatches: 0, upcoming: [], past: [] };
-    }
+    events = ((fallback.data || []) as DbEvent[]).map((e) => ({ ...e, start_at: null, deleted_at: null }));
+  } else {
+    events = (activeData || []) as DbEvent[];
   }
 
-  const allEvents = (events || []) as DbEvent[];
-  const eventIds = allEvents.map((e) => e.id);
+  const trash = (trashData || []) as DbEvent[];
+  const eventIds = events.map((e) => e.id);
 
   let totalAttendees = 0;
   let totalMatches = 0;
@@ -60,32 +74,24 @@ async function getEventsListData(
       supabase.from("event_attendees").select("event_id", { count: "exact", head: true }).in("event_id", eventIds),
       supabase.from("match_results").select("event_id", { count: "exact", head: true }).in("event_id", eventIds),
     ]);
-
     totalAttendees = attendeesRes.count ?? 0;
     totalMatches = matchesRes.count ?? 0;
   }
 
   const sortDate = (e: DbEvent) => (e.start_at || e.created_at || now) as string;
-  const upcoming = allEvents
+  const upcoming = events
     .filter((e) => sortDate(e) >= now)
     .sort((a, b) => sortDate(a).localeCompare(sortDate(b)));
-  const past = allEvents
+  const past = events
     .filter((e) => sortDate(e) < now)
     .sort((a, b) => sortDate(b).localeCompare(sortDate(a)));
 
-  return {
-    totalEvents: allEvents.length,
-    totalAttendees,
-    totalMatches,
-    upcoming,
-    past,
-  };
+  return { totalEvents: events.length, totalAttendees, totalMatches, upcoming, past, trash };
 }
 
 function formatDateLabel(dateStr: string | null | undefined): string {
   if (!dateStr) return "—";
-  const d = new Date(dateStr);
-  return d.toLocaleDateString(undefined, { day: "2-digit", month: "short" });
+  return new Date(dateStr).toLocaleDateString(undefined, { day: "2-digit", month: "short" });
 }
 
 export default async function AdminEventsPage() {
@@ -94,7 +100,7 @@ export default async function AdminEventsPage() {
   if (session.role !== "admin") redirect("/events");
 
   const supabase = getServiceSupabaseClient();
-  const { totalEvents, totalAttendees, totalMatches, upcoming, past } =
+  const { totalEvents, totalAttendees, totalMatches, upcoming, past, trash } =
     await getEventsListData(supabase);
 
   return (
@@ -120,34 +126,23 @@ export default async function AdminEventsPage() {
         </Link>
       </div>
 
+      {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <Card padding="md">
-          <p className="text-2xl font-semibold" style={{ color: "var(--text)" }}>
-            {totalEvents}
-          </p>
-          <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-            Total Events
-          </p>
+          <p className="text-2xl font-semibold" style={{ color: "var(--text)" }}>{totalEvents}</p>
+          <p className="text-sm" style={{ color: "var(--text-muted)" }}>Total Events</p>
         </Card>
         <Card padding="md">
-          <p className="text-2xl font-semibold" style={{ color: "var(--text)" }}>
-            {totalAttendees}
-          </p>
-          <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-            Total Attendees
-          </p>
+          <p className="text-2xl font-semibold" style={{ color: "var(--text)" }}>{totalAttendees}</p>
+          <p className="text-sm" style={{ color: "var(--text-muted)" }}>Total Attendees</p>
         </Card>
         <Card padding="md">
-          <p className="text-2xl font-semibold" style={{ color: "var(--text)" }}>
-            {totalMatches}
-          </p>
-          <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-            Total Matches
-          </p>
+          <p className="text-2xl font-semibold" style={{ color: "var(--text)" }}>{totalMatches}</p>
+          <p className="text-sm" style={{ color: "var(--text-muted)" }}>Total Matches</p>
         </Card>
       </div>
 
-      {totalEvents === 0 ? (
+      {totalEvents === 0 && trash.length === 0 ? (
         <Card padding="lg">
           <p style={{ color: "var(--text-muted)" }}>
             No events found. Create an event to get started.
@@ -155,64 +150,77 @@ export default async function AdminEventsPage() {
         </Card>
       ) : (
         <div className="space-y-8">
+          {/* Upcoming */}
           {upcoming.length > 0 && (
             <Card padding="lg">
               <h2 className="text-base font-semibold mb-4" style={{ color: "var(--text)" }}>
                 Upcoming Events
               </h2>
               <div className="divide-y" style={{ borderColor: "var(--border)" }}>
-                {upcoming.map((event) => {
-                  const sortDate = event.start_at || event.created_at;
-                  return (
-                    <Link
-                      key={event.id}
-                      href={`/admin/events/${event.id}`}
-                      className="flex items-center gap-4 py-3 block hover:bg-[var(--bg-muted)]/50 -mx-2 px-2 rounded-lg transition-colors"
-                      data-testid={`event-row-${event.id}`}
-                    >
-                      <span
-                        className="text-sm w-14 shrink-0"
-                        style={{ color: "var(--text-muted)" }}
-                      >
-                        {formatDateLabel(sortDate)}
-                      </span>
-                      <span className="font-medium" style={{ color: "var(--text)" }}>
-                        {event.title}
-                      </span>
-                    </Link>
-                  );
-                })}
+                {upcoming.map((event) => (
+                  <AdminEventRow
+                    key={event.id}
+                    event={{
+                      id: event.id,
+                      title: event.title,
+                      dateLabel: formatDateLabel(event.start_at || event.created_at),
+                    }}
+                  />
+                ))}
               </div>
             </Card>
           )}
 
+          {/* Past */}
           {past.length > 0 && (
             <Card padding="lg">
               <h2 className="text-base font-semibold mb-4" style={{ color: "var(--text)" }}>
                 Past Events
               </h2>
               <div className="divide-y" style={{ borderColor: "var(--border)" }}>
-                {past.map((event) => {
-                  const sortDate = event.start_at || event.created_at;
-                  return (
-                    <Link
-                      key={event.id}
-                      href={`/admin/events/${event.id}`}
-                      className="flex items-center gap-4 py-3 block hover:bg-[var(--bg-muted)]/50 -mx-2 px-2 rounded-lg transition-colors"
-                      data-testid={`event-row-${event.id}`}
-                    >
-                      <span
-                        className="text-sm w-14 shrink-0"
-                        style={{ color: "var(--text-muted)" }}
-                      >
-                        {formatDateLabel(sortDate)}
-                      </span>
-                      <span className="font-medium" style={{ color: "var(--text)" }}>
-                        {event.title}
-                      </span>
-                    </Link>
-                  );
-                })}
+                {past.map((event) => (
+                  <AdminEventRow
+                    key={event.id}
+                    event={{
+                      id: event.id,
+                      title: event.title,
+                      dateLabel: formatDateLabel(event.start_at || event.created_at),
+                    }}
+                  />
+                ))}
+              </div>
+            </Card>
+          )}
+
+          {/* Trash — deleted events within 30-day recovery window */}
+          {trash.length > 0 && (
+            <Card padding="lg">
+              <div className="flex items-center gap-2 mb-1">
+                <h2 className="text-base font-semibold" style={{ color: "var(--text-muted)" }}>
+                  Trash
+                </h2>
+                <span
+                  className="text-xs px-2 py-0.5 rounded-full"
+                  style={{ background: "var(--bg-muted)", color: "var(--text-muted)" }}
+                >
+                  {trash.length}
+                </span>
+              </div>
+              <p className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>
+                Deleted events are recoverable for 30 days, then permanently removed.
+              </p>
+              <div className="divide-y" style={{ borderColor: "var(--border)" }}>
+                {trash.map((event) => (
+                  <DeletedEventRow
+                    key={event.id}
+                    event={{
+                      id: event.id,
+                      title: event.title,
+                      dateLabel: formatDateLabel(event.start_at || event.created_at),
+                      deleted_at: event.deleted_at,
+                    }}
+                  />
+                ))}
               </div>
             </Card>
           )}

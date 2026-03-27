@@ -72,6 +72,7 @@ async function getEventsPageData(
       "id, title, status, city, category, created_at, start_at, payment_required, price_cents, poster_path"
     )
     .eq("status", "live")
+    .is("deleted_at", null)
     .order("start_at", { ascending: true, nullsFirst: false });
 
   events = res.data;
@@ -83,6 +84,7 @@ async function getEventsPageData(
       .from("events")
       .select("id, title, status, created_at")
       .eq("status", "live")
+      .is("deleted_at", null)
       .order("created_at", { ascending: true });
     events = fallback.data as typeof events;
     error = fallback.error;

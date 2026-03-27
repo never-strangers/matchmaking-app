@@ -71,3 +71,28 @@ export async function PATCH(
   }
   return Response.json({ ok: true });
 }
+
+// Soft-delete an event (recoverable for 30 days)
+export async function DELETE(
+  _req: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  const session = await getAuthUser();
+  if (!session) return new Response("Unauthorized", { status: 401 });
+  if (session.role !== "admin") return new Response("Forbidden", { status: 403 });
+
+  const { id: eventId } = await context.params;
+  const supabase = getServiceSupabaseClient();
+
+  const { error } = await supabase
+    .from("events")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("id", eventId)
+    .is("deleted_at", null); // prevent double-delete
+
+  if (error) {
+    console.error("Soft-delete event error:", error);
+    return new Response(error.message || "Delete failed", { status: 500 });
+  }
+  return Response.json({ ok: true });
+}
