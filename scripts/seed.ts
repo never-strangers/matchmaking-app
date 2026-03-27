@@ -27,6 +27,18 @@ import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { mergeWithDefaults, validateConfig, parseStartAt, type SeedConfig } from "./seed/config";
 import { buildSeedPreferences, buildFriendsPreferences, type Gender } from "./helpers/profileDefaults";
 
+
+// ── City code → full label (matches events.city in DB) ───────────────────────
+const CITY_CODE_TO_LABEL: Record<string, string> = {
+  sg: "Singapore", hk: "Hong Kong", bkk: "Bangkok",
+  kl: "Kuala Lumpur", mnl: "Manila", ceb: "Cebu",
+  bali: "Bali", tyo: "Tokyo",
+};
+/** Resolve a city code ("kl") or already-full label ("Kuala Lumpur") to the full label stored in events.city */
+function resolveCityLabel(city: string): string {
+  return CITY_CODE_TO_LABEL[city.trim().toLowerCase()] ?? city;
+}
+
 // ── Name pools ────────────────────────────────────────────────────────────────
 
 const FEMALE_FIRST = [
@@ -437,11 +449,12 @@ async function runSeed(cfg: SeedConfig, dryRun: boolean, e2e = false) {
     const endAt = evCfg.endAt
       ? parseStartAt(evCfg.endAt)
       : new Date(new Date(startAt).getTime() + 4 * 3600_000).toISOString();
-    const title = `${evCfg.titlePrefix ?? "[SEED]"} ${cfg.city} ${evCfg.category === "dating" ? "Dating Night" : "Friends Mixer"}`;
+    const cityLabel = resolveCityLabel(cfg.city);
+    const title = `${evCfg.titlePrefix ?? "[SEED]"} ${cityLabel} ${evCfg.category === "dating" ? "Dating Night" : "Friends Mixer"}`;
     const { data: evt, error: evtErr } = await sb().from("events").insert({
       title,
       description: `Seeded data (${cfg.label}) for admin testing. Category: ${evCfg.category}.`,
-      city: cfg.city,
+      city: cityLabel,
       start_at: startAt,
       end_at: endAt,
       status: "live",

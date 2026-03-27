@@ -40,10 +40,11 @@ export async function POST(
     .eq("event_id", eventId)
     .eq("checked_in", true);
   if (paymentRequired) {
+    // Paid events: only fully paid attendees are eligible
     attendeesQuery = attendeesQuery.eq("payment_status", "paid");
-  } else {
-    attendeesQuery = attendeesQuery.in("payment_status", ["free", "not_required", "paid"]);
   }
+  // Free events: all checked-in attendees are eligible regardless of payment_status
+  // (avoids excluding users whose payment_status wasn't explicitly set to "free")
 
   const [roundsRes, attendeesRes, eqRes, answersRes, existingResultsRes] = await Promise.all([
     supabase
