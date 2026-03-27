@@ -1,0 +1,47 @@
+{
+  "label": "demo-mnl-dating-free-25",
+  "city": "Manila",
+  "event": {
+    "titlePrefix": "[SEED:DATING-FREE-MNL-25]",
+    "category": "dating",
+    "startAt": "+14d",
+    "payment": {
+      "required": false,
+      "priceCents": 0,
+      "currency": "php"
+    }
+  },
+  "users": {
+    "total": 25,
+    "genderSplit": {
+      "female": 16,
+      "male": 9
+    },
+    "statuses": {
+      "approved": 25,
+      "pending": 0,
+      "rejected": 0
+    },
+    "dobMinAge": 21,
+    "archetypes": [
+      "social_extrovert",
+      "deep_talker",
+      "balanced",
+      "adventurous"
+    ]
+  },
+  "attendees": {
+    "joinAllApproved": true,
+    "checkedIn": {
+      "mode": "all"
+    },
+    "questionnaire": {
+      "complete": true,
+      "questionsCount": 20,
+      "selection": "defaults"
+    },
+    "paymentStatus": {
+      "paidPercent": 100
+    }
+  }
+}
