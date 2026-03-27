@@ -25,6 +25,7 @@ export async function GET(
     )
     .eq("id", eventId)
     .eq("status", "live")
+    .is("deleted_at", null)
     .maybeSingle();
 
   if (eventError || !event) {

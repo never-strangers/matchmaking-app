@@ -24,6 +24,7 @@ export default async function EventDetailPage({
     .select("id, title, description, status, start_at, end_at, city, category, whats_included, poster_path, payment_required, price_cents")
     .eq("id", eventId)
     .eq("status", "live")
+    .is("deleted_at", null)
     .maybeSingle();
 
   if (eventError || !event) {

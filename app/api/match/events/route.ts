@@ -38,6 +38,7 @@ export async function GET(_req: NextRequest) {
     supabase
       .from("events")
       .select("id, title, start_at, city, category, payment_required")
+      .is("deleted_at", null)
       .in("id", eventIds)
       .order("start_at", { ascending: false }),
     supabase

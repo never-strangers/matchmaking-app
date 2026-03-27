@@ -18,6 +18,7 @@ export async function POST(
     .from("events")
     .select("id, title, date, payment_required, price_cents")
     .eq("id", eventId)
+    .is("deleted_at", null)
     .single();
 
   const paymentRequired =
