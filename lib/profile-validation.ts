@@ -121,7 +121,5 @@ export function normalizeGender(
   const lower = value.toLowerCase().trim();
   if (lower === "male" || lower === "m") return "male";
   if (lower === "female" || lower === "f") return "female";
-  if (lower === "other" || lower === "others" || lower === "non-binary")
-    return "other";
   return null;
 }
