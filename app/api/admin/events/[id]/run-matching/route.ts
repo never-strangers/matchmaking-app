@@ -24,13 +24,17 @@ export async function POST(
   // Phase 1: Load event (needed to branch on payment_required / category)
   const { data: event, error: eventError } = await supabase
     .from("events")
-    .select("id, payment_required, category")
+    .select("id, payment_required, price_cents, category")
     .eq("id", eventId)
     .maybeSingle();
   if (eventError || !event) {
     return new Response("Event not found", { status: 404 });
   }
-  const paymentRequired = (event as { payment_required?: boolean }).payment_required !== false;
+  const priceCents = Number((event as { price_cents?: number }).price_cents ?? 0);
+  // paymentRequired is true only when explicitly required AND price > 0
+  const paymentRequired =
+    (event as { payment_required?: boolean }).payment_required !== false &&
+    priceCents > 0;
   const isDatingEvent = (event as { category?: string }).category === "dating";
 
   // Phase 2: Load everything else in parallel
