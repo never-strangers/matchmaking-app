@@ -154,8 +154,12 @@ export function EventsListClient({
   }, []);
 
   const handleCompleteQuestions = useCallback(() => {
-    if (selectedEventId) { closeModal(); router.push(`/events/${selectedEventId}/questions`); }
-  }, [selectedEventId, closeModal, router]);
+    if (selectedEventId) {
+      closeModal();
+      const qs = selectedCity ? `?returnCity=${encodeURIComponent(selectedCity)}` : "";
+      router.push(`/events/${selectedEventId}/questions${qs}`);
+    }
+  }, [selectedEventId, selectedCity, closeModal, router]);
 
   const handleContinueToEvent = useCallback(() => {
     if (selectedEventId) { closeModal(); router.push(`/events/${selectedEventId}`); }

@@ -32,6 +32,7 @@ type Props = {
   paymentStatus?: string;
   ticketTypes?: TicketType[];
   hasReservedTicket?: boolean;
+  returnCity?: string | null;
 };
 
 export function QuestionForm({
@@ -45,6 +46,7 @@ export function QuestionForm({
   paymentStatus = "unpaid",
   ticketTypes = [],
   hasReservedTicket: _initialHasReservedTicket = false,
+  returnCity = null,
 }: Props) {
   const router = useRouter();
   const [answers, setAnswers] = useState<Record<string, number>>({});
@@ -123,7 +125,10 @@ export function QuestionForm({
       );
       setHasSavedOnce(true);
       if (!paymentRequired || priceCents <= 0 || paymentStatus === "paid") {
-        router.push("/events");
+        const eventsUrl = returnCity
+          ? `/events?city=${encodeURIComponent(returnCity)}`
+          : "/events";
+        router.push(eventsUrl);
       }
     } catch (err) {
       console.error("Failed to save answers", err);

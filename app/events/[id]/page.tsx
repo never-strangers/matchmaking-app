@@ -39,7 +39,7 @@ export default async function EventDetailPage({
 
   const { data: attendee } = await supabase
     .from("event_attendees")
-    .select("payment_status, ticket_type_id, ticket_status")
+    .select("payment_status, ticket_type_id, ticket_status, checked_in")
     .eq("event_id", eventId)
     .eq("profile_id", session.profile_id)
     .maybeSingle();
@@ -55,14 +55,26 @@ export default async function EventDetailPage({
     .eq("event_id", eventId)
     .eq("profile_id", session.profile_id);
 
-  const { count: questionCount } = await supabase
-    .from("questions")
+  // Question count: prefer event_questions (new), fall back to questions (legacy)
+  const { count: eqCount } = await supabase
+    .from("event_questions")
     .select("id", { count: "exact", head: true })
     .eq("event_id", eventId);
 
-  const totalQuestions = questionCount ?? 0;
+  let totalQuestions = eqCount ?? 0;
+  if (totalQuestions === 0) {
+    const { count: legacyCount } = await supabase
+      .from("questions")
+      .select("id", { count: "exact", head: true })
+      .eq("event_id", eventId);
+    totalQuestions = legacyCount ?? 0;
+  }
+
   const answeredCount = answerCount ?? 0;
   const completed = totalQuestions > 0 && answeredCount >= totalQuestions;
+
+  // Check-in status
+  const checkedIn = !!(attendee as { checked_in?: boolean } | null)?.checked_in;
 
   const { data: runRow } = await supabase
     .from("match_runs")
@@ -73,13 +85,23 @@ export default async function EventDetailPage({
     .maybeSingle();
 
   const matchesRun = !!runRow;
+
+  // Reveal state
+  let hasRevealedMatches = false;
+  if (matchesRun) {
+    const { data: roundRow } = await supabase
+      .from("match_rounds")
+      .select("last_revealed_round")
+      .eq("event_id", eventId)
+      .maybeSingle();
+    hasRevealedMatches = Number(roundRow?.last_revealed_round ?? 0) > 0;
+  }
   const priceCents = Number((event as { price_cents?: number }).price_cents ?? 0);
   const paymentRequired = (event as { payment_required?: boolean }).payment_required !== false && priceCents > 0;
   const paid =
     paymentStatus === "paid" ||
     paymentStatus === "free" ||
     paymentStatus === "not_required";
-  const canViewMatches = matchesRun && (!paymentRequired || paid);
 
   const { data: ticketTypes } = await supabase
     .from("event_ticket_types")
@@ -93,27 +115,39 @@ export default async function EventDetailPage({
   let primaryLabel = "Enter Event";
   let primaryHref = `/events/${eventId}/questions`;
   let showPrimary = true;
-  // Questions come after payment: pay first, then questionnaire
-  if (joined && paymentRequired && !paid) {
+  let statusMessage: string | null = null;
+
+  if (!joined) {
+    // A) Not joined — default "Enter Event"
+  } else if (paymentRequired && !paid) {
+    // B) Joined but unpaid
     if (hasTicketTypes && !hasReservedTicket) {
       primaryLabel = "Select ticket";
-      primaryHref = ""; // ticket selection shown below
+      primaryHref = "";
     } else {
       primaryLabel = "Pay to confirm";
       primaryHref = "";
     }
-  } else if (joined && !completed) {
+  } else if (!completed) {
+    // C) Paid (or free) but questionnaire not done
     primaryLabel = "Complete Questions";
     primaryHref = `/events/${eventId}/questions`;
-  } else if (joined && completed) {
-    if (canViewMatches) {
-      primaryLabel = "View Matches";
-      primaryHref = `/match?event=${encodeURIComponent(eventId)}`;
-    } else {
-      primaryLabel = "Matches pending";
-      primaryHref = "#";
-      showPrimary = false;
-    }
+  } else if (!checkedIn) {
+    // D) Questions done, awaiting host check-in
+    showPrimary = false;
+    statusMessage = "Your spot is confirmed. The host will check you in at the event.";
+  } else if (!matchesRun) {
+    // E) Checked in, matching not yet run
+    showPrimary = false;
+    statusMessage = "Matches will appear after the host runs matching.";
+  } else if (!hasRevealedMatches) {
+    // F) Matching done, no reveals yet
+    showPrimary = false;
+    statusMessage = "Your matches are ready. The host will reveal them soon.";
+  } else {
+    // G) Has revealed matches
+    primaryLabel = "View Matches";
+    primaryHref = `/match?event=${encodeURIComponent(eventId)}`;
   }
 
   const category = (event as { category?: string }).category ?? "friends";
@@ -265,6 +299,11 @@ export default async function EventDetailPage({
             </div>
           )}
 
+          {statusMessage && (
+            <div className="mt-4 p-4 rounded-lg" style={{ backgroundColor: "var(--bg-subtle, var(--bg-panel))", border: "1px solid var(--border)" }}>
+              <p className="text-sm" style={{ color: "var(--text-muted)" }}>{statusMessage}</p>
+            </div>
+          )}
           {primaryLabel === "Select ticket" && hasTicketTypes && (
             <EventTicketReserveBlock
               eventId={eventId}

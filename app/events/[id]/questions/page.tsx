@@ -18,6 +18,7 @@ type DbAnswer = {
 
 type EventQuestionsPageProps = {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
 async function getEventQuestionsData(eventId: string, profileId: string) {
@@ -133,6 +134,8 @@ async function getEventQuestionsData(eventId: string, profileId: string) {
 export default async function EventQuestionsPage(props: EventQuestionsPageProps) {
   const { id: eventId } = await props.params;
   const session = await requireApprovedUser();
+  const resolvedSearch = props.searchParams ? await props.searchParams : {};
+  const returnCity = typeof resolvedSearch.returnCity === "string" ? resolvedSearch.returnCity : null;
 
   const {
     eventTitle,
@@ -166,7 +169,7 @@ export default async function EventQuestionsPage(props: EventQuestionsPageProps)
     <div className="max-w-5xl mx-auto px-4 py-8 sm:py-12">
       <div className="mb-6">
         <Link
-          href="/events"
+          href={returnCity ? `/events?city=${encodeURIComponent(returnCity)}` : "/events"}
           className="text-sm hover:underline inline-block mb-4"
           style={{ color: "var(--text-muted)" }}
         >
@@ -189,6 +192,7 @@ export default async function EventQuestionsPage(props: EventQuestionsPageProps)
         paymentStatus={paymentStatus}
         ticketTypes={ticketTypes}
         hasReservedTicket={hasReservedTicket}
+        returnCity={returnCity}
       />
     </div>
   );
