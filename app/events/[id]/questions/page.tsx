@@ -109,9 +109,10 @@ async function getEventQuestionsData(eventId: string, profileId: string) {
   const answeredCount = Object.keys(answersMap).length;
   const isComplete = totalQuestions > 0 && answeredCount >= totalQuestions;
 
-  const paymentRequired =
-    (eventRow as { payment_required?: boolean }).payment_required !== false;
   const priceCents = Number((eventRow as { price_cents?: number }).price_cents ?? 0);
+  const paymentRequired =
+    (eventRow as { payment_required?: boolean }).payment_required !== false &&
+    priceCents > 0;
   const paymentStatus = (attendeeRow as { payment_status?: string } | null)?.payment_status ?? "unpaid";
   const hasReservedTicket = !!(attendeeRow as { ticket_type_id?: string | null } | null)?.ticket_type_id;
   const ticketTypesList = (ticketTypes || []) as { id: string; code: string; name: string; price_cents: number; currency: string; cap: number; sold: number }[];
@@ -150,7 +151,11 @@ export default async function EventQuestionsPage(props: EventQuestionsPageProps)
   } = await getEventQuestionsData(eventId, session.profile_id);
 
   // Questions are shown after payment. If payment is required and not yet paid, send user to event page to pay first.
-  if (paymentRequired && paymentStatus !== "paid") {
+  const isPaid =
+    paymentStatus === "paid" ||
+    paymentStatus === "free" ||
+    paymentStatus === "not_required";
+  if (paymentRequired && !isPaid) {
     const supabase = getServiceSupabaseClient();
     await supabase
       .from("event_attendees")
