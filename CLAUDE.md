@@ -392,6 +392,39 @@ npx playwright test happy-path.spec.ts
 npx playwright show-trace trace.zip
 ```
 
+
+### Backing Up an Event (Production)
+
+Before running matching, resetting an event, or making bulk data changes — take a snapshot:
+
+```bash
+# Ad-hoc: run the inline node script (replace EVENT_ID)
+node - << 'EOF'
+# ... see scripts/backup-event-*.json for reference
+EOF
+```
+
+**What the backup captures** (all stored in `scripts/backup-event-<id>-<timestamp>.json`):
+- `event` — full event record
+- `event_questions` — all 30 questions configured for the event
+- `attendees` — all registrations + payment/check-in status
+- `profiles` — full profile data for every attendee (gender, DOB, city, attracted_to)
+- `answers` — all questionnaire answers (30 q × N attendees)
+- `match_rounds` — computed round metadata (pairs per round)
+- `match_results` — every computed match with scores
+- `match_reveals` — which matches have been revealed
+- `match_reveal_queue` — pending reveals
+- `likes` — mutual likes from match feed
+
+**When to back up:**
+- ✅ Before `Run Matching` (in case you need to re-run with different attendees)
+- ✅ Before `Reset event`
+- ✅ Before bulk-deleting attendees
+- ✅ After matching completes (archive the final state)
+
+**Backup files** live in `scripts/` with naming `backup-event-<short-id>-<ISO-timestamp>.json`.  
+They are git-ignored — do not commit them (may contain PII).
+
 ## Deployment
 
 **Vercel** (frontend):

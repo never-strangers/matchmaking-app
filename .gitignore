@@ -50,3 +50,7 @@ next-env.d.ts
 docs/security-scan-report.md
 
 
+
+# Event backups (may contain PII)
+scripts/backup-event-*.json
+scripts/.wp-migration-report.csv
