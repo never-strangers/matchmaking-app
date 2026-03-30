@@ -1,7 +1,13 @@
 /** Transactional email templates. All return { subject, html }. */
 
 const appName = "Never Strangers";
-const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://thisisneverstrangers.com";
+// Server-side emails must use the canonical production URL.
+// APP_URL (server-only) takes priority, then NEXT_PUBLIC_APP_URL, then hardcoded prod URL.
+const appUrl = (
+  process.env.APP_URL ||
+  process.env.NEXT_PUBLIC_APP_URL ||
+  "https://app.thisisneverstrangers.com"
+).replace(/\/$/, "");
 
 function base(content: string): string {
   return `<!DOCTYPE html>

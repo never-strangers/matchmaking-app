@@ -9,10 +9,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false }, { status: 200 });
     }
     const supabase = await createClient();
-    const siteUrl =
+    const siteUrl = (
+      process.env.APP_URL ||
       process.env.NEXT_PUBLIC_SITE_URL ||
       process.env.NEXT_PUBLIC_APP_URL ||
-      "http://localhost:3000";
+      "https://app.thisisneverstrangers.com"
+    ).replace(/\/$/, "");
     const redirectTo = `${siteUrl}/auth/reset-password`;
     await supabase.auth.resetPasswordForEmail(email, { redirectTo });
     return NextResponse.json({ ok: true }, { status: 200 });

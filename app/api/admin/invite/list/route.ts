@@ -8,7 +8,7 @@ export async function GET() {
   }
 
   const supabase = getServiceSupabaseClient();
-  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/$/, "");
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://app.thisisneverstrangers.com").replace(/\/$/, "");
 
   const { data, error } = await supabase
     .from("invited_users")

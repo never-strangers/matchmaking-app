@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
   }
 
   const supabase = getServiceSupabaseClient();
-  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/$/, "");
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://app.thisisneverstrangers.com").replace(/\/$/, "");
 
   // Get max guest number and existing phones to avoid clashes
   const { data: existing } = await supabase
