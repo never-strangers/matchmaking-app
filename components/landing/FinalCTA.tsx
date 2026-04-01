@@ -1,10 +1,19 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 import { useReveal } from "@/hooks/useReveal";
 
 export default function FinalCTA() {
   const ref = useReveal<HTMLElement>();
+  const [ctaHref, setCtaHref] = useState("/register");
+
+  useEffect(() => {
+    createClient().auth.getSession().then(({ data: { session } }) => {
+      if (session) setCtaHref("/events");
+    });
+  }, []);
 
   return (
     <section
@@ -44,7 +53,7 @@ export default function FinalCTA() {
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
           <Link
-            href="/register"
+            href={ctaHref}
             className="inline-flex items-center justify-center font-semibold transition-opacity hover:opacity-85"
             style={{
               backgroundColor: "#080808",

@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 
 const POLAROIDS = [
   {
@@ -51,6 +52,13 @@ const MOBILE_PHOTOS = [
 
 export default function Hero() {
   const polaroidRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const [ctaHref, setCtaHref] = useState("/register");
+
+  useEffect(() => {
+    createClient().auth.getSession().then(({ data: { session } }) => {
+      if (session) setCtaHref("/events");
+    });
+  }, []);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -163,7 +171,7 @@ export default function Hero() {
             </p>
 
             <Link
-              href="/register"
+              href={ctaHref}
               className="inline-flex items-center justify-center font-semibold transition-opacity hover:opacity-85"
               style={{
                 backgroundColor: "#080808",
