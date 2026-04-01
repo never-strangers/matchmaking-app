@@ -23,7 +23,60 @@ function useDebounce(value: string, ms: number): string {
 }
 
 function searchKey(a: AttendeeRow): string {
-  return `${a.displayName} ${a.phoneLast4}`.toLowerCase();
+  return `${a.displayName} ${a.phoneLast4} ${a.email ?? ""}`.toLowerCase();
+}
+
+function EmailCell({ email }: { email: string | null }) {
+  const [copied, setCopied] = useState(false);
+  if (!email) return <span style={{ color: "var(--text-muted)" }}>—</span>;
+
+  const handleCopy = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(email);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch { /* ignore */ }
+  };
+
+  return (
+    <span
+      style={{ display: "inline-flex", alignItems: "center", gap: 4, maxWidth: "100%" }}
+    >
+      <span
+        style={{
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+          maxWidth: "clamp(100px, 16vw, 220px)",
+          color: "var(--text-muted)",
+          fontSize: 13,
+        }}
+        title={email}
+      >
+        {email}
+      </span>
+      <button
+        type="button"
+        onClick={handleCopy}
+        aria-label={`Copy ${email}`}
+        title={copied ? "Copied!" : "Copy email"}
+        style={{
+          flexShrink: 0,
+          padding: "2px 4px",
+          background: "none",
+          border: "none",
+          cursor: "pointer",
+          color: copied ? "#16a34a" : "var(--text-muted)",
+          fontSize: 11,
+          borderRadius: 3,
+          lineHeight: 1,
+        }}
+      >
+        {copied ? "✓" : "⎘"}
+      </button>
+    </span>
+  );
 }
 
 function AttendeeTable({
@@ -48,7 +101,7 @@ function AttendeeTable({
             <th className="text-left py-2 pr-2 sm:pr-4 font-medium">Name</th>
             <th className="text-left py-2 pr-2 sm:pr-4 font-medium">Phone</th>
             <th className="text-left py-2 pr-2 sm:pr-4 font-medium">Payment</th>
-            <th className="text-left py-2 pr-2 sm:pr-4 font-medium">Ticket</th>
+            <th className="text-left py-2 pr-2 sm:pr-4 font-medium">Email</th>
             <th className="text-left py-2 pr-2 sm:pr-4 font-medium">Questions</th>
             <th className="text-left py-2 pr-2 sm:pr-4 font-medium">Check-in</th>
             <th className="text-left py-2 font-medium">Action</th>
@@ -75,8 +128,8 @@ function AttendeeTable({
                   ? "Free"
                   : a.paymentStatus}
               </td>
-              <td className="py-2 pr-2 sm:pr-4" style={{ color: "var(--text-muted)" }}>
-                {a.ticketStatus}
+              <td className="py-2 pr-2 sm:pr-4">
+                <EmailCell email={a.email} />
               </td>
               <td className="py-2 pr-2 sm:pr-4" style={{ color: "var(--text)" }}>
                 {a.totalQuestions > 0 ? (

@@ -158,4 +158,39 @@ test.describe("Guest list search", () => {
     // Wait for the button to update (optimistic + router.refresh)
     await expect(checkInBtn).toHaveText("Undo check-in", { timeout: 8000 });
   });
+
+  test("guest list has Email column and no Ticket column", async ({ page }) => {
+    const eventId = await loginAsAdminAndFindEvent(page);
+    if (!eventId) { test.skip(); return; }
+
+    await page.goto(`/admin/events/${eventId}`, { waitUntil: "networkidle" });
+
+    const searchInput = page.getByTestId("guest-search-input");
+    const hasAttendees = await searchInput.isVisible({ timeout: 5000 }).catch(() => false);
+    if (!hasAttendees) { test.skip(); return; }
+
+    const headers = page.locator("table thead th");
+    const headerTexts = await headers.allInnerTexts();
+
+    expect(headerTexts).toContain("Email");
+    expect(headerTexts).not.toContain("Ticket");
+  });
+
+  test("guest list Email cells show real emails for seeded attendees", async ({ page }) => {
+    const eventId = await loginAsAdminAndFindEvent(page);
+    if (!eventId) { test.skip(); return; }
+
+    await page.goto(`/admin/events/${eventId}`, { waitUntil: "networkidle" });
+
+    const searchInput = page.getByTestId("guest-search-input");
+    const hasAttendees = await searchInput.isVisible({ timeout: 5000 }).catch(() => false);
+    if (!hasAttendees) { test.skip(); return; }
+
+    const rows = page.locator('[data-testid^="guest-row-"]');
+    if (await rows.count() === 0) { test.skip(); return; }
+
+    // At least one row should contain an @ symbol (a real email address)
+    const tableBody = await page.locator("table tbody").innerText();
+    expect(tableBody).toContain("@");
+  });
 });

@@ -4,6 +4,7 @@ export type AttendeeRow = {
   id: string;
   profileId: string;
   displayName: string;
+  email: string | null;
   phoneLast4: string;
   joinedAt: string;
   answersCount: number;
@@ -42,6 +43,7 @@ export async function getAttendeesByEvent(
       id: String(r.id),
       profileId: r.profile_id,
       displayName: "",
+      email: null,
       phoneLast4: "",
       joinedAt: r.joined_at || "",
       answersCount: 0,
@@ -58,14 +60,14 @@ export async function getAttendeesByEvent(
 
   const { data: profiles } = await supabase
     .from("profiles")
-    .select("id, name, display_name, phone_e164")
+    .select("id, name, display_name, phone_e164, email")
     .in("id", allProfileIds);
 
-  const profileMap = new Map<string, { name: string | null; display_name: string | null; phone_e164: string | null }>();
-  (profiles || []).forEach((p: { id: string; name: string | null; display_name: string | null; phone_e164: string | null }) => {
+  const profileMap = new Map<string, { name: string | null; display_name: string | null; phone_e164: string | null; email: string | null }>();
+  (profiles || []).forEach((p: { id: string; name: string | null; display_name: string | null; phone_e164: string | null; email: string | null }) => {
     const phone = p.phone_e164 || "";
     const last4 = phone.replace(/\D/g, "").slice(-4);
-    profileMap.set(p.id, { name: p.name, display_name: p.display_name, phone_e164: last4 });
+    profileMap.set(p.id, { name: p.name, display_name: p.display_name, phone_e164: last4, email: p.email ?? null });
   });
 
   // Prefer event_questions (new-style events); fall back to legacy questions table.
@@ -110,6 +112,7 @@ export async function getAttendeesByEvent(
       return {
         ...row,
         displayName: prof?.display_name || prof?.name || row.profileId.slice(0, 8),
+        email: prof?.email ?? null,
         phoneLast4: prof?.phone_e164 ? `••••${prof.phone_e164}` : "—",
         totalQuestions: total,
         answersCount: count,
