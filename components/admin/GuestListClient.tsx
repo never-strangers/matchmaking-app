@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import type { AttendeeRow } from "@/lib/admin/getAttendeesByEvent";
 import { AttendeeCheckInButton } from "@/components/admin/AttendeeCheckInButton";
+import { ExportEmailsControls } from "@/components/admin/ExportEmailsControls";
 
 type Props = {
   allAttendees: AttendeeRow[];
@@ -168,6 +169,9 @@ export function GuestListClient({ allAttendees, eventId, paymentRequired }: Prop
 
   return (
     <>
+      {/* Export controls */}
+      <ExportEmailsControls eventId={eventId} paymentRequired={paymentRequired} />
+
       {/* Search bar */}
       <div className="flex items-center gap-2 mb-4">
         <div className="relative flex-1 max-w-sm">
