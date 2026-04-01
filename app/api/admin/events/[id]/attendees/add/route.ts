@@ -58,14 +58,17 @@ export async function POST(
   }
 
   // Resolve payment fields
-  // payment_status enum: unpaid | checkout_created | paid | canceled | refunded
+  // payment_status enum (migration 020): unpaid | checkout_created | paid | canceled | refunded | free | not_required
   // ticket_status enum: reserved | paid | canceled | expired
   const now = new Date().toISOString();
-  const isPaid = payment_state === "paid" || payment_state === "free";
 
-  const paymentFields = isPaid
-    ? { payment_status: "paid", ticket_status: "paid", paid_at: now }
-    : { payment_status: "unpaid", ticket_status: "reserved" };
+  const paymentFields =
+    payment_state === "paid"
+      ? { payment_status: "paid",   ticket_status: "paid",     paid_at: now }
+      : payment_state === "free"
+      ? { payment_status: "free",   ticket_status: "reserved"              }
+      : /* pending */
+        { payment_status: "unpaid", ticket_status: "reserved"              };
 
   // Check if attendee row already exists
   const { data: existing } = await supabase
