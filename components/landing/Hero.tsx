@@ -55,7 +55,7 @@ export default function Hero() {
   const [ctaHref, setCtaHref] = useState("/register");
 
   useEffect(() => {
-    createClient().auth.getSession().then(({ data: { session } }) => {
+    createClient().auth.getSession().then(({ data: { session } }: { data: { session: { user: unknown } | null } }) => {
       if (session) setCtaHref("/events");
     });
   }, []);

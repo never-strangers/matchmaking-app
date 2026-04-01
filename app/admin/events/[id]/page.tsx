@@ -8,6 +8,7 @@ import { AdminEventsClient, type AdminEventSummary } from "@/app/admin/AdminEven
 import { getAttendeesByEvent } from "@/lib/admin/getAttendeesByEvent";
 import { GuestListClient } from "@/components/admin/GuestListClient";
 import { MatchRevealControl } from "@/components/admin/MatchRevealControl";
+import { AddAttendeePanel } from "@/components/admin/AddAttendeePanel";
 
 type MatchRowData = {
   aProfileId: string;
@@ -205,6 +206,17 @@ export default async function AdminEventDetailPage({
             round2Count={round2Count}
             round3Count={round3Count}
           />
+        </Card>
+
+        <Card padding="lg">
+          <h3 className="text-base font-semibold mb-3" style={{ color: "var(--text)" }}>
+            Add attendee
+          </h3>
+          <p className="text-sm mb-4" style={{ color: "var(--text-muted)" }}>
+            Search approved users and add them directly to this event.
+            {paymentRequired && " Set their payment state (comp/cash or reserved)."}
+          </p>
+          <AddAttendeePanel eventId={eventId} paymentRequired={!!paymentRequired} />
         </Card>
 
         <Card padding="lg">

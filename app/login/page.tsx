@@ -21,7 +21,7 @@ export default function LoginPage() {
   // Redirect already-authenticated users away from the login page
   useEffect(() => {
     const supabase = createClient();
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }: { data: { session: { user: unknown } | null } }) => {
       if (!session) return;
       const res = await fetch("/api/profile", { credentials: "include" });
       const profile = res.ok ? await res.json().catch(() => null) : null;
