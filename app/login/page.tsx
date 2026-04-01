@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
@@ -17,6 +17,17 @@ const RESET_COOLDOWN_SECONDS = 60;
 
 export default function LoginPage() {
   const router = useRouter();
+
+  // Redirect already-authenticated users away from the login page
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!session) return;
+      const res = await fetch("/api/profile", { credentials: "include" });
+      const profile = res.ok ? await res.json().catch(() => null) : null;
+      router.replace(getPostLoginRedirect(profile?.status));
+    });
+  }, [router]);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);

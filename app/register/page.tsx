@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -16,6 +16,8 @@ import {
   LOOKING_FOR_OPTIONS,
 } from "@/lib/constants/profileOptions";
 import { Button } from "@/components/ui/Button";
+import { createClient } from "@/lib/supabase/client";
+import { getPostLoginRedirect } from "@/lib/auth/getPostLoginRedirect";
 
 const LABEL_WHY =
   "Let's know more about you. Tell us why Never Strangers is for you!";
@@ -106,6 +108,17 @@ function StyledTextarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>
 
 export default function RegisterPage() {
   const router = useRouter();
+
+  // Redirect already-authenticated users away from the registration page
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!session) return;
+      const res = await fetch("/api/profile", { credentials: "include" });
+      const profile = res.ok ? await res.json().catch(() => null) : null;
+      router.replace(getPostLoginRedirect(profile?.status));
+    });
+  }, [router]);
   const [email, setEmail] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
