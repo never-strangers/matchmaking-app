@@ -116,6 +116,7 @@ export default async function EventDetailPage({
   let primaryHref = `/events/${eventId}/questions`;
   let showPrimary = true;
   let statusMessage: string | null = null;
+  let statusAction: { label: string; href: string } | null = null;
 
   if (!joined) {
     // A) Not joined — default "Enter Event"
@@ -135,15 +136,18 @@ export default async function EventDetailPage({
   } else if (!checkedIn) {
     // D) Questions done, awaiting host check-in
     showPrimary = false;
-    statusMessage = "Your spot is confirmed. The host will check you in at the event.";
+    statusMessage = "Your spot is confirmed. The host will check you in at the event. Once you're checked in, head to Matches and wait there — the host will reveal your matches on the night.";
+    statusAction = { label: "Go to Matches →", href: `/match?event=${encodeURIComponent(eventId)}` };
   } else if (!matchesRun) {
     // E) Checked in, matching not yet run
     showPrimary = false;
-    statusMessage = "Matches will appear after the host runs matching.";
+    statusMessage = "You're checked in! Head to your Matches page and stay there — the host will run matching and reveal your pairs on the night.";
+    statusAction = { label: "Go to Matches →", href: `/match?event=${encodeURIComponent(eventId)}` };
   } else if (!hasRevealedMatches) {
     // F) Matching done, no reveals yet
     showPrimary = false;
-    statusMessage = "Your matches are ready. The host will reveal them soon.";
+    statusMessage = "Your matches are ready! The host will reveal them one round at a time. Go to your Matches page now and wait — reveals are happening soon.";
+    statusAction = { label: "See My Matches →", href: `/match?event=${encodeURIComponent(eventId)}` };
   } else {
     // G) Has revealed matches
     primaryLabel = "View Matches";
@@ -301,7 +305,12 @@ export default async function EventDetailPage({
 
           {statusMessage && (
             <div className="mt-4 p-4 rounded-lg" style={{ backgroundColor: "var(--bg-subtle, var(--bg-panel))", border: "1px solid var(--border)" }}>
-              <p className="text-sm" style={{ color: "var(--text-muted)" }}>{statusMessage}</p>
+              <p className="text-sm mb-3" style={{ color: "var(--text)" }}>{statusMessage}</p>
+              {statusAction && (
+                <Link href={statusAction.href}>
+                  <Button size="md" variant="primary">{statusAction.label}</Button>
+                </Link>
+              )}
             </div>
           )}
           {primaryLabel === "Select ticket" && hasTicketTypes && (
