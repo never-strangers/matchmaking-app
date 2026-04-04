@@ -21,6 +21,7 @@ export const CITIES_META: CityMeta[] = [
   { label: "Manila", code: "mnl", countryCode: "PH", flagEmoji: "🇵🇭" },
   { label: "Cebu", code: "ceb", countryCode: "PH", flagEmoji: "🇵🇭" },
   { label: "Bali", code: "bali", countryCode: "ID", flagEmoji: "🇮🇩" },
+  { label: "Ho Chi Minh City", code: "hcmc", countryCode: "VN", flagEmoji: "🇻🇳" },
   { label: "Tokyo", code: "tyo", countryCode: "JP", flagEmoji: "🇯🇵" },
 ];
 
