@@ -163,14 +163,24 @@ export default async function EventDetailPage({
         .filter(Boolean)
     : [];
 
-  const SG_TZ = "Asia/Singapore";
+  // All events are in Singapore (UTC+8). Manually offset so it works
+  // regardless of Node.js ICU build (small-icu won't honour timeZone option).
+  const toSGT = (iso: string) => new Date(new Date(iso).getTime() + 8 * 60 * 60 * 1000);
+  const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const formatDate = (iso: string | null) => {
     if (!iso) return null;
-    return new Date(iso).toLocaleDateString("en-SG", { weekday: "short", month: "short", day: "numeric", year: "numeric", timeZone: SG_TZ });
+    const d = toSGT(iso);
+    return `${DAYS[d.getUTCDay()]}, ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
   };
   const formatTime = (iso: string | null) => {
     if (!iso) return null;
-    return new Date(iso).toLocaleTimeString("en-SG", { hour: "2-digit", minute: "2-digit", timeZone: SG_TZ });
+    const d = toSGT(iso);
+    const h = d.getUTCHours();
+    const m = d.getUTCMinutes();
+    const period = h >= 12 ? "PM" : "AM";
+    const h12 = h % 12 || 12;
+    return `${h12}:${String(m).padStart(2, "0")} ${period}`;
   };
   const startAt = (event as { start_at?: string | null }).start_at;
   const endAt = (event as { end_at?: string | null }).end_at;
