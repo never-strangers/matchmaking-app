@@ -1,0 +1,47 @@
+{
+  "label": "cosmic-city-sg-dating-30",
+  "city": "Singapore",
+  "event": {
+    "titlePrefix": "[SEED:COSMIC-CITY]",
+    "category": "dating",
+    "startAt": "+14d",
+    "payment": {
+      "required": true,
+      "priceCents": 4900,
+      "currency": "sgd"
+    }
+  },
+  "users": {
+    "total": 30,
+    "genderSplit": {
+      "female": 18,
+      "male": 12
+    },
+    "statuses": {
+      "approved": 30,
+      "pending": 0,
+      "rejected": 0
+    },
+    "dobMinAge": 21,
+    "archetypes": [
+      "social_extrovert",
+      "deep_talker",
+      "balanced",
+      "adventurous"
+    ]
+  },
+  "attendees": {
+    "joinAllApproved": true,
+    "checkedIn": {
+      "mode": "all"
+    },
+    "questionnaire": {
+      "complete": true,
+      "questionsCount": 20,
+      "selection": "defaults"
+    },
+    "paymentStatus": {
+      "paidPercent": 100
+    }
+  }
+}
