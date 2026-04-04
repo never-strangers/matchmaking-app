@@ -163,14 +163,14 @@ export default async function EventDetailPage({
         .filter(Boolean)
     : [];
 
+  const SG_TZ = "Asia/Singapore";
   const formatDate = (iso: string | null) => {
     if (!iso) return null;
-    const d = new Date(iso);
-    return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric" });
+    return new Date(iso).toLocaleDateString("en-SG", { weekday: "short", month: "short", day: "numeric", year: "numeric", timeZone: SG_TZ });
   };
   const formatTime = (iso: string | null) => {
     if (!iso) return null;
-    return new Date(iso).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+    return new Date(iso).toLocaleTimeString("en-SG", { hour: "2-digit", minute: "2-digit", timeZone: SG_TZ });
   };
   const startAt = (event as { start_at?: string | null }).start_at;
   const endAt = (event as { end_at?: string | null }).end_at;
@@ -242,9 +242,11 @@ export default async function EventDetailPage({
           )}
 
           {event.description && (
-            <p className="text-sm mb-4 whitespace-pre-wrap" style={{ color: "var(--text)" }}>
-              {event.description}
-            </p>
+            <div
+              className="text-sm mb-4 prose prose-sm max-w-none"
+              style={{ color: "var(--text)" }}
+              dangerouslySetInnerHTML={{ __html: event.description }}
+            />
           )}
 
           {joined && !completed && totalQuestions > 0 && (
