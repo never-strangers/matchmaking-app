@@ -1,0 +1,74 @@
+#!/usr/bin/env node
+/**
+ * update-question-prompts.cjs
+ * One-time migration: rewrites all question_templates prompts
+ * from "How much/often/important..." questions to agree/disagree statements.
+ * Also updates event_questions rows that have the old prompt text.
+ *
+ * Usage:
+ *   node scripts/update-question-prompts.cjs           # dry-run
+ *   CONFIRM=true node scripts/update-question-prompts.cjs
+ */
+require("dotenv").config({ path: ".env.local" });
+const { createClient } = require("@supabase/supabase-js");
+
+const DRY_RUN = process.env.CONFIRM !== "true";
+const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+
+const PROMPT_MAP = {'How important is financial stability to you? (1=not important, 5=essential)': 'Financial stability is a top priority in my life.', 'How strongly do your core values influence your daily decisions?': 'My core values guide almost every decision I make.', 'How important is personal integrity in the people you surround yourself with?': 'I only surround myself with people who have strong personal integrity.', 'How much do you prioritise experiences over possessions?': "I'd rather spend money on experiences than things.", 'How important is it to you that others share your political views?': 'I find it hard to be close with someone who has very different political views.', 'How much do environmental sustainability efforts matter to you?': 'I actively try to live in an environmentally sustainable way.', 'How high a priority is your health and physical wellbeing?': 'My health and physical wellbeing are a high priority for me.', 'How much do you value financial generosity in others?': 'Generosity with money is something I really value in others.', 'How important is religious or spiritual practice to your identity?': 'My religious or spiritual beliefs are central to who I am.', 'How much do you value punctuality and reliability?': 'Being on time and reliable is very important to me.', 'How important is lifelong learning to you?': "I'm committed to learning and growing throughout my entire life.", 'How strongly do you believe in equality and social justice?': 'Equality and social justice are causes I care deeply about.', 'How much does ambition drive your choices?': 'Ambition is a major driver of the choices I make.', 'How often do you reflect on your personal growth?': 'I regularly take time to reflect on my own personal growth.', 'How comfortable are you sitting with uncertainty or ambiguity?': "I'm comfortable with uncertainty and don't need all the answers.", 'How well do you understand your own emotional triggers?': 'I have a clear understanding of what triggers my emotions.', 'How often do you journal or otherwise process your thoughts?': 'I regularly journal or find other ways to process my thoughts.', 'How much do past experiences shape who you are today?': 'My past experiences have strongly shaped who I am today.', 'How comfortable are you asking for help when you need it?': "I'm comfortable asking for help when I need it.", 'How good are you at setting and respecting your own boundaries?': "I'm good at setting and enforcing my own boundaries.", 'How often do you challenge your own assumptions?': 'I regularly question and challenge my own assumptions.', 'How in touch are you with your long-term goals?': 'I have a clear sense of where I want to be in the long run.', 'How much does solitude recharge rather than drain you?': 'Spending time alone recharges me more than it drains me.', 'How often do you seek feedback on yourself from trusted friends?': 'I actively seek honest feedback about myself from people I trust.', 'How much do you believe in therapy or professional self-development?': 'I believe in therapy and investing in professional self-development.', 'How forgiving are you of your own mistakes?': "I'm able to forgive myself when I make mistakes.", 'How comfortable are you with spontaneous decisions?': 'I love making spontaneous decisions without much planning.', 'How willing are you to share a controversial opinion in public?': "I'm willing to share a controversial opinion, even in public.", 'How adventurous are you when it comes to trying new foods?': "I'll try almost any food at least once.", "How comfortable are you discussing money openly with people you've just met?": "I'm comfortable talking openly about money with people I just met.", 'How likely are you to quit a job you hate without another one lined up?': "I'd quit a job I hate even without another one lined up.", 'How comfortable are you with public displays of affection?': "I'm comfortable with public displays of affection.", 'How much do you enjoy debating people who disagree with you?': 'I enjoy a good debate with people who see things differently.', 'How willing are you to travel solo to an unknown destination?': "I'd happily travel solo to a place I know nothing about.", 'How open are you about your salary with close friends?': "I'm open about my salary with close friends.", 'How comfortable are you with being the centre of attention?': "I'm comfortable being the centre of attention.", 'How likely are you to voice disagreement with a group consensus?': "I'll speak up even if my view goes against the group.", 'How comfortable are you with not knowing the plan in advance?': "Not knowing the plan in advance doesn't stress me out.", 'How close are you with your immediate family?': "I'm very close with my immediate family.", 'How often do you make time for family gatherings?': 'I make a consistent effort to attend family gatherings.', "How much do your family's opinions influence your major life decisions?": "My family's opinions play a big role in my major life decisions.", 'How important is it that a partner gets along with your family?': "It's important to me that a partner gets along well with my family.", 'How often do you check in on parents or siblings?': 'I regularly check in on my parents or siblings.', 'How much do you expect to be involved in raising children someday?': 'I expect to be very hands-on in raising children someday.', 'How comfortable are you discussing family problems with outsiders?': "I'm comfortable discussing family problems with people outside my family.", 'How much do family traditions matter to you?': 'Family traditions are something I genuinely value and protect.', 'How willing are you to relocate for the sake of family?': "I'd be willing to relocate if it meant being closer to family.", 'How much do you value having family dinners or shared meals?': 'Shared family meals are something I value and prioritise.', 'How involved are you in extended family events and decisions?': "I'm actively involved in extended family events and decisions.", 'How much do you feel a duty to financially support your family?': 'I feel a strong duty to financially support my family.', 'How much do you enjoy collaborative work environments?': 'I thrive in collaborative work environments.', 'How important is a clear boundary between work and personal life to you?': 'I keep a clear boundary between my work and personal life.', 'How comfortable are you giving critical feedback to colleagues?': "I'm comfortable giving honest, critical feedback to colleagues.", 'How often do you socialise with coworkers outside of work?': 'I enjoy socialising with coworkers outside of work.', 'How important is a strong company culture to your job satisfaction?': 'A strong company culture is important to my job satisfaction.', 'How much do you value recognition from your manager?': 'Recognition from my manager matters a lot to me.', 'How comfortable are you working remotely without daily check-ins?': "I work well remotely and don't need daily check-ins.", 'How much does career progression drive your motivation at work?': 'Career progression is a key driver of my work motivation.', 'How important is psychological safety in your team?': 'Feeling psychologically safe in my team is essential.', 'How often do you mentor or support junior colleagues?': 'I actively mentor or support junior colleagues.', 'How comfortable are you disagreeing with your manager?': "I'm comfortable respectfully disagreeing with my manager.", 'How much does your job define your personal identity?': 'My job is a significant part of how I define myself.', 'How would your best friend describe your loyalty?': 'My friends would describe me as deeply loyal.', 'How often do you initiate plans with your close friends?': "I'm usually the one who initiates plans with close friends.", 'How comfortable are you being deeply vulnerable with a friend?': "I'm comfortable being deeply vulnerable with close friends.", 'How important is it that your friends share your sense of humour?': "It's important to me that my friends share my sense of humour.", 'How often do you check in on friends who seem distant?': 'I check in on friends who seem to be going through a hard time.', 'How much do you value a friend who tells you the truth even when it hurts?': 'I value friends who tell me hard truths over those who just agree with me.', 'How important is it to have friends who challenge your worldview?': 'I want friends who challenge my worldview, not just confirm it.', 'How many genuinely close friends do you have?': 'I have a small circle of very deep friendships rather than many surface-level ones.', 'How much effort do you put into maintaining long-distance friendships?': 'I put real effort into maintaining friendships across distance.', 'How quickly do you open up to new people?': 'I open up to new people relatively quickly.', 'How comfortable are you ending a friendship that no longer serves you?': "I'm willing to let go of a friendship that has run its course.", 'How much do you rely on your friends for emotional support?': 'My friends are a main source of emotional support for me.', 'How important is reciprocity in your friendships?': 'Reciprocity is essential — I need to feel the effort goes both ways.', 'How often do you enjoy going out to social events?': 'I love going out to social events regularly.', 'How much energy do you get from being in a lively crowd?': 'Being in a lively crowd energises me.', 'How often do you stay out past midnight when socialising?': "I often stay out past midnight when I'm out socialising.", 'How important is the atmosphere of a venue to your enjoyment?': 'The atmosphere of a venue makes or breaks my night.', 'How comfortable are you striking up conversations with strangers at events?': 'I have no problem striking up conversations with strangers at events.', 'How much do you enjoy dancing in social settings?': "I love dancing when I'm out socially.", 'How often do you host social gatherings at your home?': 'I regularly host social gatherings at my place.', 'How important is a shared playlist or music taste to your social experience?': 'Good music is essential to my social experience.', "How likely are you to leave a party if you're not having fun?": "I'll leave a party early if I'm not having a good time.", 'How often do you prefer small intimate gatherings over big parties?': 'I prefer intimate gatherings over large parties.', 'How comfortable are you being introduced to a large group of new people?': "Being introduced to a large group of new people doesn't faze me.", 'How much do you enjoy being the person who organises group outings?': 'I enjoy being the one who organises group outings.', 'How important is it that your social circle is diverse?': 'I actively want a diverse and varied social circle.', 'How competitive do you get during games?': 'I get quite competitive when playing games.', 'How much do you enjoy strategy games over luck-based ones?': 'I prefer games of strategy over games of pure chance.', 'How often do you play board games, card games, or video games?': 'Games — board, card, or video — are a regular part of my life.', 'How good are you at losing gracefully?': 'I can lose a game gracefully and still have fun.', 'How much do you enjoy trivia and knowledge-based games?': 'I love trivia and knowledge-based games.', 'How important is it to you that everyone has fun, even if you lose?': 'Everyone having a good time matters more to me than winning.', 'How much do you enjoy improv or creative group games?': "I enjoy improv and creative games that don't have a set winner.", 'How long can you sustain focus during a complex game?': 'I can stay focused and engaged through long, complex games.', 'How often do you replay or practise a game to improve?': "I'll replay or practise a game just to get better at it.", 'How comfortable are you bending rules for the sake of fun?': "I'm happy to bend the rules if it makes the game more fun.", 'How much do you enjoy being on a team versus playing solo?': "I'd rather compete as part of a team than play solo.", 'How much do you enjoy games that involve physical skill or dexterity?': 'I enjoy games that involve physical skill or hand-eye coordination.'};
+
+async function run() {
+  console.log(DRY_RUN ? "🔍  DRY RUN" : "🚀  LIVE RUN");
+  console.log(`📋  ${Object.keys(PROMPT_MAP).length} prompt mappings\n`);
+
+  let qtUpdated = 0, eqUpdated = 0, notFound = 0;
+
+  for (const [oldPrompt, newPrompt] of Object.entries(PROMPT_MAP)) {
+    // Find in question_templates
+    const { data: rows } = await sb
+      .from("question_templates")
+      .select("id, prompt")
+      .ilike("prompt", oldPrompt.trim());
+
+    if (!rows || rows.length === 0) {
+      console.log(`  ⚠️  Not found: "${oldPrompt.slice(0, 60)}"`);
+      notFound++;
+      continue;
+    }
+
+    for (const row of rows) {
+      console.log(`  ✏️  "${row.prompt.slice(0, 55)}"\n     → "${newPrompt.slice(0, 55)}"`);
+      if (!DRY_RUN) {
+        await sb.from("question_templates").update({ prompt: newPrompt }).eq("id", row.id);
+        qtUpdated++;
+      }
+    }
+
+    // Also update event_questions that copied this prompt
+    const { data: eqRows } = await sb
+      .from("event_questions")
+      .select("id, event_id")
+      .ilike("prompt", oldPrompt.trim());
+
+    if (eqRows && eqRows.length > 0) {
+      console.log(`     + ${eqRows.length} event_question(s) with this prompt`);
+      if (!DRY_RUN) {
+        for (const eq of eqRows) {
+          await sb.from("event_questions").update({ prompt: newPrompt }).eq("id", eq.id);
+          eqUpdated++;
+        }
+      }
+    }
+  }
+
+  console.log("\n─────────────────────────────");
+  if (DRY_RUN) {
+    console.log("✅  Dry run complete. Run with CONFIRM=true to execute.");
+  } else {
+    console.log(`✅  Done.`);
+    console.log(`   question_templates updated: ${qtUpdated}`);
+    console.log(`   event_questions updated:    ${eqUpdated}`);
+    console.log(`   not found:                  ${notFound}`);
+  }
+}
+run().catch(e => { console.error(e); process.exit(1); });
