@@ -3,12 +3,11 @@ description:
 alwaysApply: true
 ---
 
+<!-- Last audited: 2026-04-04 — all file paths, scripts, commands, env vars, and architectural claims verified against actual codebase. -->
+
 ## Reality Check (Source of Truth)
 
-The codebase supports two modes:
-
-- **Demo Mode** (`NEXT_PUBLIC_DEMO_MODE=true`): localStorage + mock data for fast demos/E2E.
-- **Production Mode** (`NEXT_PUBLIC_DEMO_MODE=false`): Supabase Auth (email/password), Supabase DB, RLS.
+The codebase runs in **Production Mode**: Supabase Auth (email/password), Supabase DB, RLS. This is what runs at app.thisisneverstrangers.com.
 
 ### Auth (Production Mode)
 - Users register/login with **email + password**
@@ -138,37 +137,48 @@ app/                           # Next.js 15 App Router
 ├── register/                  # User registration
 ├── login/                     # Login flow
 ├── invite/[token]/            # Invite link handler
+├── pending/                   # Holding page for pending_verification users
+├── profile/                   # User profile edit
+├── admin/
+│   ├── emails/                # Admin email management
+│   └── events/[id]/           # Per-event admin (edit, questions, attendees, matching)
 └── layout.tsx                 # Root layout with role-based navigation
 
 lib/
-├── demo/                      # Demo mode localStorage stores (kept for E2E/demos)
-│   ├── demoStore.ts           # Main demo state (events, registrations, matches)
-│   ├── userStore.ts           # User profiles & approval workflow
-│   ├── registrationStore.ts   # RSVP, payment, questionnaire tracking
-│   ├── matchingStore.ts       # Match generation & mutual likes
-│   ├── authStore.ts           # Demo auth (mock OTP)
-│   ├── eventStore.ts          # Event management
-│   ├── notificationStore.ts   # In-app notifications
-│   └── checkInStore.ts        # Attendance tracking
 ├── matching/
 │   ├── questionnaireMatch.ts  # Core scoring algorithm (weighted similarity)
-│   ├── roundPairing.ts        # computeSingleRound — production round pairing
-│   └── demoUsers.ts           # 25 demo users with varied answers
+│   └── roundPairing.ts        # computeSingleRound — production round pairing
 ├── auth/
 │   ├── sessionToken.ts        # HMAC-signed session tokens
 │   ├── useSession.ts          # Session management hook
 │   └── useInviteSession.ts    # Invite link session handling
 ├── questionnaire/
-│   └── questions.ts           # 17-question library (4 categories)
+│   └── questions.ts           # 10-question library (4 categories: lifestyle, social, values, comm)
 └── supabase/
     ├── client.ts              # Supabase client (browser)
-    └── serverClient.ts        # Supabase client (server)
+    ├── serverClient.ts        # Supabase client (server, service role — admin ops)
+    ├── adminClient.ts         # Admin Supabase client helper
+    ├── server.ts              # SSR Supabase client (cookies)
+    ├── middleware.ts           # Supabase auth middleware helper
+    └── userService.ts         # User lookup helpers
+# Other lib modules (not exhaustive):
+# lib/email/            — transactional email (send.ts, provider.ts, templates.ts)
+# lib/geo/cities.ts     — supported cities list
+# lib/realtime/         — useEventRealtime hook
+# lib/constants/        — profileOptions etc.
+# lib/auth/             — also: getAuthUser.ts, requireApprovedUser.ts, getPostLoginRedirect.ts
 
 scripts/
 ├── migrate-wp-users.cjs              # Import WP users → Supabase auth + profiles
 ├── import-amelia-events.cjs          # Import WP Amelia events → events table
 ├── import-amelia-bookings-event125.cjs  # Import 35 Call a Cupid bookings
-└── send-reset-passwords.cjs          # Send password reset emails
+├── send-reset-passwords.cjs          # Send password reset emails
+├── check-git-repo.cjs                # Detects/deletes iCloud stub duplicate (runs before dev/build)
+├── generate-invite-tokens.ts         # Bulk invite token generation
+├── generate-qr.cjs                   # QR code generation
+├── seed-e2e-users.cjs                # Seed users for E2E tests
+├── verify-dating-matching.ts         # Debug/validate matching output
+└── (many other seed/cleanup/migration scripts in scripts/)
 
 supabase/
 └── migrations/                # Database schema migrations
@@ -212,13 +222,7 @@ The correct tables are `match_results` and `answers` respectively.
 
 ### Key Architectural Patterns
 
-#### 1. Demo Mode vs Production Mode
-- **Demo Mode** (`NEXT_PUBLIC_DEMO_MODE=true`): All data in localStorage with `ns_*` prefix. Used for E2E tests and offline demos.
-- **Production Mode** (`NEXT_PUBLIC_DEMO_MODE=false`): Full Supabase integration. **This is what runs on app.thisisneverstrangers.com.**
-
-Demo stores are kept intentionally — do not delete them.
-
-#### 2. Role-Based Access Control
+#### 1. Role-Based Access Control
 Four user roles:
 
 | Role | Access | Key Pages |
@@ -228,7 +232,7 @@ Four user roles:
 | **Host** | Event management (own city only) | `/host/*` |
 | **Admin** | Full access | `/admin/*` |
 
-#### 3. Per-Event Questionnaire Flow
+#### 2. Per-Event Questionnaire Flow
 
 **RSVP → Questions → Matching flow (production):**
 1. User RSVPs → `event_attendees` row created
@@ -239,7 +243,7 @@ Four user roles:
 6. Admin reveals round → `POST /api/admin/events/[id]/reveal-round`
 7. Users see their matches in `/match` or event page
 
-#### 4. Production Matching Algorithm
+#### 3. Production Matching Algorithm
 
 **Entry point:** `POST /api/admin/events/[id]/run-matching` (admin only)
 
@@ -266,12 +270,12 @@ Four user roles:
 3. Paid events: attendees need `payment_status = 'paid'`
 4. Attendees must have submitted answers (rows in `answers` table)
 
-#### 5. Realtime Chat
+#### 4. Realtime Chat
 - Production: Supabase-backed (`NEXT_PUBLIC_CHAT_MODE=supabase`)
 - Demo: BroadcastChannel API (`NEXT_PUBLIC_CHAT_MODE=mock`)
 - Feature flag: `NEXT_PUBLIC_ENABLE_CHAT=true`
 
-#### 6. Session Management
+#### 5. Session Management
 **Production**: HMAC-signed tokens (`lib/auth/sessionToken.ts`)
 - Tokens: `{payload}.{signature}` (base64url encoded)
 - TTL: 7 days; Secret: `APP_SESSION_SECRET` env var
@@ -302,15 +306,7 @@ POST /api/admin/events/{eventId}/questions/bootstrap-defaults
 
 ### Adding a New Question
 1. Edit `lib/questionnaire/questions.ts`
-2. Add to `QUESTIONNAIRE_QUESTIONS` array with category, weight, `isDealbreaker`
-3. Update `lib/matching/demoUsers.ts` with answers for new question
-
-### Seeding Demo Data
-```bash
-npm run seed:demo          # Server-side Supabase seed
-# Or client-side (in browser console):
-# import { seedAllStores } from "@/lib/demo/seedAllStores"; seedAllStores();
-```
+2. Add to `QUESTIONS` array (exported from `lib/questionnaire/questions.ts`) with category, weight, `isDealbreaker`
 
 ### Importing Users / Events
 ```bash
@@ -335,20 +331,23 @@ npx playwright show-trace trace.zip
 ## Environment Variables
 
 ```bash
-# Required
+# Required (must be set — app will throw without these)
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 NEXT_PUBLIC_APP_URL=
+APP_SESSION_SECRET=               # HMAC secret for session tokens — throws if missing
 
 # Feature Flags
 NEXT_PUBLIC_ENABLE_CHAT=false
 NEXT_PUBLIC_CHAT_MODE=mock          # "mock" or "supabase"
-NEXT_PUBLIC_DEMO_MODE=true
-NEXT_PUBLIC_PILOT_PRESEED=false
-NEXT_PUBLIC_DEMO_OTP=123456
-APP_SESSION_SECRET=
+
+# Email
+EMAIL_PROVIDER=mock               # "mock" (console log) | "resend" (live sends)
+RESEND_API_KEY=
+
 ```
+> **Note**: `APP_SESSION_SECRET` must be set in production or all session operations will throw.
 
 ## Production Status
 
@@ -373,10 +372,6 @@ APP_SESSION_SECRET=
 - `app/api/admin/events/[id]/reveal-round/route.ts` — reveal next round
 - `lib/matching/roundPairing.ts` — `computeSingleRound()` pairing logic
 - `lib/matching/questionnaireMatch.ts` — scoring algorithm
-
-**Demo stores (keep — used for E2E/demos):**
-- `lib/demo/` — all localStorage stores
-- `lib/matching/demoUsers.ts` — 25 demo users
 
 **Config:**
 - `.env.example`, `playwright.config.ts`, `next.config.ts`, `tailwind.config.ts`

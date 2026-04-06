@@ -110,7 +110,6 @@ export async function GET() {
     version: process.env.npm_package_version || "dev",
     checks,
     config: {
-      demoMode: process.env.NEXT_PUBLIC_DEMO_MODE === "true",
       chatEnabled: process.env.NEXT_PUBLIC_ENABLE_CHAT !== "false",
       chatMode: process.env.NEXT_PUBLIC_CHAT_MODE || "mock",
     },

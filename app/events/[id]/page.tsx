@@ -272,7 +272,7 @@ export default async function EventDetailPage({
             </div>
           )}
 
-          {lines.length > 0 && (
+          {lines.length > 0 && !((event.description ?? "").toLowerCase().includes("what") && (event.description ?? "").toLowerCase().includes("included")) && (
             <div className="mb-4">
               <h3 className="text-sm font-semibold mb-2" style={{ color: "var(--text)" }}>
                 What&apos;s Included

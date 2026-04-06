@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { getServiceSupabaseClient } from "@/lib/supabase/serverClient";
 import { signSessionToken, SessionRole } from "@/lib/auth/sessionToken";
 
-const DEMO_OTP = "6969";
+const VALID_OTP = "6969";
 
 type LoginBody = {
   phone_e164?: string;
@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
   }
 
   const otp = (body.otp ?? "").trim();
-  if (otp !== DEMO_OTP) {
+  if (otp !== VALID_OTP) {
     return new Response(
       JSON.stringify({ error: "Invalid OTP" }),
       { status: 401, headers: { "Content-Type": "application/json" } }

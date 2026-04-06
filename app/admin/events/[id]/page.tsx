@@ -226,7 +226,7 @@ export default async function AdminEventDetailPage({
           <p className="text-sm mb-3" style={{ color: "var(--text-muted)" }}>
             Only checked-in attendees are included when you run matching. Check in guests who are present.
             {paymentRequired && (
-              <> Only paid attendees can be checked in.</>
+              <> Paid and comped attendees can be checked in.</>
             )}
           </p>
           <GuestListClient
@@ -236,7 +236,7 @@ export default async function AdminEventDetailPage({
           />
           {paidAttendees.length > 0 && paidAttendees.filter((a) => a.checkedIn).length < 4 && (
             <p className="text-sm mt-3" style={{ color: "var(--text-muted)" }}>
-              Fewer than 4 guests are checked in. Run matching will only include checked-in (and paid) attendees.
+              Fewer than 4 guests are checked in. Run matching will only include checked-in attendees.
             </p>
           )}
         </Card>

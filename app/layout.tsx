@@ -4,7 +4,6 @@ import Link from "next/link";
 import Image from "next/image";
 import NavBar from "@/components/NavBar";
 import RouteGuard from "@/components/RouteGuard";
-import DemoDataInit from "@/components/DemoDataInit";
 import { SessionBanner } from "@/components/SessionBanner";
 import AuthRecoveryRedirect from "@/components/AuthRecoveryRedirect";
 import "./globals.css";
@@ -93,7 +92,6 @@ export default function RootLayout({
             {children}
           </main>
 
-          <DemoDataInit />
         </RouteGuard>
       </body>
     </html>
