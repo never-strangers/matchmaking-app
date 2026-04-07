@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import Stripe from "stripe";
 import { requireApprovedUser } from "@/lib/auth/requireApprovedUser";
 import { getServiceSupabaseClient } from "@/lib/supabase/serverClient";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -36,7 +37,7 @@ async function getEventQuestionsData(eventId: string, profileId: string) {
 
   const { data: attendeeRow } = await supabase
     .from("event_attendees")
-    .select("payment_status, ticket_type_id")
+    .select("payment_status, ticket_type_id, stripe_checkout_session_id")
     .eq("event_id", eventId)
     .eq("profile_id", profileId)
     .maybeSingle();
@@ -113,7 +114,37 @@ async function getEventQuestionsData(eventId: string, profileId: string) {
   const paymentRequired =
     (eventRow as { payment_required?: boolean }).payment_required !== false &&
     priceCents > 0;
-  const paymentStatus = (attendeeRow as { payment_status?: string } | null)?.payment_status ?? "unpaid";
+  let paymentStatus = (attendeeRow as { payment_status?: string } | null)?.payment_status ?? "unpaid";
+
+  // Auto-confirm: if Stripe checkout was created but webhook hasn't fired yet,
+  // verify the session directly and mark as paid so the user isn't re-charged.
+  if (paymentStatus === "checkout_created" && paymentRequired) {
+    const stripeKey = process.env.STRIPE_SECRET_KEY;
+    const sessionId = (attendeeRow as { stripe_checkout_session_id?: string | null } | null)?.stripe_checkout_session_id;
+    if (stripeKey && sessionId) {
+      try {
+        const stripe = new Stripe(stripeKey, { apiVersion: "2025-02-24.acacia" });
+        const stripeSession = await stripe.checkout.sessions.retrieve(sessionId);
+        if (stripeSession.payment_status === "paid") {
+          const paymentIntentId = typeof stripeSession.payment_intent === "string"
+            ? stripeSession.payment_intent
+            : (stripeSession.payment_intent as Stripe.PaymentIntent)?.id ?? null;
+          await supabase
+            .from("event_attendees")
+            .update({
+              payment_status: "paid",
+              paid_at: new Date().toISOString(),
+              ...(paymentIntentId ? { stripe_payment_intent_id: paymentIntentId } : {}),
+            })
+            .eq("event_id", eventId)
+            .eq("profile_id", profileId);
+          paymentStatus = "paid";
+        }
+      } catch (err) {
+        console.error("[questions] stripe auto-confirm error:", err);
+      }
+    }
+  }
   const hasReservedTicket = !!(attendeeRow as { ticket_type_id?: string | null } | null)?.ticket_type_id;
   const ticketTypesList = (ticketTypes || []) as { id: string; code: string; name: string; price_cents: number; currency: string; cap: number; sold: number }[];
 

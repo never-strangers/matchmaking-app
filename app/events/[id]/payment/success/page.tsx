@@ -27,7 +27,7 @@ export default function PaymentSuccessPage() {
       setStatus(data.payment_status ?? null);
       if (data.payment_status === "paid") {
         setPolling(false);
-        router.replace(`/events/${eventId}/questions`);
+        window.location.href = `/events/${eventId}/questions`;
       }
     } catch {
       // ignore
@@ -45,7 +45,7 @@ export default function PaymentSuccessPage() {
       .then((data) => {
         if (data.payment_status === "paid") {
           setPolling(false);
-          router.replace(`/events/${eventId}/questions`);
+          window.location.href = `/events/${eventId}/questions`;
         }
       })
       .catch(() => {});

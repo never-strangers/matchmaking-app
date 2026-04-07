@@ -33,9 +33,8 @@ export async function POST(
         event_id: eventId,
         profile_id: auth.profile_id,
         joined_at: new Date().toISOString(),
-        ...(paymentRequired ? {} : { payment_status: "free" }),
       },
-      { onConflict: "event_id,profile_id" }
+      { onConflict: "event_id,profile_id", ignoreDuplicates: false }
     );
 
   if (error) {
@@ -48,7 +47,8 @@ export async function POST(
       .from("event_attendees")
       .update({ payment_status: "free" })
       .eq("event_id", eventId)
-      .eq("profile_id", auth.profile_id);
+      .eq("profile_id", auth.profile_id)
+      .not("payment_status", "in", '("paid","checkout_created","free","refunded")');
 
     void (async () => {
       try {
