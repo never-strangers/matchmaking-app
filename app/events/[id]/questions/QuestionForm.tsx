@@ -125,10 +125,7 @@ export function QuestionForm({
       );
       setHasSavedOnce(true);
       if (!paymentRequired || priceCents <= 0 || paymentStatus === "paid") {
-        const eventsUrl = returnCity
-          ? `/events?city=${encodeURIComponent(returnCity)}`
-          : "/events";
-        router.push(eventsUrl);
+        router.push(`/events/${eventId}`);
       }
     } catch (err) {
       console.error("Failed to save answers", err);

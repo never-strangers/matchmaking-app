@@ -27,7 +27,7 @@ export default function PaymentSuccessPage() {
       setStatus(data.payment_status ?? null);
       if (data.payment_status === "paid") {
         setPolling(false);
-        window.location.href = `/events/${eventId}/questions`;
+        window.location.href = `/events/${eventId}`;
       }
     } catch {
       // ignore
@@ -45,7 +45,7 @@ export default function PaymentSuccessPage() {
       .then((data) => {
         if (data.payment_status === "paid") {
           setPolling(false);
-          window.location.href = `/events/${eventId}/questions`;
+          window.location.href = `/events/${eventId}`;
         }
       })
       .catch(() => {});
@@ -76,7 +76,7 @@ export default function PaymentSuccessPage() {
         )}
         <div className="mt-4">
           <Link
-            href="/events"
+            href={`/events/${eventId}`}
             className="text-sm font-medium hover:underline"
             style={{ color: "var(--primary)" }}
           >
