@@ -171,6 +171,10 @@ export default function RegisterPage() {
       setError("Please choose a city.");
       return;
     }
+    if (!reason?.trim()) {
+      setError("Please tell us why Never Strangers is for you.");
+      return;
+    }
     if (!agreementAccurate) {
       setError("You must confirm that your details are accurate and that you may be required to present ID at the event.");
       return;

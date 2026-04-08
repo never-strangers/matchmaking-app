@@ -164,7 +164,7 @@ export function EventPreviewModal({
                   className="text-sm mb-4 whitespace-pre-wrap"
                   style={{ color: "var(--text)" }}
                 >
-                  {event.description}
+                  {event.description.replace(/<[^>]*>/g, "").replace(/&amp;/g, "&").replace(/&nbsp;/g, " ").trim()}
                 </p>
               )}
 
