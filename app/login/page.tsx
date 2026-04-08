@@ -199,8 +199,6 @@ function LoginForm({
           maxWidth: 480,
           background: "var(--bg)",
           borderRadius: "24px 24px 0 0",
-          maxWidth: 480,
-          width: "100%",
           padding: "32px 24px 40px",
           boxShadow: "0 -8px 40px rgba(0,0,0,0.18)",
         }}
