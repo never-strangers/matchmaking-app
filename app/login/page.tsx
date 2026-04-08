@@ -21,7 +21,7 @@ function SplashScreen({ onLogin, onRegister }: { onLogin: () => void; onRegister
       {/* Background image */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src="/landing/carousel-3.webp"
+        src="/landing/carousel-2.webp"
         alt=""
         aria-hidden
         style={{
