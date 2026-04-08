@@ -6,6 +6,7 @@ import NavBar from "@/components/NavBar";
 import RouteGuard from "@/components/RouteGuard";
 import { SessionBanner } from "@/components/SessionBanner";
 import AuthRecoveryRedirect from "@/components/AuthRecoveryRedirect";
+import HeaderWrapper from "@/components/HeaderWrapper";
 import "./globals.css";
 
 const youngSerif = Young_Serif({
@@ -65,6 +66,7 @@ export default function RootLayout({
       >
         <RouteGuard>
           {/* ── Header ── */}
+          <HeaderWrapper>
           <header
             style={{
               backgroundColor: "var(--bg)",
@@ -90,12 +92,13 @@ export default function RootLayout({
               <NavBar />
             </div>
           </header>
+          </HeaderWrapper>
 
           <SessionBanner />
           <AuthRecoveryRedirect />
 
           {/* ── Main content — explicit cream bg so no page leaks white ── */}
-          <main style={{ backgroundColor: "var(--bg)", minHeight: "calc(100vh - 66px)" }}>
+          <main style={{ backgroundColor: "var(--bg)", minHeight: "100svh" }}>
             {children}
           </main>
 

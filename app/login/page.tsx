@@ -64,7 +64,7 @@ function SplashScreen({ onLogin, onRegister }: { onLogin: () => void; onRegister
             maxWidth: 380,
           }}
         >
-          Meet people face&#8209;to&#8209;face
+          We all start as strangers
         </h1>
 
         {/* Buttons */}
@@ -86,7 +86,7 @@ function SplashScreen({ onLogin, onRegister }: { onLogin: () => void; onRegister
               letterSpacing: "0.01em",
             }}
           >
-            Get started
+            Get Invited
           </button>
           <button
             onClick={onLogin}
@@ -104,7 +104,7 @@ function SplashScreen({ onLogin, onRegister }: { onLogin: () => void; onRegister
               letterSpacing: "0.01em",
             }}
           >
-            I already have an account
+            Login
           </button>
         </div>
 
