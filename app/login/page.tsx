@@ -17,108 +17,105 @@ const RESET_COOLDOWN_SECONDS = 60;
 // Splash screen: full-bleed image, headline, two CTA buttons
 function SplashScreen({ onLogin, onRegister }: { onLogin: () => void; onRegister: () => void }) {
   return (
-    <div className="relative flex flex-col" style={{ minHeight: "100svh" }}>
+    <div style={{ position: "relative", minHeight: "100svh", display: "flex", flexDirection: "column" }}>
       {/* Background image */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src="/landing/carousel-2.webp"
         alt=""
         aria-hidden
-        style={{
-          position: "absolute",
-          inset: 0,
-          width: "100%",
-          height: "100%",
-          objectFit: "cover",
-          objectPosition: "center",
-        }}
+        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center top" }}
       />
-      {/* Gradient overlay — dark at bottom for legibility */}
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          background: "linear-gradient(to bottom, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.55) 55%, rgba(0,0,0,0.82) 100%)",
-        }}
-      />
+      {/* Gradient overlay */}
+      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.45) 50%, rgba(0,0,0,0.85) 100%)" }} />
 
-      {/* Content */}
+      {/* Logo — top left */}
+      <div style={{ position: "absolute", top: 28, left: 32, zIndex: 10 }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo.png" alt="Never Strangers" style={{ height: 40, filter: "brightness(0) invert(1)" }} />
+      </div>
+
+      {/* Content — centered on desktop, bottom on mobile */}
       <div
-        className="relative flex flex-col justify-end px-6 pb-10"
-        style={{ minHeight: "100svh" }}
+        style={{
+          position: "relative",
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "flex-end",
+          alignItems: "center",
+          padding: "0 24px 48px",
+        }}
       >
-        {/* Logo wordmark top-left */}
-        <div style={{ position: "absolute", top: 24, left: 24 }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="Never Strangers" style={{ height: 36, filter: "brightness(0) invert(1)" }} />
-        </div>
-
-        {/* Headline */}
-        <h1
-          className="mb-8 text-white"
-          style={{
-            fontFamily: "var(--font-heading)",
-            fontSize: "clamp(32px, 9vw, 52px)",
-            lineHeight: 1.15,
-            letterSpacing: "-0.02em",
-            maxWidth: 380,
-          }}
-        >
-          We all start as strangers
-        </h1>
-
-        {/* Buttons */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 12, maxWidth: 420 }}>
-          <button
-            onClick={onRegister}
+        <div style={{ width: "100%", maxWidth: 480 }}>
+          {/* Headline */}
+          <h1
             style={{
-              width: "100%",
-              padding: "16px 24px",
-              borderRadius: 100,
-              background: "rgba(255,255,255,0.15)",
-              backdropFilter: "blur(8px)",
-              border: "1.5px solid rgba(255,255,255,0.5)",
+              fontFamily: "var(--font-heading)",
+              fontSize: "clamp(36px, 5vw, 64px)",
+              lineHeight: 1.1,
+              letterSpacing: "-0.02em",
               color: "#fff",
-              fontFamily: "var(--font-sans)",
-              fontSize: 16,
-              fontWeight: 600,
-              cursor: "pointer",
-              letterSpacing: "0.01em",
+              marginBottom: 32,
+              textAlign: "center",
             }}
           >
-            Get Invited
-          </button>
-          <button
-            onClick={onLogin}
-            style={{
-              width: "100%",
-              padding: "16px 24px",
-              borderRadius: 100,
-              background: "rgba(255,255,255,0.92)",
-              border: "none",
-              color: "#111",
-              fontFamily: "var(--font-sans)",
-              fontSize: 16,
-              fontWeight: 600,
-              cursor: "pointer",
-              letterSpacing: "0.01em",
-            }}
-          >
-            Login
-          </button>
-        </div>
+            We all start as strangers
+          </h1>
 
-        {/* Legal */}
-        <p className="mt-5 text-center" style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", maxWidth: 420 }}>
-          By continuing you agree to our{" "}
-          <Link href="https://thisisneverstrangers.com/terms" target="_blank" style={{ color: "rgba(255,255,255,0.75)", textDecoration: "underline" }}>
-            Terms of Service
-          </Link>{" "}
-          and{" "}
-          <Link href="https://thisisneverstrangers.com/privacy" target="_blank" style={{ color: "rgba(255,255,255,0.75)", textDecoration: "underline" }}>
-            Privacy Policy
-          </Link>
-        </p>
+          {/* Buttons */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <button
+              onClick={onRegister}
+              style={{
+                width: "100%",
+                padding: "17px 24px",
+                borderRadius: 100,
+                background: "rgba(255,255,255,0.15)",
+                backdropFilter: "blur(8px)",
+                border: "1.5px solid rgba(255,255,255,0.55)",
+                color: "#fff",
+                fontFamily: "var(--font-sans)",
+                fontSize: 16,
+                fontWeight: 600,
+                cursor: "pointer",
+                letterSpacing: "0.01em",
+              }}
+            >
+              Get Invited
+            </button>
+            <button
+              onClick={onLogin}
+              style={{
+                width: "100%",
+                padding: "17px 24px",
+                borderRadius: 100,
+                background: "rgba(255,255,255,0.95)",
+                border: "none",
+                color: "#111",
+                fontFamily: "var(--font-sans)",
+                fontSize: 16,
+                fontWeight: 600,
+                cursor: "pointer",
+                letterSpacing: "0.01em",
+              }}
+            >
+              Login
+            </button>
+          </div>
+
+          {/* Legal */}
+          <p style={{ marginTop: 20, fontSize: 12, color: "rgba(255,255,255,0.5)", textAlign: "center" }}>
+            By continuing you agree to our{" "}
+            <Link href="https://thisisneverstrangers.com/terms" target="_blank" style={{ color: "rgba(255,255,255,0.7)", textDecoration: "underline" }}>
+              Terms of Service
+            </Link>{" "}
+            and{" "}
+            <Link href="https://thisisneverstrangers.com/privacy" target="_blank" style={{ color: "rgba(255,255,255,0.7)", textDecoration: "underline" }}>
+              Privacy Policy
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
   );
@@ -190,6 +187,7 @@ function LoginForm({
         display: "flex",
         alignItems: "flex-end",
         justifyContent: "center",
+        // On wider screens the sheet sits center-bottom, max 480px wide
         background: "rgba(0,0,0,0.5)",
         backdropFilter: "blur(2px)",
       }}
@@ -201,6 +199,8 @@ function LoginForm({
           maxWidth: 480,
           background: "var(--bg)",
           borderRadius: "24px 24px 0 0",
+          maxWidth: 480,
+          width: "100%",
           padding: "32px 24px 40px",
           boxShadow: "0 -8px 40px rgba(0,0,0,0.18)",
         }}
