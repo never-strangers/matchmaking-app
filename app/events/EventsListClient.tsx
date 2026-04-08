@@ -343,7 +343,7 @@ export function EventsListClient({
                   <div
                     className="w-full flex items-center justify-center"
                     style={{
-                      height: "180px",
+                      aspectRatio: "3/2",
                       backgroundColor: "var(--bg-dark)",
                       borderBottom: "1px solid var(--border)",
                       overflow: "hidden",
@@ -354,7 +354,7 @@ export function EventsListClient({
                       <img
                         src={event.posterUrl}
                         alt={event.title}
-                        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                        style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
                       />
                     ) : (
                       <svg

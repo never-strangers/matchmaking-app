@@ -202,7 +202,7 @@ export default async function EventDetailPage({
           <img
             src={posterUrl}
             alt=""
-            className="w-full aspect-[3/2] object-cover"
+            className="w-full aspect-[3/2] object-contain" style={{ backgroundColor: "var(--bg-dark)" }}
           />
         ) : (
           <div

@@ -103,7 +103,7 @@ export function EventPreviewModal({
               <img
                 src={event.poster_url}
                 alt=""
-                className="w-full aspect-[3/2] object-cover rounded-t-2xl"
+                className="w-full aspect-[3/2] object-contain rounded-t-2xl" style={{ backgroundColor: "var(--bg-dark)" }}
               />
             ) : (
               <div
