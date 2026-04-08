@@ -121,7 +121,7 @@ async function inviteUser(email, env, redirectTo) {
       status:       "pending_verification",
       role:         "user",
       city:         "",
-      gender:       "prefer_not_to_say",      // placeholder; user updates on first login
+      gender:       null,                       // placeholder; user updates on first login
     }
   );
 

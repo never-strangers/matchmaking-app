@@ -186,16 +186,12 @@ describe("normalizeGender", () => {
     expect(normalizeGender("f")).toBe("female");
   });
 
-  it("normalizes 'other' to 'other'", () => {
-    expect(normalizeGender("other")).toBe("other");
+  it("returns null for 'other'", () => {
+    expect(normalizeGender("other")).toBeNull();
   });
 
-  it("normalizes 'others' to 'other'", () => {
-    expect(normalizeGender("others")).toBe("other");
-  });
-
-  it("normalizes 'non-binary' to 'other'", () => {
-    expect(normalizeGender("non-binary")).toBe("other");
+  it("returns null for 'non-binary'", () => {
+    expect(normalizeGender("non-binary")).toBeNull();
   });
 
   it("returns null for unknown value", () => {

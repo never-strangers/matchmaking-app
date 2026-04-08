@@ -11,7 +11,6 @@ export const AGE_ERROR_MESSAGE =
 export const GENDER_OPTIONS = [
   { value: "male", label: "Male" },
   { value: "female", label: "Female" },
-  { value: "other", label: "Other" },
 ] as const;
 
 export type GenderValue = (typeof GENDER_OPTIONS)[number]["value"];
@@ -122,7 +121,5 @@ export function normalizeGender(
   const lower = value.toLowerCase().trim();
   if (lower === "male" || lower === "m") return "male";
   if (lower === "female" || lower === "f") return "female";
-  if (lower === "other" || lower === "others" || lower === "non-binary")
-    return "other";
   return null;
 }

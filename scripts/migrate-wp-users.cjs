@@ -66,7 +66,6 @@ function normalizeGender(v) {
   const l = String(v).toLowerCase().trim();
   if (l === "female" || l === "f") return "female";
   if (l === "male" || l === "m") return "male";
-  if (l.includes("non") || l.includes("other") || l.includes("prefer")) return "other";
   return null;
 }
 

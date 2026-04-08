@@ -2,16 +2,16 @@
  * Shared helpers for seed scripts: normalize and build profile preference fields.
  *
  * Storage format (must match app/api/profile/update/route.ts):
- *   - gender:       TEXT  — "male" | "female" | "other" | "prefer_not_to_say"
+ *   - gender:       TEXT  — "male" | "female"
  *   - attracted_to: TEXT  — comma-separated "men" | "women" (e.g. "men" or "men,women")
  *   - orientation:  JSONB — { lookingFor: string[] }  (e.g. { lookingFor: ["date"] })
  */
 
-export type Gender = "male" | "female" | "other" | "prefer_not_to_say";
+export type Gender = "male" | "female";
 export type AttractedTo = "men" | "women";
 export type LookingFor = "date" | "friends";
 
-const VALID_GENDERS = new Set<string>(["male", "female", "other", "prefer_not_to_say"]);
+const VALID_GENDERS = new Set<string>(["male", "female"]);
 const VALID_ATTRACTED = new Set<string>(["men", "women"]);
 const VALID_LOOKING   = new Set<string>(["date", "friends"]);
 
@@ -87,7 +87,6 @@ export function buildSeedPreferences(opts: { gender: Gender }): {
  *
  * Convention for friends seed:
  *   - female | male → attracted_to: "men,women", looking_for: "friends"
- *   - other         → attracted_to: null (unspecified), looking_for: "friends"
  */
 export function buildFriendsPreferences(opts: { gender: Gender }): {
   gender: Gender;
@@ -95,7 +94,7 @@ export function buildFriendsPreferences(opts: { gender: Gender }): {
   orientation: { lookingFor: string[] };
 } {
   const { gender } = opts;
-  const attracted_to = gender === "other" ? null : "men,women";
+  const attracted_to = "men,women";
   const orientation = { lookingFor: ["friends"] };
   return { gender, attracted_to, orientation };
 }

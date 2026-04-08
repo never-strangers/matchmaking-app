@@ -292,12 +292,10 @@ function buildGenderList(cfg: SeedConfig): Gender[] {
     ? Math.round(total * 0.6)
     : Math.round(total * 0.5);
   const maleCount = genderSplit ? genderSplit.male : total - femaleCount;
-  const otherCount = total - femaleCount - maleCount;
 
   const list: Gender[] = [
     ...Array(femaleCount).fill("female"),
     ...Array(maleCount).fill("male"),
-    ...Array(Math.max(0, otherCount)).fill("other"),
   ];
   return list.slice(0, total);
 }
@@ -314,8 +312,7 @@ function printDryRun(cfg: SeedConfig) {
     const genders = buildGenderList(cfg);
     const fCount = genders.filter((g) => g === "female").length;
     const mCount = genders.filter((g) => g === "male").length;
-    const oCount = genders.filter((g) => g === "other").length;
-    console.log(`  users:    ${cfg.users.total} (${fCount}F / ${mCount}M${oCount ? ` / ${oCount}O` : ""})`);
+    console.log(`  users:    ${cfg.users.total} (${fCount}F / ${mCount}M)`);
   }
   if (!cfg.existingUsers?.enabled) {
     console.log(`  statuses: approved=${cfg.users.statuses.approved} pending=${cfg.users.statuses.pending} rejected=${cfg.users.statuses.rejected}`);
@@ -628,7 +625,7 @@ async function runSeed(cfg: SeedConfig, dryRun: boolean, e2e = false) {
         }
 
         process.stdout.write(`  [${i+1}/${profileIdsToAttach.length}] ${profileId} ✓\n`);
-        createdProfiles.push({ email: profileId, password: "", profileId, gender: "other", firstName: profileId.slice(0, 8), lastName: "" });
+        createdProfiles.push({ email: profileId, password: "", profileId, gender: "female", firstName: profileId.slice(0, 8), lastName: "" });
       }
     }
 
@@ -641,9 +638,8 @@ async function runSeed(cfg: SeedConfig, dryRun: boolean, e2e = false) {
     console.log(`\n👥 Creating ${cfg.users.total} users…`);
 
     for (let i = 0; i < cfg.users.total; i++) {
-      const gender = genders[i] ?? "other";
-      const isOther = gender === "other";
-      const firstPool = gender === "female" ? FEMALE_FIRST : gender === "male" ? MALE_FIRST : [...FEMALE_FIRST, ...MALE_FIRST];
+      const gender = genders[i] ?? "female";
+      const firstPool = gender === "female" ? FEMALE_FIRST : MALE_FIRST;
       const firstName = firstPool[i % firstPool.length];
       const lastName = LAST_NAMES[(i * 7 + 3) % LAST_NAMES.length];
       const email = `seed+${cfg.label}+${String(i + 1).padStart(3, "0")}@neverstrangers.test`;
@@ -675,8 +671,8 @@ async function runSeed(cfg: SeedConfig, dryRun: boolean, e2e = false) {
       if (!userId) { console.log(`SKIP (${authErr?.message})`); continue; }
 
       // Build profile
-      const prefs = isOther || cfg.event?.category !== "dating"
-        ? buildFriendsPreferences({ gender: isOther ? "other" : gender as Gender })
+      const prefs = cfg.event?.category !== "dating"
+        ? buildFriendsPreferences({ gender: gender as Gender })
         : buildSeedPreferences({ gender: gender as "male" | "female" });
 
       // Determine e2e role for this user (approvedIndex among currently created profiles)
