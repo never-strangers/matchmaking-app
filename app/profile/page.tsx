@@ -351,6 +351,30 @@ export default function ProfilePage() {
       return;
     }
 
+    const gender = (formData.get("gender") as string) || null;
+    if (!gender) {
+      setError("Please select your gender.");
+      return;
+    }
+    if (!profile?.attracted_to?.length) {
+      setError("Please select which gender you are attracted to.");
+      return;
+    }
+    if (!profile?.looking_for?.length) {
+      setError("Please select what you are looking for.");
+      return;
+    }
+    const preferredLang = (formData.get("preferred_language") as string) || null;
+    if (!preferredLang) {
+      setError("Please select your preferred language.");
+      return;
+    }
+    const reason = (formData.get("reason") as string)?.trim() || null;
+    if (!reason) {
+      setError("Please tell us why Never Strangers is for you.");
+      return;
+    }
+
     setSubmitting(true);
     try {
       const res = await fetch("/api/profile/update", {
