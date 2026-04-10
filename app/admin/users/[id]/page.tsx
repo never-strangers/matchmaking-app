@@ -5,7 +5,7 @@ import { getServiceSupabaseClient } from "@/lib/supabase/serverClient";
 import AdminShell from "@/components/admin/AdminShell";
 import Card from "@/components/admin/Card";
 import { AvatarSquare } from "@/components/ui/AvatarSquare";
-import { UserRowActions } from "../AdminUsersClient";
+import { UserRowActions, ResetPasswordButton } from "../AdminUsersClient";
 
 function formatDate(s: string | null | undefined): string {
   if (!s) return "—";
@@ -156,6 +156,9 @@ export default async function AdminUserDetailPage({
                   profileId={profileId}
                   status={(profile.status as string) ?? null}
                 />
+              </div>
+              <div className="pt-3">
+                <ResetPasswordButton profileId={profileId} />
               </div>
             </div>
           </div>

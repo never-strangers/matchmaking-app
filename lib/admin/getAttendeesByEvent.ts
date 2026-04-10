@@ -94,21 +94,35 @@ export async function getAttendeesByEvent(
   }
   const totalByEvent: Record<string, number> = { ...legacyTotalByEvent, ...eqCountByEvent };
 
+  // Build a set of valid event_question_ids per event
+  const validEqIdsByEvent: Record<string, Set<string>> = {};
+  (eqRows || []).forEach((r: { event_id: string; id: string }) => {
+    const eid = String(r.event_id);
+    if (!validEqIdsByEvent[eid]) validEqIdsByEvent[eid] = new Set();
+    validEqIdsByEvent[eid].add(String(r.id));
+  });
+
   const { data: answerRows } = await supabase
     .from("answers")
-    .select("event_id, profile_id")
+    .select("event_id, profile_id, event_question_id")
     .in("event_id", eventIds);
-  const answersByEventProfile: Record<string, number> = {};
-  (answerRows || []).forEach((r: { event_id: string; profile_id: string }) => {
-    const key = `${r.event_id}:${r.profile_id}`;
-    answersByEventProfile[key] = (answersByEventProfile[key] || 0) + 1;
+  // Count DISTINCT event_question_ids per user that match current event_questions
+  const answersByEventProfile: Record<string, Set<string>> = {};
+  (answerRows || []).forEach((r: { event_id: string; profile_id: string; event_question_id: string | null }) => {
+    const eid = String(r.event_id);
+    const eqId = r.event_question_id ? String(r.event_question_id) : null;
+    // Only count if this question is in the current event_questions set
+    if (!eqId || !validEqIdsByEvent[eid]?.has(eqId)) return;
+    const key = `${eid}:${r.profile_id}`;
+    if (!answersByEventProfile[key]) answersByEventProfile[key] = new Set();
+    answersByEventProfile[key].add(eqId);
   });
 
   for (const eid of Object.keys(byEvent)) {
     byEvent[eid] = byEvent[eid].map((row) => {
       const prof = profileMap.get(row.profileId);
       const total = totalByEvent[eid] || 0;
-      const count = answersByEventProfile[`${eid}:${row.profileId}`] || 0;
+      const count = answersByEventProfile[`${eid}:${row.profileId}`]?.size || 0;
       return {
         ...row,
         displayName: prof?.display_name || prof?.name || row.profileId.slice(0, 8),

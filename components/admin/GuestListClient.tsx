@@ -176,17 +176,26 @@ function RemoveButton({
   );
 }
 
+type SortBy = "joined" | "questions_asc" | "questions_desc";
+
 function AttendeeTable({
   rows,
   eventId,
   showAction,
   onRemove,
+  sortBy,
+  onSortQuestions,
 }: {
   rows: AttendeeRow[];
   eventId: string;
   showAction: boolean;
   onRemove: (attendeeId: string) => void;
+  sortBy: SortBy;
+  onSortQuestions: () => void;
 }) {
+  const sortIcon =
+    sortBy === "questions_asc" ? " ↑" : sortBy === "questions_desc" ? " ↓" : "";
+
   return (
     <div className="overflow-x-auto -mx-1 sm:mx-0 mb-4" style={{ minHeight: "1px" }}>
       <table className="w-full text-sm min-w-[320px]">
@@ -196,7 +205,27 @@ function AttendeeTable({
             <th className="text-left py-2 pr-2 sm:pr-4 font-medium">Phone</th>
             <th className="text-left py-2 pr-2 sm:pr-4 font-medium">Payment</th>
             <th className="text-left py-2 pr-2 sm:pr-4 font-medium">Email</th>
-            <th className="text-left py-2 pr-2 sm:pr-4 font-medium">Questions</th>
+            <th className="text-left py-2 pr-2 sm:pr-4 font-medium">
+              <button
+                type="button"
+                onClick={onSortQuestions}
+                title="Sort by questions answered"
+                style={{
+                  background: "none",
+                  border: "none",
+                  padding: 0,
+                  cursor: "pointer",
+                  font: "inherit",
+                  fontWeight: "inherit",
+                  color: sortBy !== "joined" ? "var(--text)" : "inherit",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 2,
+                }}
+              >
+                Questions{sortIcon && <span style={{ fontSize: 11 }}>{sortIcon}</span>}
+              </button>
+            </th>
             <th className="text-left py-2 pr-2 sm:pr-4 font-medium">Check-in</th>
             <th className="text-left py-2 font-medium">Action</th>
           </tr>
@@ -260,10 +289,35 @@ function AttendeeTable({
   );
 }
 
+function sortRows(rows: AttendeeRow[], sortBy: SortBy): AttendeeRow[] {
+  if (sortBy === "questions_asc") {
+    return [...rows].sort((a, b) => {
+      const pctA = a.totalQuestions > 0 ? a.answersCount / a.totalQuestions : 0;
+      const pctB = b.totalQuestions > 0 ? b.answersCount / b.totalQuestions : 0;
+      return pctA - pctB;
+    });
+  }
+  if (sortBy === "questions_desc") {
+    return [...rows].sort((a, b) => {
+      const pctA = a.totalQuestions > 0 ? a.answersCount / a.totalQuestions : 0;
+      const pctB = b.totalQuestions > 0 ? b.answersCount / b.totalQuestions : 0;
+      return pctB - pctA;
+    });
+  }
+  return rows; // "joined" — already sorted by server
+}
+
 export function GuestListClient({ allAttendees, eventId, paymentRequired }: Props) {
   const [attendees, setAttendees] = useState<AttendeeRow[]>(allAttendees);
   const [query, setQuery] = useState("");
+  const [sortBy, setSortBy] = useState<SortBy>("joined");
   const debouncedQuery = useDebounce(query, 300);
+
+  const handleSortQuestions = () => {
+    setSortBy((prev) =>
+      prev === "questions_desc" ? "questions_asc" : "questions_desc"
+    );
+  };
 
   // Sync if parent re-renders with new data
   useEffect(() => { setAttendees(allAttendees); }, [allAttendees]);
@@ -300,13 +354,13 @@ export function GuestListClient({ allAttendees, eventId, paymentRequired }: Prop
   const q = debouncedQuery.trim().toLowerCase();
 
   const filteredPaid = useMemo(
-    () => (q ? paidAttendees.filter((a) => searchKey(a).includes(q)) : paidAttendees),
-    [paidAttendees, q]
+    () => sortRows(q ? paidAttendees.filter((a) => searchKey(a).includes(q)) : paidAttendees, sortBy),
+    [paidAttendees, q, sortBy]
   );
 
   const filteredPending = useMemo(
-    () => (q ? pendingAttendees.filter((a) => searchKey(a).includes(q)) : pendingAttendees),
-    [pendingAttendees, q]
+    () => sortRows(q ? pendingAttendees.filter((a) => searchKey(a).includes(q)) : pendingAttendees, sortBy),
+    [pendingAttendees, q, sortBy]
   );
 
   const visibleCount = filteredPaid.length + filteredPending.length;
@@ -379,7 +433,7 @@ export function GuestListClient({ allAttendees, eventId, paymentRequired }: Prop
               {q ? "No paid attendees match your search." : "No paid attendees yet."}
             </p>
           ) : (
-            <AttendeeTable rows={filteredPaid} eventId={eventId} showAction onRemove={handleRemove} />
+            <AttendeeTable rows={filteredPaid} eventId={eventId} showAction onRemove={handleRemove} sortBy={sortBy} onSortQuestions={handleSortQuestions} />
           )}
 
           <h4 className="text-sm font-medium mt-2 mb-2" style={{ color: "var(--text)" }}>
@@ -391,7 +445,7 @@ export function GuestListClient({ allAttendees, eventId, paymentRequired }: Prop
               {q ? "No pending attendees match your search." : "No one in payment pending."}
             </p>
           ) : (
-            <AttendeeTable rows={filteredPending} eventId={eventId} showAction={false} onRemove={handleRemove} />
+            <AttendeeTable rows={filteredPending} eventId={eventId} showAction={false} onRemove={handleRemove} sortBy={sortBy} onSortQuestions={handleSortQuestions} />
           )}
         </>
       ) : (
@@ -400,7 +454,7 @@ export function GuestListClient({ allAttendees, eventId, paymentRequired }: Prop
             No guests match your search.
           </p>
         ) : (
-          <AttendeeTable rows={filteredPaid} eventId={eventId} showAction onRemove={handleRemove} />
+          <AttendeeTable rows={filteredPaid} eventId={eventId} showAction onRemove={handleRemove} sortBy={sortBy} onSortQuestions={handleSortQuestions} />
         )
       )}
     </>

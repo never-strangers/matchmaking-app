@@ -577,3 +577,53 @@ export default function AdminUsersClient() {
     </div>
   );
 }
+
+
+export function ResetPasswordButton({ profileId }: { profileId: string }) {
+  const [loading, setLoading] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleReset = async () => {
+    if (!confirm("Send a password-reset email to this user?")) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/users/${profileId}/reset-password`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error || "Failed to send reset email");
+        return;
+      }
+      setSent(true);
+    } catch {
+      setError("Request failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (sent) {
+    return (
+      <span className="text-sm font-medium" style={{ color: "var(--success, #2a7a4b)" }}>
+        ✓ Reset email sent
+      </span>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      <Button size="sm" variant="secondary" disabled={loading} onClick={handleReset}>
+        {loading ? "Sending…" : "Reset Password"}
+      </Button>
+      {error && (
+        <span className="text-xs" style={{ color: "var(--danger, #c0392b)" }}>
+          {error}
+        </span>
+      )}
+    </div>
+  );
+}
