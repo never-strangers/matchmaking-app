@@ -196,6 +196,7 @@ export function MatchRevealView({ eventId, eventTitle }: Props) {
                     matchResultId={match.matchResultId}
                     currentUserInstagram={data.currentUserInstagram ?? null}
                     instagramSharedByMe={match.instagramSharedByMe ?? false}
+                    matchType={match.matchType ?? "date"}
                   />
                 </div>
               ) : nextRoundToWaitFor === r ? (

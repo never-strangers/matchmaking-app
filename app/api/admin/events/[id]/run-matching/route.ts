@@ -2,7 +2,11 @@ import { NextRequest } from "next/server";
 import { getAuthUser } from "@/lib/auth/getAuthUser";
 import { getServiceSupabaseClient } from "@/lib/supabase/serverClient";
 import type { QuestionnaireAnswers, MatchUser, Question } from "@/types/questionnaire";
-import { computeSingleRound, pairKey } from "@/lib/matching/roundPairing";
+import {
+  computeSingleRound,
+  computeSingleRoundWithFallback,
+  pairKey,
+} from "@/lib/matching/roundPairing";
 
 const MAX_ROUNDS = 3;
 
@@ -269,12 +273,46 @@ export async function POST(
     answers: answersByProfile.get(id)!,
   }));
 
-  const pairs = computeSingleRound(
-    matchUsers,
-    questions,
-    existingPairKeys,
-    { pairingMode: isDatingEvent ? "dating" : "friends" }
-  );
+  // ── Run pairing ────────────────────────────────────────────────────────────
+  // Dating events: two-pass (date first, friend fallback for unmatched)
+  // Friends events: unchanged single-pass friends pairing
+  let pairs: ReturnType<typeof computeSingleRound>;
+  let matchTypeMap: Record<string, "date" | "friend"> = {};
+
+  if (isDatingEvent) {
+    const result = computeSingleRoundWithFallback(
+      matchUsers,
+      questions,
+      existingPairKeys
+    );
+    pairs = result.pairs;
+    matchTypeMap = result.matchTypes;
+  } else {
+    pairs = computeSingleRound(matchUsers, questions, existingPairKeys, {
+      pairingMode: "friends",
+    });
+  }
+
+  // ── Build summary (dating events only) ────────────────────────────────────
+  const eligibleMales = isDatingEvent
+    ? eligibleForRound.filter((id) => genderById.get(id) === "male").length
+    : 0;
+  const eligibleFemales = isDatingEvent
+    ? eligibleForRound.filter((id) => genderById.get(id) === "female").length
+    : 0;
+  const dateMatchCount = isDatingEvent
+    ? Object.values(matchTypeMap).filter((t) => t === "date").length
+    : 0;
+  const friendMatchCount = isDatingEvent
+    ? Object.values(matchTypeMap).filter((t) => t === "friend").length
+    : 0;
+  // Users involved in any pair this round
+  const matchedUserIds = new Set<string>();
+  for (const p of pairs) {
+    matchedUserIds.add(p.a);
+    matchedUserIds.add(p.b);
+  }
+  const unmatchedCount = eligibleForRound.filter((id) => !matchedUserIds.has(id)).length;
 
   // Phase 3: Write results in parallel
   const resultsToInsert: Array<{
@@ -283,15 +321,18 @@ export async function POST(
     b_profile_id: string;
     score: number;
     round: number;
+    match_type: string;
   }> = [];
   for (const p of pairs) {
     const [a, b] = [p.a, p.b].sort();
+    const key = pairKey(a, b);
     resultsToInsert.push({
       event_id: eventId,
       a_profile_id: a,
       b_profile_id: b,
       score: p.score,
       round: roundToCompute,
+      match_type: matchTypeMap[key] ?? "date",
     });
   }
 
@@ -323,13 +364,25 @@ export async function POST(
 
   await Promise.all(writeOps);
 
-  return Response.json({
+  const response: Record<string, unknown> = {
     ok: true,
-    roundComputed: roundToCompute,
-    pairsCount: pairs.length,
+    round: roundToCompute,
+    pairs: pairs.length,
     attendeesInRound: eligibleForRound.length,
     pairingMode: isDatingEvent ? "dating" : "friends",
-  });
+  };
+
+  if (isDatingEvent) {
+    response.summary = {
+      eligible_males: eligibleMales,
+      eligible_females: eligibleFemales,
+      date_matches: dateMatchCount,
+      friend_matches: friendMatchCount,
+      unmatched: unmatchedCount,
+    };
+  }
+
+  return Response.json(response);
 }
 
 async function upsertMatchRoundsComputed(

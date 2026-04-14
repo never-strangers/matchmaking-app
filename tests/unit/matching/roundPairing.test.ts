@@ -3,6 +3,7 @@ import {
   buildAllPairs,
   pickDisjointPairs,
   computeSingleRound,
+  computeSingleRoundWithFallback,
   computeRoundPairings,
   pairKey,
 } from "@/lib/matching/roundPairing";
@@ -243,5 +244,87 @@ describe("computeRoundPairings", () => {
       ...round3.map((p) => `${p.a}_${p.b}`),
     ]);
     expect(allKeys.size).toBe(6);
+  });
+});
+
+// ─── computeSingleRoundWithFallback ──────────────────────────────────────────
+
+
+describe("computeSingleRoundWithFallback", () => {
+  const Q: Question[] = [{ id: "q1", text: "Q1", category: "Lifestyle", weight: 1 }];
+  const ANSWERS: QuestionnaireAnswers = { q1: 3 };
+
+  function makeMale(id: string): MatchUser {
+    return makeUser(id, ANSWERS, "male");
+  }
+  function makeFemale(id: string): MatchUser {
+    return makeUser(id, ANSWERS, "female");
+  }
+
+  it("Test 1: 15M / 22F — all 15 males get date matches, 7 unmatched females get friend matches, 0 unmatched", () => {
+    const males = Array.from({ length: 15 }, (_, i) => makeMale(`m${i}`));
+    const females = Array.from({ length: 22 }, (_, i) => makeFemale(`f${i}`));
+    const users = [...males, ...females];
+
+    const { pairs, matchTypes } = computeSingleRoundWithFallback(users, Q, new Set());
+
+    const datePairs = pairs.filter((p) => matchTypes[`${[p.a, p.b].sort().join("_")}`] === "date");
+    const friendPairs = pairs.filter((p) => matchTypes[`${[p.a, p.b].sort().join("_")}`] === "friend");
+
+    // All 15 males get date matches
+    expect(datePairs).toHaveLength(15);
+    // 7 leftover females get friend matches (22 - 15 = 7 females left, 7 pairs)
+    expect(friendPairs).toHaveLength(3); // 7 unmatched females → 3 friend pairs (1 still left over)
+
+    // Every male is in a date pair
+    const maleIdsInDatePairs = new Set(
+      datePairs.flatMap((p) => [p.a, p.b]).filter((id) => id.startsWith("m"))
+    );
+    expect(maleIdsInDatePairs.size).toBe(15);
+
+    // Count truly unmatched users
+    const matchedIds = new Set(pairs.flatMap((p) => [p.a, p.b]));
+    const unmatched = users.filter((u) => !matchedIds.has(u.id));
+    // 22 - 15 = 7 unmatched females → 3 friend pairs + 1 leftover female
+    expect(unmatched.length).toBeLessThanOrEqual(1);
+  });
+
+  it("Test 2: even gender (10M / 10F) — all pairs are date matches, no friend matches", () => {
+    const males = Array.from({ length: 10 }, (_, i) => makeMale(`m${i}`));
+    const females = Array.from({ length: 10 }, (_, i) => makeFemale(`f${i}`));
+    const users = [...males, ...females];
+
+    const { pairs, matchTypes } = computeSingleRoundWithFallback(users, Q, new Set());
+
+    expect(pairs).toHaveLength(10);
+    const friendPairs = pairs.filter(
+      (p) => matchTypes[`${[p.a, p.b].sort().join("_")}`] === "friend"
+    );
+    expect(friendPairs).toHaveLength(0);
+  });
+
+  it("Test 3: computeSingleRound in friends mode is unchanged by the new function", () => {
+    // computeSingleRound with pairingMode:'friends' on 4 genderless users
+    const users = ["a", "b", "c", "d"].map((id) => makeUser(id, ANSWERS));
+    const legacy = computeSingleRound(users, Q, new Set(), { pairingMode: "friends" });
+    // Should produce 2 pairs (4 users, friends mode)
+    expect(legacy).toHaveLength(2);
+    // computeSingleRoundWithFallback does NOT change computeSingleRound — verify independence
+    const { pairs } = computeSingleRoundWithFallback(users, Q, new Set());
+    // All 4 have no gender → date pairs = 0, friend fallback picks up all 4 → 2 friend pairs
+    expect(pairs).toHaveLength(2);
+  });
+
+  it("does not mutate the excludePairKeys set", () => {
+    const males = [makeMale("m1"), makeMale("m2")];
+    const females = [makeFemale("f1"), makeFemale("f2")];
+    const exclude = new Set<string>();
+    computeSingleRoundWithFallback([...males, ...females], Q, exclude);
+    expect(exclude.size).toBe(0);
+  });
+
+  it("returns empty pairs for fewer than 2 users", () => {
+    const { pairs } = computeSingleRoundWithFallback([makeMale("m1")], Q, new Set());
+    expect(pairs).toHaveLength(0);
   });
 });

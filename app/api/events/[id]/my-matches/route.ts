@@ -193,6 +193,7 @@ export async function GET(
       instagramSharedByMe: cid
         ? conversationIdsWhereISharedInstagram.has(cid)
         : false,
+      matchType: (r as { match_type?: "date" | "friend" }).match_type ?? "date",
     };
   }
 
