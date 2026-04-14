@@ -1,0 +1,38 @@
+{
+  "label": "bali-dating-imbalance-40f10m",
+  "city": "Bali",
+  "event": {
+    "titlePrefix": "[SEED:TEST]",
+    "category": "dating",
+    "startAt": "+28d",
+    "payment": {
+      "required": true,
+      "priceCents": 9900,
+      "currency": "usd"
+    }
+  },
+  "users": {
+    "total": 50,
+    "genderSplit": {
+      "female": 40,
+      "male": 10
+    },
+    "statuses": {
+      "approved": 50,
+      "pending": 0,
+      "rejected": 0
+    },
+    "dobMinAge": 21,
+    "archetypes": ["social_extrovert", "deep_talker", "balanced", "adventurous"]
+  },
+  "attendees": {
+    "joinAllApproved": true,
+    "checkedIn": { "mode": "all" },
+    "questionnaire": {
+      "complete": true,
+      "questionsCount": 20,
+      "selection": "defaults"
+    },
+    "paymentStatus": { "paidPercent": 100 }
+  }
+}

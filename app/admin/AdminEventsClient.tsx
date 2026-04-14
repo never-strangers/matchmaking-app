@@ -81,7 +81,7 @@ export function AdminEventsClient({ events, showCreateButton = true }: Props) {
   };
 
   const handleDeleteMatches = async (eventId: string) => {
-    if (!confirm("Reset this event? All joined users, answers, likes, and matches will be removed. People can join and answer again, then you can run matching.")) return;
+    if (!confirm("Reset matching for this event? Match results and reveals will be cleared. Attendees, answers, and payments are untouched — you can re-run matching without reseeding.")) return;
     setDeletingId(eventId);
     try {
       const res = await fetch(`/api/admin/events/${eventId}/delete-matches`, {
@@ -184,7 +184,7 @@ export function AdminEventsClient({ events, showCreateButton = true }: Props) {
                   disabled={isDeleting}
                   onClick={() => handleDeleteMatches(event.id)}
                 >
-                  {isDeleting ? "Resetting..." : "Reset event"}
+                  {isDeleting ? "Resetting..." : "Reset Matching"}
                 </Button>
               </div>
             </div>
