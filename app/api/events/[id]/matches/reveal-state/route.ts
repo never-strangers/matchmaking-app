@@ -20,6 +20,7 @@ export type RevealMatchPayload = {
   aligned: string[];
   mismatched: string[];
   instagramSharedByMe?: boolean;
+  matchType?: "date" | "friend";
 };
 
 export async function GET(

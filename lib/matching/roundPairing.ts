@@ -148,3 +148,62 @@ export function computeRoundPairings(
 
   return { round1, round2, round3 };
 }
+
+/**
+ * Two-pass matching for Dating events.
+ *
+ * Pass 1: date pairs (male↔female only).
+ * Pass 2: for users left without a date match in Pass 1, run a friends-mode
+ *         pairing (same-gender allowed) as a fallback.
+ *
+ * Does not modify `computeSingleRound`, `buildAllPairs`, or `pickDisjointPairs`.
+ * Does not mutate the passed-in `excludePairKeys` set.
+ *
+ * @returns pairs  — all pairs (date + friend fallback) for this round
+ *          matchTypes — map from pairKey → 'date' | 'friend'
+ */
+export function computeSingleRoundWithFallback(
+  users: MatchUser[],
+  questions: Question[],
+  excludePairKeys: Set<string>
+): { pairs: PairWithScore[]; matchTypes: Record<string, "date" | "friend"> } {
+  const matchTypes: Record<string, "date" | "friend"> = {};
+
+  if (users.length < 2) return { pairs: [], matchTypes };
+
+  // We work on a copy so we never mutate the caller's set.
+  const excludeCopy = new Set(excludePairKeys);
+
+  // ── Pass 1: date pairs (male↔female) ──────────────────────────────────────
+  const datePairs = buildAllPairs(users, questions, { pairingMode: "dating" });
+  const chosenDatePairs = pickDisjointPairs(datePairs, excludeCopy);
+
+  const matchedInPass1 = new Set<string>();
+  for (const p of chosenDatePairs) {
+    const key = pairKey(p.a, p.b);
+    matchTypes[key] = "date";
+    matchedInPass1.add(p.a);
+    matchedInPass1.add(p.b);
+  }
+
+  // ── Pass 2: friend fallback for unmatched users ───────────────────────────
+  const unmatchedUsers = users.filter((u) => !matchedInPass1.has(u.id));
+  let chosenFriendPairs: PairWithScore[] = [];
+
+  if (unmatchedUsers.length >= 2) {
+    const friendPairs = buildAllPairs(unmatchedUsers, questions, {
+      pairingMode: "friends",
+    });
+    chosenFriendPairs = pickDisjointPairs(friendPairs, excludeCopy);
+
+    for (const p of chosenFriendPairs) {
+      const key = pairKey(p.a, p.b);
+      matchTypes[key] = "friend";
+    }
+  }
+
+  return {
+    pairs: [...chosenDatePairs, ...chosenFriendPairs],
+    matchTypes,
+  };
+}

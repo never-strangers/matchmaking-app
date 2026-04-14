@@ -20,6 +20,7 @@ export type MatchCardProps = {
   matchResultId?: string;
   currentUserInstagram?: string | null;
   instagramSharedByMe?: boolean;
+  matchType?: "date" | "friend";
 };
 
 export function MatchCard({
@@ -33,6 +34,7 @@ export function MatchCard({
   matchResultId,
   currentUserInstagram = null,
   instagramSharedByMe = false,
+  matchType = "date",
 }: MatchCardProps) {
   const router = useRouter();
   const [chatLoading, setChatLoading] = useState(false);
@@ -124,6 +126,19 @@ export function MatchCard({
             style={{ color: "var(--text)" }}
           >
             {displayName}
+            {matchType === "friend" && (
+              <span
+                className="ml-2 inline-block text-xs font-medium px-2 py-0.5 rounded-full align-middle"
+                style={{
+                  backgroundColor: "var(--bg-subtle, rgba(120,120,120,0.12))",
+                  color: "var(--text-muted)",
+                  border: "1px solid var(--border)",
+                }}
+                data-testid="friend-match-badge"
+              >
+                Friend match
+              </span>
+            )}
           </h3>
           <p
             className="text-sm mt-1"
