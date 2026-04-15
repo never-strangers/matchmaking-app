@@ -78,7 +78,7 @@ export async function GET(
     await Promise.all([
       supabase
         .from("match_results")
-        .select("id, a_profile_id, b_profile_id, score, round")
+        .select("id, a_profile_id, b_profile_id, score, round, match_type")
         .eq("event_id", eventId)
         .lte("round", lastRevealedRound)
         .order("round", { ascending: true }),

@@ -126,7 +126,20 @@ export function MatchCard({
             style={{ color: "var(--text)" }}
           >
             {displayName}
-            {matchType === "friend" && (
+            {(matchType ?? "date") === "date" ? (
+              <span
+                className="ml-2 inline-block text-xs font-medium px-2 py-0.5 rounded-full align-middle"
+                style={{
+                  backgroundColor: "rgba(220,80,80,0.10)",
+                  color: "var(--primary, #c0392b)",
+                  border: "1px solid rgba(220,80,80,0.25)",
+                }}
+                data-testid="match-type-badge"
+                data-match-type="date"
+              >
+                ❤️ Date match
+              </span>
+            ) : (
               <span
                 className="ml-2 inline-block text-xs font-medium px-2 py-0.5 rounded-full align-middle"
                 style={{
@@ -134,9 +147,10 @@ export function MatchCard({
                   color: "var(--text-muted)",
                   border: "1px solid var(--border)",
                 }}
-                data-testid="friend-match-badge"
+                data-testid="match-type-badge"
+                data-match-type="friend"
               >
-                Friend match
+                👥 Friend match
               </span>
             )}
           </h3>

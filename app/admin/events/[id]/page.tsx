@@ -16,6 +16,7 @@ type MatchRowData = {
   aName: string;
   bName: string;
   score: number;
+  matchType: string;
 };
 
 export default async function AdminEventDetailPage({
@@ -44,7 +45,7 @@ export default async function AdminEventDetailPage({
     getAttendeesByEvent(supabase, [eventId]),
     supabase
       .from("match_results")
-      .select("a_profile_id, b_profile_id, score, round")
+      .select("a_profile_id, b_profile_id, score, round, match_type")
       .eq("event_id", eventId)
       .order("score", { ascending: false }),
     supabase
@@ -114,12 +115,13 @@ export default async function AdminEventDetailPage({
   }
 
   const matches: MatchRowData[] = matchRows.map(
-    (r: { a_profile_id: string; b_profile_id: string; score: number }) => ({
+    (r: { a_profile_id: string; b_profile_id: string; score: number; match_type?: string | null }) => ({
       aProfileId: r.a_profile_id,
       bProfileId: r.b_profile_id,
       aName: profileMap.get(r.a_profile_id) || r.a_profile_id.slice(0, 8),
       bName: profileMap.get(r.b_profile_id) || r.b_profile_id.slice(0, 8),
       score: Number(r.score),
+      matchType: r.match_type ?? 'date',
     })
   );
 
@@ -265,7 +267,8 @@ export default async function AdminEventDetailPage({
                   <tr className="border-b border-beige-frame text-left text-gray-medium">
                     <th className="py-2 pr-4 font-medium">Person A</th>
                     <th className="py-2 pr-4 font-medium">Person B</th>
-                    <th className="py-2 font-medium">Score</th>
+                    <th className="py-2 pr-4 font-medium">Score</th>
+                    <th className="py-2 font-medium">Type</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -276,7 +279,15 @@ export default async function AdminEventDetailPage({
                     >
                       <td className="py-2 pr-4 text-gray-dark">{m.aName}</td>
                       <td className="py-2 pr-4 text-gray-dark">{m.bName}</td>
-                      <td className="py-2 font-medium text-gray-dark">{m.score.toFixed(1)}%</td>
+                      <td className="py-2 pr-4 font-medium text-gray-dark">{m.score.toFixed(1)}%</td>
+                      <td
+                        className="py-2 font-medium text-gray-dark"
+                        title={m.matchType === "date" ? "Date match" : "Friend fallback"}
+                        data-testid="admin-match-type"
+                        data-match-type={m.matchType}
+                      >
+                        {m.matchType === "date" ? "D" : "F"}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

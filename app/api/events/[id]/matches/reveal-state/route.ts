@@ -84,13 +84,13 @@ export async function GET(
   const matchResultIds = [...new Set(revealRows.map((r) => r.match_result_id))];
   const { data: resultRows } = await supabase
     .from("match_results")
-    .select("id, a_profile_id, b_profile_id, score")
+    .select("id, a_profile_id, b_profile_id, score, match_type")
     .in("id", matchResultIds);
 
   const resultMap = new Map(
-    (resultRows || []).map((r: { id: string; a_profile_id: string; b_profile_id: string; score: number }) => [
+    (resultRows || []).map((r: { id: string; a_profile_id: string; b_profile_id: string; score: number; match_type?: string | null }) => [
       r.id,
-      { a: r.a_profile_id, b: r.b_profile_id, score: Number(r.score) },
+      { a: r.a_profile_id, b: r.b_profile_id, score: Number(r.score), matchType: r.match_type ?? "date" },
     ])
   );
 
@@ -116,7 +116,8 @@ export async function GET(
   function buildMatchPayload(
     resultId: string,
     otherId: string,
-    score: number
+    score: number,
+    matchType: string = "date"
   ): RevealMatchPayload {
     const otherAnswers = answersByProfile.get(otherId);
     const aligned = currentAnswers && otherAnswers && questions.length
@@ -133,6 +134,7 @@ export async function GET(
       score,
       aligned,
       mismatched,
+      matchType: matchType as "date" | "friend",
     };
   }
 
@@ -143,7 +145,7 @@ export async function GET(
     const res = resultMap.get(r.match_result_id);
     if (!res) continue;
     const otherId = res.a === auth.profile_id ? res.b : res.a;
-    const payload = buildMatchPayload(r.match_result_id, otherId, res.score);
+    const payload = buildMatchPayload(r.match_result_id, otherId, res.score, res.matchType);
     if (r.revealed_at) {
       revealed.push(payload);
     } else if (nextMatch === null) {
