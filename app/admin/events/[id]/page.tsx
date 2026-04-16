@@ -4,6 +4,7 @@ import { getAuthUser } from "@/lib/auth/getAuthUser";
 import { getServiceSupabaseClient } from "@/lib/supabase/serverClient";
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { formatDateLabelLong } from "@/lib/time/formatEventTime";
 import { AdminEventsClient, type AdminEventSummary } from "@/app/admin/AdminEventsClient";
 import { getAttendeesByEvent } from "@/lib/admin/getAttendeesByEvent";
 import { GuestListClient } from "@/components/admin/GuestListClient";
@@ -140,14 +141,7 @@ export default async function AdminEventDetailPage({
     matchCount: matches.length,
   };
 
-  const sortDate = event.start_at || event.created_at;
-  const dateLabel = sortDate
-    ? new Date(sortDate).toLocaleDateString(undefined, {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      })
-    : "—";
+  const dateLabel = formatDateLabelLong(event.start_at || event.created_at);
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 sm:py-8">

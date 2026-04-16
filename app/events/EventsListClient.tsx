@@ -10,6 +10,7 @@ import { EventPreviewModal } from "@/components/events/EventPreviewModal";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { getCityFlag } from "@/lib/geo/cities";
 import { cityForFilter } from "@/lib/constants/profileOptions";
+import { formatEventCardDate } from "@/lib/time/formatEventTime";
 import type { EventPreviewData, AttendeePreviewState } from "@/lib/events/eventPreview";
 
 type ListEvent = {
@@ -46,25 +47,6 @@ const CATEGORY_OPTIONS = [
   { value: "friends", label: "Friends" },
   { value: "dating", label: "Dating" },
 ] as const;
-
-function formatEventDate(dateStr: string | null | undefined): string {
-  if (!dateStr) return "Live event";
-  const d = new Date(dateStr);
-  const today = new Date();
-  const isToday =
-    d.getDate() === today.getDate() &&
-    d.getMonth() === today.getMonth() &&
-    d.getFullYear() === today.getFullYear();
-  return (
-    (isToday
-      ? "Today"
-      : d.toLocaleDateString(undefined, {
-          month: "short",
-          day: "numeric",
-          year: "numeric",
-        })) + " · Live event"
-  );
-}
 
 /** Normalize a city label for comparison */
 function normalizeCityLabel(city: string | null): string | null {
@@ -383,7 +365,7 @@ export function EventsListClient({
                     className="text-xs mb-2 font-medium uppercase tracking-wider"
                     style={{ color: "var(--text-subtle)", fontFamily: "var(--font-sans)" }}
                   >
-                    {formatEventDate(event.start_at || event.created_at)}
+                    {formatEventCardDate(event.start_at || event.created_at)}
                   </p>
 
                   {/* City + category */}

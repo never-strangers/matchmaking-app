@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/Badge";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { PayToConfirmButton } from "@/app/events/PayToConfirmButton";
 import { EventTicketReserveBlock } from "@/components/events/EventTicketReserveBlock";
+import { EventTimeDisplay, EventDateSubtitle } from "@/components/events/EventTimeDisplay";
 import { notFound } from "next/navigation";
 
 export default async function EventDetailPage({
@@ -163,25 +164,6 @@ export default async function EventDetailPage({
         .filter(Boolean)
     : [];
 
-  // All events are in Singapore (UTC+8). Manually offset so it works
-  // regardless of Node.js ICU build (small-icu won't honour timeZone option).
-  const toSGT = (iso: string) => new Date(new Date(iso).getTime() + 8 * 60 * 60 * 1000);
-  const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  const formatDate = (iso: string | null) => {
-    if (!iso) return null;
-    const d = toSGT(iso);
-    return `${DAYS[d.getUTCDay()]}, ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
-  };
-  const formatTime = (iso: string | null) => {
-    if (!iso) return null;
-    const d = toSGT(iso);
-    const h = d.getUTCHours();
-    const m = d.getUTCMinutes();
-    const period = h >= 12 ? "PM" : "AM";
-    const h12 = h % 12 || 12;
-    return `${h12}:${String(m).padStart(2, "0")} ${period}`;
-  };
   const startAt = (event as { start_at?: string | null }).start_at;
   const endAt = (event as { end_at?: string | null }).end_at;
 
@@ -227,29 +209,10 @@ export default async function EventDetailPage({
           </div>
           <PageHeader
             title={event.title}
-            subtitle={
-              (event.city
-                ? [event.city, startAt ? formatDate(startAt) : null].filter(Boolean).join(" · ")
-                : startAt
-                  ? formatDate(startAt)
-                  : undefined) ?? undefined
-            }
+            subtitle={<EventDateSubtitle city={event.city} startAt={startAt} />}
           />
 
-          {(startAt || endAt) && (
-            <div className="text-sm mb-4" style={{ color: "var(--text-muted)" }}>
-              {startAt && (
-                <span>
-                  Start: {formatDate(startAt)} {formatTime(startAt)}
-                </span>
-              )}
-              {endAt && (
-                <span className={startAt ? " ml-4" : ""}>
-                  End: {formatDate(endAt)} {formatTime(endAt)}
-                </span>
-              )}
-            </div>
-          )}
+          <EventTimeDisplay startAt={startAt} endAt={endAt} />
 
           {event.description && (
             <div

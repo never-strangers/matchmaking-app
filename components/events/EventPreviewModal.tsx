@@ -4,26 +4,8 @@ import { useEffect } from "react";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
+import { formatEventRange } from "@/lib/time/formatEventTime";
 import type { EventPreviewData, AttendeePreviewState } from "@/lib/events/eventPreview";
-
-function formatDate(iso: string | null): string | null {
-  if (!iso) return null;
-  const d = new Date(iso);
-  return d.toLocaleDateString(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
-
-function formatTime(iso: string | null): string | null {
-  if (!iso) return null;
-  return new Date(iso).toLocaleTimeString(undefined, {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 export type EventPreviewModalProps = {
   event: EventPreviewData | null;
@@ -134,16 +116,7 @@ export function EventPreviewModal({
 
               {(startAt || endAt) && (
                 <div className="text-sm mb-3" style={{ color: "var(--text-muted)" }}>
-                  {startAt && (
-                    <span>
-                      Start: {formatDate(startAt)} {formatTime(startAt)}
-                    </span>
-                  )}
-                  {endAt && (
-                    <span className={startAt ? " ml-4" : ""}>
-                      End: {formatDate(endAt)} {formatTime(endAt)}
-                    </span>
-                  )}
+                  {formatEventRange(startAt, endAt)}
                 </div>
               )}
 

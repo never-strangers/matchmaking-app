@@ -19,12 +19,15 @@ export default defineConfig({
   /* E2E specs to run (auth journey + match reveal/check-in). Omit testMatch to run all specs in tests/e2e. */
   testMatch: [
     /tests\/e2e\/auth-journey\.spec\.ts/,
+    /tests\/e2e\/auth-registration\.spec\.ts/,
+    /tests\/e2e\/auth-login\.spec\.ts/,
     /tests\/e2e\/match-reveal-and-checkin\.spec\.ts/,
     /tests\/e2e\/match-incremental-late-arrivals\.spec\.ts/,
     /tests\/e2e\/chat-after-reveal\.spec\.ts/,
     /tests\/e2e\/messages-request-cap\.spec\.ts/,
     /tests\/e2e\/event-payment-flow\.spec\.ts/,
     /tests\/e2e\/paid-event-to-chat\.spec\.ts/,
+    /tests\/e2e\/event-time-timezone\.spec\.ts/,
   ],
   /* Keep deterministic order for shared fixtures/storage states */
   fullyParallel: false,

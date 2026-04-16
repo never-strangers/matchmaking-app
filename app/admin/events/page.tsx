@@ -5,6 +5,7 @@ import { getServiceSupabaseClient } from "@/lib/supabase/serverClient";
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
+import { formatDateLabel } from "@/lib/time/formatEventTime";
 import { AdminEventRow, DeletedEventRow } from "./AdminEventRows";
 
 const RECOVERY_DAYS = 30;
@@ -87,11 +88,6 @@ async function getEventsListData(
     .sort((a, b) => sortDate(b).localeCompare(sortDate(a)));
 
   return { totalEvents: events.length, totalAttendees, totalMatches, upcoming, past, trash };
-}
-
-function formatDateLabel(dateStr: string | null | undefined): string {
-  if (!dateStr) return "—";
-  return new Date(dateStr).toLocaleDateString(undefined, { day: "2-digit", month: "short" });
 }
 
 export default async function AdminEventsPage() {
