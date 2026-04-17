@@ -19,15 +19,30 @@ function SplashScreen({ onLogin, onRegister }: { onLogin: () => void; onRegister
   return (
     <div style={{ position: "relative", minHeight: "100svh", display: "flex", flexDirection: "column" }}>
       {/* Background image */}
+      <style>{`
+        .login-bg-img { object-position: center 25%; }
+        @media (min-width: 768px) { .login-bg-img { object-position: center 40%; } }
+      `}</style>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src="/landing/carousel-2.webp"
+        src="/image.png"
         alt=""
         aria-hidden
-        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center top" }}
+        className="login-bg-img"
+        style={{
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+        }}
       />
-      {/* Gradient overlay */}
-      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.45) 50%, rgba(0,0,0,0.85) 100%)" }} />
+      {/* Gradient overlay — stronger at top/bottom, lighter in middle so faces show */}
+      <div style={{
+        position: "absolute",
+        inset: 0,
+        background: "linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.1) 35%, rgba(0,0,0,0.1) 60%, rgba(0,0,0,0.85) 100%)",
+      }} />
 
       {/* Logo — top left */}
       <div style={{ position: "absolute", top: 28, left: 32, zIndex: 10 }}>
