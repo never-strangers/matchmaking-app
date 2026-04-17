@@ -1,17 +1,30 @@
 /**
  * Shared event-time formatting helpers.
  *
- * All functions accept ISO-8601 strings (with or without offset/Z) and format
- * them in the user's **browser-local** timezone using `Intl.DateTimeFormat`.
+ * Event timestamps are stored as TIMESTAMPTZ in Supabase, but the admin enters
+ * them via `datetime-local` inputs which carry NO timezone offset. PostgreSQL
+ * (session tz = UTC) therefore stores them as if they were UTC. In reality, the
+ * admin intended the "wall-clock" time of the event's city (e.g. 9:30 PM KL).
  *
- * Server components cannot reliably know the browser timezone, so these helpers
- * are designed for client-side use. Server components that need a date label
- * should either delegate to a client component or use `formatDateLabel` (which
- * runs fine on the server but will use the Node process timezone).
+ * To display the time the admin actually set, we strip any UTC offset before
+ * parsing so that `new Date()` treats the value as a naive local-time string.
+ * This makes "9:30 PM" appear as "9:30 PM" in every browser, regardless of the
+ * viewer's timezone — which is the correct UX for event schedules.
+ *
+ * If we ever add an `event_timezone` column, we can use it here to convert
+ * properly.  Until then, wall-clock display is the safest default.
  */
 
+/**
+ * Strip trailing UTC offset (+00:00, +00, Z) so `new Date()` treats the string
+ * as a naive (offset-less) timestamp, i.e. wall-clock time.
+ */
+function stripUtcOffset(iso: string): string {
+  return iso.replace(/([+-]\d{2}:\d{2}|[+-]\d{2}|Z)$/, "");
+}
+
 function safeParse(iso: string): Date | null {
-  const d = new Date(iso);
+  const d = new Date(stripUtcOffset(iso));
   return Number.isNaN(d.getTime()) ? null : d;
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { formatEventRange } from "@/lib/time/formatEventTime";
+import { formatEventRange, formatDateLabelLong } from "@/lib/time/formatEventTime";
 
 type Props = {
   startAt: string | null | undefined;
@@ -28,12 +28,7 @@ export function EventDateSubtitle({
   if (!city && !startAt) return null;
 
   const datePart = startAt
-    ? new Date(startAt).toLocaleDateString(undefined, {
-        weekday: "short",
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      })
+    ? formatDateLabelLong(startAt)
     : null;
 
   const parts = [city, datePart].filter(Boolean);

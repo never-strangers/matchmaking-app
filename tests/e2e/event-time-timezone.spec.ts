@@ -1,8 +1,10 @@
 /**
- * Verify event times are displayed in the browser's local timezone.
+ * Verify event times are displayed as wall-clock time (as the admin entered
+ * them) and never as raw UTC/ISO strings.
  *
- * We open the events page in two different browser timezones and assert that
- * the same event's displayed date/time label differs accordingly.
+ * Since `datetime-local` inputs carry no timezone and the DB stores them as
+ * TIMESTAMPTZ (interpreted as UTC), we strip the UTC offset at render time so
+ * that e.g. "9:30 PM" always shows as "9:30 PM" regardless of browser TZ.
  */
 import { test, expect, BrowserContext } from "@playwright/test";
 import { E2E_APPROVED_USER } from "../fixtures/e2e-users";
@@ -40,10 +42,8 @@ async function getFirstEventDateText(
   return dateLine.innerText({ timeout: 3000 }).catch(() => null);
 }
 
-test.describe("Event time timezone display", () => {
-  test("event list shows date formatted in browser timezone (not raw UTC)", async ({
-    browser,
-  }) => {
+test.describe("Event time display", () => {
+  test("event list shows formatted date (not raw UTC)", async ({ browser }) => {
     const context = await browser.newContext({
       timezoneId: "Asia/Singapore",
     });
@@ -54,53 +54,38 @@ test.describe("Event time timezone display", () => {
     await context.close();
 
     if (!dateText) {
-      test.skip(true, "No events visible — cannot verify timezone formatting");
+      test.skip(true, "No events visible — cannot verify formatting");
       return;
     }
 
-    // The date should NOT contain raw UTC markers like "Z" or "+00:00"
     expect(dateText).not.toContain("Z");
     expect(dateText).not.toContain("+00:00");
 
-    // Should look like a formatted date (contains a month abbreviation)
     const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     const hasMonth = months.some((m) => dateText.includes(m)) || dateText.includes("Today");
     expect(hasMonth).toBe(true);
   });
 
-  test("same event shows different local times in different timezones", async ({
-    browser,
-  }) => {
-    // Open events page in US/Pacific timezone
-    const ctxPacific = await browser.newContext({ timezoneId: "US/Pacific" });
-    const pagePacific = await ctxPacific.newPage();
-    await loginUser(pagePacific, E2E_APPROVED_USER);
-    const datePacific = await getFirstEventDateText(pagePacific);
-    await ctxPacific.close();
+  test("wall-clock time is identical across timezones", async ({ browser }) => {
+    const ctxSingapore = await browser.newContext({ timezoneId: "Asia/Singapore" });
+    const pageSG = await ctxSingapore.newPage();
+    await loginUser(pageSG, E2E_APPROVED_USER);
+    const dateSG = await getFirstEventDateText(pageSG);
+    await ctxSingapore.close();
 
-    // Open events page in Asia/Tokyo timezone
-    const ctxTokyo = await browser.newContext({ timezoneId: "Asia/Tokyo" });
-    const pageTokyo = await ctxTokyo.newPage();
-    await loginUser(pageTokyo, E2E_APPROVED_USER);
-    const dateTokyo = await getFirstEventDateText(pageTokyo);
-    await ctxTokyo.close();
+    const ctxNY = await browser.newContext({ timezoneId: "America/New_York" });
+    const pageNY = await ctxNY.newPage();
+    await loginUser(pageNY, E2E_APPROVED_USER);
+    const dateNY = await getFirstEventDateText(pageNY);
+    await ctxNY.close();
 
-    if (!datePacific || !dateTokyo) {
-      test.skip(true, "No events visible — cannot compare timezone formatting");
+    if (!dateSG || !dateNY) {
+      test.skip(true, "No events visible — cannot compare");
       return;
     }
 
-    // Both should be valid formatted dates (not raw ISO)
-    expect(datePacific).not.toContain("T");
-    expect(dateTokyo).not.toContain("T");
-
-    // The text representation is determined by the user's locale+timezone,
-    // so we just verify both are valid date-like strings (month abbreviation or "Today")
-    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    const pacificOk = months.some((m) => datePacific.includes(m)) || datePacific.includes("Today");
-    const tokyoOk = months.some((m) => dateTokyo.includes(m)) || dateTokyo.includes("Today");
-    expect(pacificOk).toBe(true);
-    expect(tokyoOk).toBe(true);
+    // Wall-clock display: both timezones should show the same date text
+    expect(dateSG).toBe(dateNY);
   });
 
   test("event detail page shows formatted local time", async ({ browser }) => {
@@ -139,7 +124,6 @@ test.describe("Event time timezone display", () => {
     const pageContent = await page.textContent("body");
     await context.close();
 
-    // The detail page should not expose raw UTC timestamps
     expect(pageContent).not.toMatch(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
   });
 });
