@@ -86,6 +86,7 @@ function SplashScreen({ onLogin, onRegister }: { onLogin: () => void; onRegister
             </button>
             <button
               onClick={onLogin}
+              data-testid="splash-login-cta"
               style={{
                 width: "100%",
                 padding: "17px 24px",
@@ -107,11 +108,11 @@ function SplashScreen({ onLogin, onRegister }: { onLogin: () => void; onRegister
           {/* Legal */}
           <p style={{ marginTop: 20, fontSize: 12, color: "rgba(255,255,255,0.5)", textAlign: "center" }}>
             By continuing you agree to our{" "}
-            <Link href="https://thisisneverstrangers.com/terms" target="_blank" style={{ color: "rgba(255,255,255,0.7)", textDecoration: "underline" }}>
+            <Link href="https://thisisneverstrangers.com/terms-conditions/" target="_blank" style={{ color: "rgba(255,255,255,0.7)", textDecoration: "underline" }}>
               Terms of Service
             </Link>{" "}
             and{" "}
-            <Link href="https://thisisneverstrangers.com/privacy" target="_blank" style={{ color: "rgba(255,255,255,0.7)", textDecoration: "underline" }}>
+            <Link href="https://thisisneverstrangers.com/privacy-policy/" target="_blank" style={{ color: "rgba(255,255,255,0.7)", textDecoration: "underline" }}>
               Privacy Policy
             </Link>
           </p>

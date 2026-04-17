@@ -50,7 +50,23 @@ export default function Footer() {
           </a>
           <span style={{ color: "rgba(255,255,255,0.2)" }}>·</span>
           <Link
-            href="/privacy-policy"
+            href="https://thisisneverstrangers.com/terms-conditions/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="transition-opacity hover:opacity-70"
+            style={{
+              color: "rgba(255,255,255,0.6)",
+              fontFamily: "var(--font-sans)",
+              fontSize: "14px",
+            }}
+          >
+            Terms
+          </Link>
+          <span style={{ color: "rgba(255,255,255,0.2)" }}>·</span>
+          <Link
+            href="https://thisisneverstrangers.com/privacy-policy/"
+            target="_blank"
+            rel="noopener noreferrer"
             className="transition-opacity hover:opacity-70"
             style={{
               color: "rgba(255,255,255,0.6)",
