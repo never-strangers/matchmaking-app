@@ -1,30 +1,13 @@
 /**
  * Shared event-time formatting helpers.
  *
- * Event timestamps are stored as TIMESTAMPTZ in Supabase, but the admin enters
- * them via `datetime-local` inputs which carry NO timezone offset. PostgreSQL
- * (session tz = UTC) therefore stores them as if they were UTC. In reality, the
- * admin intended the "wall-clock" time of the event's city (e.g. 9:30 PM KL).
- *
- * To display the time the admin actually set, we strip any UTC offset before
- * parsing so that `new Date()` treats the value as a naive local-time string.
- * This makes "9:30 PM" appear as "9:30 PM" in every browser, regardless of the
- * viewer's timezone — which is the correct UX for event schedules.
- *
- * If we ever add an `event_timezone` column, we can use it here to convert
- * properly.  Until then, wall-clock display is the safest default.
+ * Timestamps are parsed with `new Date(iso)` and displayed in the viewer's
+ * browser timezone using `Intl` formatting pinned to the en-US locale with
+ * 12-hour AM/PM output.
  */
-
-/**
- * Strip trailing UTC offset (+00:00, +00, Z) so `new Date()` treats the string
- * as a naive (offset-less) timestamp, i.e. wall-clock time.
- */
-function stripUtcOffset(iso: string): string {
-  return iso.replace(/([+-]\d{2}:\d{2}|[+-]\d{2}|Z)$/, "");
-}
 
 function safeParse(iso: string): Date | null {
-  const d = new Date(stripUtcOffset(iso));
+  const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
