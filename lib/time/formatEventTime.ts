@@ -43,16 +43,17 @@ export function formatEventDateTime(
 
   const withWeekday = opts?.withWeekday ?? true;
 
-  const datePart = d.toLocaleDateString(undefined, {
+  const datePart = d.toLocaleDateString("en-US", {
     weekday: withWeekday ? "short" : undefined,
     day: "numeric",
     month: "short",
     year: "numeric",
   });
 
-  const timePart = d.toLocaleTimeString(undefined, {
+  const timePart = d.toLocaleTimeString("en-US", {
     hour: "numeric",
     minute: "2-digit",
+    hour12: true,
   });
 
   return `${datePart} · ${timePart}`;
@@ -74,16 +75,17 @@ export function formatEventRange(
   const startDate = safeParse(startIso);
   if (!startDate) return "TBD";
 
-  const datePart = startDate.toLocaleDateString(undefined, {
+  const datePart = startDate.toLocaleDateString("en-US", {
     weekday: "short",
     day: "numeric",
     month: "short",
     year: "numeric",
   });
 
-  const startTime = startDate.toLocaleTimeString(undefined, {
+  const startTime = startDate.toLocaleTimeString("en-US", {
     hour: "numeric",
     minute: "2-digit",
+    hour12: true,
   });
 
   if (!endIso) {
@@ -100,16 +102,17 @@ export function formatEventRange(
     startDate.getMonth() === endDate.getMonth() &&
     startDate.getDate() === endDate.getDate();
 
-  const endTime = endDate.toLocaleTimeString(undefined, {
+  const endTime = endDate.toLocaleTimeString("en-US", {
     hour: "numeric",
     minute: "2-digit",
+    hour12: true,
   });
 
   if (sameDay) {
     return `${datePart} · ${startTime} – ${endTime}`;
   }
 
-  const endDatePart = endDate.toLocaleDateString(undefined, {
+  const endDatePart = endDate.toLocaleDateString("en-US", {
     weekday: "short",
     day: "numeric",
     month: "short",
@@ -129,7 +132,7 @@ export function formatDateLabel(
   if (!dateStr) return "—";
   const d = safeParse(dateStr);
   if (!d) return "—";
-  return d.toLocaleDateString(undefined, { day: "2-digit", month: "short" });
+  return d.toLocaleDateString("en-US", { day: "2-digit", month: "short" });
 }
 
 /**
@@ -141,7 +144,7 @@ export function formatDateLabelLong(
   if (!dateStr) return "—";
   const d = safeParse(dateStr);
   if (!d) return "—";
-  return d.toLocaleDateString(undefined, {
+  return d.toLocaleDateString("en-US", {
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -168,7 +171,7 @@ export function formatEventCardDate(
 
   const label = isToday
     ? "Today"
-    : d.toLocaleDateString(undefined, {
+    : d.toLocaleDateString("en-US", {
         month: "short",
         day: "numeric",
         year: "numeric",
