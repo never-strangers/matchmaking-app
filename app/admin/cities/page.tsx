@@ -12,6 +12,7 @@ export default function AdminCitiesPage() {
   const [cities, setCities] = useState<CityRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Add city form state
@@ -57,6 +58,19 @@ export default function AdminCitiesPage() {
     setToggling(null);
   };
 
+
+  const deleteCity = async (city: CityRow) => {
+    if (!confirm(`Delete "${city.label}"? This cannot be undone.`)) return;
+    setDeleting(city.value);
+    setError(null);
+    const res = await fetch(`/api/admin/cities/${city.value}`, { method: "DELETE" });
+    if (!res.ok) {
+      setError(`Failed to delete ${city.label}`);
+    } else {
+      await fetchCities();
+    }
+    setDeleting(null);
+  };
   const addCity = async (e: React.FormEvent) => {
     e.preventDefault();
     setAdding(true);
@@ -111,7 +125,7 @@ export default function AdminCitiesPage() {
             </h2>
             <div className="divide-y" style={{ borderColor: "var(--border)" }}>
               {live.map((city) => (
-                <CityRowItem key={city.value} city={city} toggling={toggling} onToggle={toggle} />
+                <CityRowItem key={city.value} city={city} toggling={toggling} deleting={deleting} onToggle={toggle} onDelete={deleteCity} />
               ))}
               {live.length === 0 && (
                 <p className="py-3 text-sm" style={{ color: "var(--text-muted)" }}>No live cities.</p>
@@ -125,7 +139,7 @@ export default function AdminCitiesPage() {
             </h2>
             <div className="divide-y" style={{ borderColor: "var(--border)" }}>
               {comingSoon.map((city) => (
-                <CityRowItem key={city.value} city={city} toggling={toggling} onToggle={toggle} />
+                <CityRowItem key={city.value} city={city} toggling={toggling} deleting={deleting} onToggle={toggle} onDelete={deleteCity} />
               ))}
               {comingSoon.length === 0 && (
                 <p className="py-3 text-sm" style={{ color: "var(--text-muted)" }}>No coming-soon cities.</p>
@@ -208,11 +222,15 @@ export default function AdminCitiesPage() {
 function CityRowItem({
   city,
   toggling,
+  deleting,
   onToggle,
+  onDelete,
 }: {
   city: CityRow;
   toggling: string | null;
+  deleting: string | null;
   onToggle: (city: CityRow) => void;
+  onDelete: (city: CityRow) => void;
 }) {
   const isLive = city.status === "live";
   return (
@@ -232,18 +250,29 @@ function CityRowItem({
           {isLive ? "Live" : "Coming soon"}
         </span>
       </div>
-      <Button
-        size="sm"
-        variant="secondary"
-        disabled={toggling === city.value}
-        onClick={() => onToggle(city)}
-      >
-        {toggling === city.value
-          ? "Saving…"
-          : isLive
-          ? "Move to Coming soon"
-          : "Move to Live"}
-      </Button>
+      <div className="flex items-center gap-2">
+        <Button
+          size="sm"
+          variant="secondary"
+          disabled={toggling === city.value || deleting === city.value}
+          onClick={() => onToggle(city)}
+        >
+          {toggling === city.value
+            ? "Saving…"
+            : isLive
+            ? "Move to Coming soon"
+            : "Move to Live"}
+        </Button>
+        <Button
+          size="sm"
+          variant="secondary"
+          disabled={deleting === city.value || toggling === city.value}
+          onClick={() => onDelete(city)}
+          style={{ color: "var(--danger, #dc2626)" }}
+        >
+          {deleting === city.value ? "Deleting…" : "Delete"}
+        </Button>
+      </div>
     </div>
   );
 }

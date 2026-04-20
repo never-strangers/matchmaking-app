@@ -48,3 +48,27 @@ export async function PATCH(
 
   return Response.json(data);
 }
+
+export async function DELETE(
+  _req: NextRequest,
+  context: { params: Promise<{ value: string }> }
+) {
+  const session = await getAuthUser();
+  if (!session) return new Response("Unauthorized", { status: 401 });
+  if (session.role !== "admin") return new Response("Forbidden", { status: 403 });
+
+  const { value } = await context.params;
+
+  const supabase = getServiceSupabaseClient();
+  const { error } = await supabase
+    .from("city_config")
+    .delete()
+    .eq("value", value);
+
+  if (error) {
+    console.error("[DELETE /api/admin/cities]", error);
+    return Response.json({ error: "Delete failed" }, { status: 500 });
+  }
+
+  return new Response(null, { status: 204 });
+}
