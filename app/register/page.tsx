@@ -12,10 +12,10 @@ import {
   PREFERRED_LANGUAGE_OPTIONS,
 } from "@/lib/profile-validation";
 import {
-  CITIES,
   ATTRACTED_TO_OPTIONS,
   LOOKING_FOR_OPTIONS,
 } from "@/lib/constants/profileOptions";
+import { useCityConfig } from "@/lib/cities/useCityConfig";
 import { Button } from "@/components/ui/Button";
 import { createClient } from "@/lib/supabase/client";
 import { getPostLoginRedirect } from "@/lib/auth/getPostLoginRedirect";
@@ -120,6 +120,7 @@ export default function RegisterPage() {
       router.replace(getPostLoginRedirect(profile?.status));
     });
   }, [router]);
+  const cityConfig = useCityConfig();
   const [email, setEmail] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -358,16 +359,28 @@ export default function RegisterPage() {
               <StyledSelect
                 id="city"
                 value={city}
-                onChange={(e) => setCity(e.target.value)}
+                onChange={(e) => {
+                  setCity(e.target.value);
+                }}
                 data-testid="register-city"
               >
                 <option value="">Choose a City</option>
-                {CITIES.map((c) => (
-                  <option key={c.value} value={c.value}>
-                    {c.label}
-                  </option>
-                ))}
+                <optgroup label="Live now">
+                  {cityConfig.live.map((c) => (
+                    <option key={c.value} value={c.value}>{c.label}</option>
+                  ))}
+                </optgroup>
+                <optgroup label="Coming soon">
+                  {cityConfig.comingSoon.map((c) => (
+                    <option key={c.value} value={c.value}>{c.label} (coming soon)</option>
+                  ))}
+                </optgroup>
               </StyledSelect>
+              {city && cityConfig.comingSoon.some((c) => c.value === city) && (
+                <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>
+                  We&apos;re not live there yet — we&apos;ll notify you when we launch.
+                </p>
+              )}
             </div>
 
             <div>

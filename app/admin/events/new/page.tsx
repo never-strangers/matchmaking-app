@@ -7,14 +7,7 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { PageHeader } from "@/components/ui/PageHeader";
-
-const CITIES = [
-  { value: "", label: "Select city" },
-  { value: "Singapore", label: "Singapore" },
-  { value: "Hong Kong", label: "Hong Kong" },
-  { value: "Bangkok", label: "Bangkok" },
-  { value: "Tokyo", label: "Tokyo" },
-] as const;
+import { useCityConfig } from "@/lib/cities/useCityConfig";
 
 const CATEGORIES = [
   { value: "friends", label: "Friends" },
@@ -23,6 +16,7 @@ const CATEGORIES = [
 
 export default function AdminCreateEventPage() {
   const router = useRouter();
+  const cityConfig = useCityConfig();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [startAt, setStartAt] = useState("");
@@ -281,11 +275,17 @@ export default function AdminCreateEventPage() {
               disabled={isSubmitting}
               data-testid="create-event-city"
             >
-              {CITIES.map((c) => (
-                <option key={c.value || "empty"} value={c.value}>
-                  {c.label}
-                </option>
-              ))}
+              <option value="">Select city</option>
+              <optgroup label="Live now">
+                {cityConfig.live.map((c) => (
+                  <option key={c.value} value={c.label}>{c.label}</option>
+                ))}
+              </optgroup>
+              <optgroup label="Coming soon">
+                {cityConfig.comingSoon.map((c) => (
+                  <option key={c.value} value={c.label}>{c.label} (coming soon)</option>
+                ))}
+              </optgroup>
             </select>
           </div>
 

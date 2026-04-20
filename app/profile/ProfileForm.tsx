@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { AvatarSquare } from "@/components/ui/AvatarSquare";
 import {
-  CITIES,
   GENDERS,
   ATTRACTED_TO_OPTIONS,
   MIN_AGE,
@@ -14,6 +13,7 @@ import {
   normalizeGenderForSelect,
   normalizeAttractedToForSelect,
 } from "@/lib/constants/profileOptions";
+import { useCityConfig } from "@/lib/cities/useCityConfig";
 import type { Profile, ProfileUpdateInput } from "@/types/profile";
 
 const MAX_AVATAR_SIZE = 5 * 1024 * 1024; // 5MB
@@ -44,6 +44,7 @@ export function ProfileForm({
   initialProfile: Profile;
   showResetSuccess?: boolean;
 }) {
+  const cityConfig = useCityConfig();
   const [profile, setProfile] = useState<Profile>(initialProfile);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -363,11 +364,16 @@ export function ProfileForm({
               data-testid="profile-city"
             >
               <option value="">Select city</option>
-              {CITIES.map((c) => (
-                <option key={c.value} value={c.value}>
-                  {c.label}
-                </option>
-              ))}
+              <optgroup label="Live now">
+                {cityConfig.live.map((c) => (
+                  <option key={c.value} value={c.value}>{c.label}</option>
+                ))}
+              </optgroup>
+              <optgroup label="Coming soon">
+                {cityConfig.comingSoon.map((c) => (
+                  <option key={c.value} value={c.value}>{c.label} (coming soon)</option>
+                ))}
+              </optgroup>
             </select>
           </div>
         </div>

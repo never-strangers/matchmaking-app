@@ -8,14 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EventTicketTypesEditor, type TicketType } from "@/components/admin/EventTicketTypesEditor";
-
-const CITIES = [
-  { value: "", label: "Select city" },
-  { value: "Singapore", label: "Singapore" },
-  { value: "Hong Kong", label: "Hong Kong" },
-  { value: "Bangkok", label: "Bangkok" },
-  { value: "Tokyo", label: "Tokyo" },
-] as const;
+import { useCityConfig } from "@/lib/cities/useCityConfig";
 
 const CATEGORIES = [
   { value: "friends", label: "Friends" },
@@ -51,6 +44,7 @@ function formatDateTimeLocal(iso: string | null): string {
 }
 
 export function AdminEventEditForm({ eventId, event, ticketTypes, posterPublicUrl }: Props) {
+  const cityConfig = useCityConfig();
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [title, setTitle] = useState(event.title || "");
@@ -286,11 +280,17 @@ export function AdminEventEditForm({ eventId, event, ticketTypes, posterPublicUr
               onChange={(e) => setCity(e.target.value)}
               disabled={isSubmitting}
             >
-              {CITIES.map((c) => (
-                <option key={c.value || "empty"} value={c.value}>
-                  {c.label}
-                </option>
-              ))}
+              <option value="">Select city</option>
+              <optgroup label="Live now">
+                {cityConfig.live.map((c) => (
+                  <option key={c.value} value={c.label}>{c.label}</option>
+                ))}
+              </optgroup>
+              <optgroup label="Coming soon">
+                {cityConfig.comingSoon.map((c) => (
+                  <option key={c.value} value={c.label}>{c.label} (coming soon)</option>
+                ))}
+              </optgroup>
             </select>
           </div>
 

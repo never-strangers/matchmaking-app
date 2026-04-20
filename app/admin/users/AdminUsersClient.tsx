@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
-import { CITIES, ATTRACTED_TO_OPTIONS } from "@/lib/constants/profileOptions";
+import { ATTRACTED_TO_OPTIONS } from "@/lib/constants/profileOptions";
+import { useCityConfig } from "@/lib/cities/useCityConfig";
 import Card from "@/components/admin/Card";
 import { AvatarSquare } from "@/components/ui/AvatarSquare";
 
@@ -195,6 +196,7 @@ const DEFAULT_PARAMS = {
 };
 
 export default function AdminUsersClient() {
+  const cityConfig = useCityConfig();
   const [params, setParams] = useState(DEFAULT_PARAMS);
   const [searchInput, setSearchInput] = useState("");
   const [data, setData] = useState<ApiResponse | null>(null);
@@ -301,11 +303,16 @@ export default function AdminUsersClient() {
               data-testid="admin-users-filter-city"
             >
               <option value="all">All cities</option>
-              {CITIES.map((c) => (
-                <option key={c.value} value={c.value}>
-                  {c.label}
-                </option>
-              ))}
+              <optgroup label="Live now">
+                {cityConfig.live.map((c) => (
+                  <option key={c.value} value={c.value}>{c.label}</option>
+                ))}
+              </optgroup>
+              <optgroup label="Coming soon">
+                {cityConfig.comingSoon.map((c) => (
+                  <option key={c.value} value={c.value}>{c.label}</option>
+                ))}
+              </optgroup>
             </select>
             <select
               value={params.gender}

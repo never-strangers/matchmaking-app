@@ -12,11 +12,11 @@ import {
   PREFERRED_LANGUAGE_OPTIONS,
 } from "@/lib/profile-validation";
 import {
-  CITIES,
   ATTRACTED_TO_OPTIONS,
   LOOKING_FOR_OPTIONS,
   normalizeCityForSelect,
 } from "@/lib/constants/profileOptions";
+import { useCityConfig } from "@/lib/cities/useCityConfig";
 import { Button } from "@/components/ui/Button";
 import { AvatarSquare } from "@/components/ui/AvatarSquare";
 import { getAvatarPublicUrl } from "@/lib/supabase/avatar";
@@ -124,6 +124,7 @@ function StyledTextarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>
 
 export default function ProfilePage() {
   const router = useRouter();
+  const cityConfig = useCityConfig();
   const [loading, setLoading] = useState(true);
   const [avatarPath, setAvatarPath] = useState<string | null>(null);
   const [avatarUpdatedAt, setAvatarUpdatedAt] = useState<string | null>(null);
@@ -605,11 +606,16 @@ export default function ProfilePage() {
               data-testid="profile-city"
             >
               <option value="">Choose a City</option>
-              {CITIES.map((c) => (
-                <option key={c.value} value={c.value}>
-                  {c.label}
-                </option>
-              ))}
+              <optgroup label="Live now">
+                {cityConfig.live.map((c) => (
+                  <option key={c.value} value={c.value}>{c.label}</option>
+                ))}
+              </optgroup>
+              <optgroup label="Coming soon">
+                {cityConfig.comingSoon.map((c) => (
+                  <option key={c.value} value={c.value}>{c.label} (coming soon)</option>
+                ))}
+              </optgroup>
             </StyledSelect>
           </div>
           <div>
