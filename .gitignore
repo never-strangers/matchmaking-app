@@ -48,6 +48,9 @@ next-env.d.ts
 
 /scripts/.seed-output/
 
+# Local CSV exports / migration reports under scripts (not source)
+/scripts/*.csv
+
 docs/security-scan-report.md
 
 

@@ -59,6 +59,8 @@ The live/coming-soon split is managed via the `city_config` table in Supabase. A
 
 **DB:** `supabase/migrations/20260420000000_city_config.sql` — run `supabase db push` after merging.
 
+**DB (security / WP tooling):** `20260415000000_wp_users_backup.sql` (optional `wp_users_backup` staging table), `20260415100000_security_fixes.sql` (RLS, `active_events` security invoker), `20260415110000_fix_function_search_paths.sql` (`SET search_path` on flagged functions). Apply with `supabase db push` in order.
+
 ## Local Dev
 
 - Run: `npm run dev` (localhost:3000).
