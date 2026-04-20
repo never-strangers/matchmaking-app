@@ -109,20 +109,10 @@ The live/coming-soon split is managed via the `city_config` table in Supabase. A
 - **Event detail** (`/admin/events/[id]`): **Guest list** split into **Paid attendees** (can check in) and **Payment pending** for paid events; free events show a single list with payment “Free”. **Check-in** / **Undo check-in** only for paid (or free) attendees; **Run Matching** is incremental (each click computes the next round only; late check-ins included going forward) and includes only checked-in, payment-eligible, questionnaire-complete attendees. See `docs/MATCH_REVEAL_AND_CHECKIN.md`.
 - **Users** (`/admin/users`): Search and filter users by keyword (name, email, username, Instagram, phone), status (Pending/Approved/Rejected), city, gender, attracted_to; sort by registered date, status, or city; server-side pagination (25 per page). Approve/Reject/View per row without losing filters. API: `GET /api/admin/users` (query params: `q`, `status`, `city`, `gender`, `attracted_to`, `sort`, `page`, `page_size`). Admin-only; phone/email are never exposed to non-admin.
 - **Matches Management** (`/admin/matches`)
-  - **Step 1: Signups**
-    - View and manage event signups
-    - Track signup dates
-  - **Step 2: Matching Algorithm**
-    - Calculate optimal matches among guests
-    - Romantic vs. Friend matching breakdown
-    - Match score visualization (0-100%)
-    - Match grouping system
-    - Recalculate and options controls
-    - Top matches preview
-  - **Step 3: Finalization**
-    - Finalize and publish event results
-    - Notify followers functionality
-  - Sidebar with comprehensive match pairs list
+  - Event dropdown (pair counts from `match_results` per event).
+  - **Rounds 1–3**: tabs driven by `?event=<id>&round=1|2|3`; list is filtered server-side by `match_results.round`.
+  - Per-round pair counts in tabs; **Search by name** filters the current round’s rows client-side; **Export CSV** downloads the filtered rows (`matches_<eventId>_round<N>_<date>.csv`).
+  - Empty state when a round has no pairs yet.
 
 ---
 
@@ -193,11 +183,9 @@ The following features are currently using mock data or localStorage and need da
   - Uses hardcoded `mockMatches` array
   - No real matching algorithm
   - No user similarity calculations
-- **Matching Algorithm** (`/admin/matches`)
-  - Mock match pairs from `lib/admin/matches.mock.ts`
-  - No AI embeddings (OpenAI + pgvector)
-  - No cosine similarity calculations
-  - No match score computation
+- **Matching Algorithm** (admin event page + `/api/admin/events/[id]/run-matching`)
+  - Production matching writes scores to `match_results` (see `lib/matching/`). The admin **matches list** at `/admin/matches` reads those rows (not `lib/admin/matches.mock.ts`).
+  - No AI embeddings (OpenAI + pgvector) for similarity beyond the questionnaire score
 
 #### 🧮 Admin Dashboard
 - **KPIs** (`/admin`)
@@ -212,11 +200,6 @@ The following features are currently using mock data or localStorage and need da
 - **Past Events** (`/admin`)
   - Mock data from `lib/admin/mock.ts`
   - No event history tracking
-- **Signups Management** (`/admin/matches`)
-  - Mock signups from `lib/admin/matches.mock.ts`
-  - No event signup tracking
-  - No user-event relationships
-
 #### 📚 Question Library
 - **Question Database** (`lib/events/new/mock.ts`)
   - Hardcoded 72 questions

@@ -13,6 +13,7 @@ type MatchRowData = {
   bName: string;
   score: number;
   matchType: string;
+  round: number;
 };
 
 type EventOption = { id: string; title: string; matchCount: number };
@@ -20,13 +21,14 @@ type EventOption = { id: string; title: string; matchCount: number };
 export default async function AdminMatchesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ event?: string }>;
+  searchParams: Promise<{ event?: string; round?: string }>;
 }) {
   const session = await getAuthUser();
   if (!session) redirect("/");
   if (session.role !== "admin") redirect("/events");
 
-  const { event: eventIdParam } = await searchParams;
+  const { event: eventIdParam, round: roundParam } = await searchParams;
+  const selectedRound = Math.min(3, Math.max(1, parseInt(roundParam ?? "1", 10) || 1));
   const supabase = getServiceSupabaseClient();
 
   const { data: allEvents } = await supabase
@@ -70,10 +72,23 @@ export default async function AdminMatchesPage({
     );
   }
 
+  // Per-round counts for the selected event
+  const { data: allRoundRows } = await supabase
+    .from("match_results")
+    .select("round")
+    .eq("event_id", selectedEventId);
+
+  const roundCounts: Record<number, number> = { 1: 0, 2: 0, 3: 0 };
+  (allRoundRows || []).forEach((r: { round: number }) => {
+    if (r.round >= 1 && r.round <= 3) roundCounts[r.round]++;
+  });
+
+  // Matches for the selected round only
   const { data: matchRows } = await supabase
     .from("match_results")
-    .select("a_profile_id, b_profile_id, score, match_type")
+    .select("a_profile_id, b_profile_id, score, match_type, round")
     .eq("event_id", selectedEventId)
+    .eq("round", selectedRound)
     .order("score", { ascending: false });
 
   const profileIds = new Set<string>();
@@ -93,64 +108,31 @@ export default async function AdminMatchesPage({
     });
   }
 
-  const matches: MatchRowData[] = (matchRows || []).map((r: { a_profile_id: string; b_profile_id: string; score: number; match_type?: string | null }) => ({
-    aProfileId: r.a_profile_id,
-    bProfileId: r.b_profile_id,
-    aName: profileMap.get(r.a_profile_id) || r.a_profile_id.slice(0, 8),
-    bName: profileMap.get(r.b_profile_id) || r.b_profile_id.slice(0, 8),
-    score: Number(r.score),
-    matchType: r.match_type ?? 'date',
-  }));
+  const matches: MatchRowData[] = (matchRows || []).map(
+    (r: { a_profile_id: string; b_profile_id: string; score: number; match_type?: string | null; round: number }) => ({
+      aProfileId: r.a_profile_id,
+      bProfileId: r.b_profile_id,
+      aName: profileMap.get(r.a_profile_id) || r.a_profile_id.slice(0, 8),
+      bName: profileMap.get(r.b_profile_id) || r.b_profile_id.slice(0, 8),
+      score: Number(r.score),
+      matchType: r.match_type ?? "date",
+      round: r.round,
+    })
+  );
 
   return (
     <AdminShell>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-xl font-semibold text-gray-dark mb-1">Matches</h1>
+        <h1 className="text-xl font-semibold text-gray-dark">Matches</h1>
+        <Card>
           <AdminMatchesClient
             events={eventOptions}
             selectedEventId={selectedEventId}
-            matchCount={matches.length}
+            selectedRound={selectedRound}
+            roundCounts={roundCounts}
+            matches={matches}
           />
-        </div>
-
-        <Card>
-          {matches.length === 0 ? (
-            <p className="text-sm text-gray-medium mb-4">
-              No match results yet. Run matching from the Dashboard for this event.
-            </p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-beige-frame text-left text-gray-medium">
-                    <th className="py-2 pr-4 font-medium">Person A</th>
-                    <th className="py-2 pr-4 font-medium">Person B</th>
-                    <th className="py-2 pr-4 font-medium">Score</th>
-                    <th className="py-2 font-medium">Type</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {matches.map((m, idx) => (
-                    <tr key={`${m.aProfileId}-${m.bProfileId}-${idx}`} className="border-b border-beige-frame last:border-0">
-                      <td className="py-2 pr-4 text-gray-dark">{m.aName}</td>
-                      <td className="py-2 pr-4 text-gray-dark">{m.bName}</td>
-                      <td className="py-2 pr-4 font-medium text-gray-dark">{m.score.toFixed(1)}%</td>
-                      <td
-                        className="py-2 font-medium text-gray-dark"
-                        title={m.matchType === "date" ? "Date match" : "Friend fallback"}
-                        data-testid="admin-match-type"
-                        data-match-type={m.matchType}
-                      >
-                        {m.matchType === "date" ? "D" : "F"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-          <div className="mt-4 pt-4 border-t border-beige-frame">
+          <div className="mt-6 pt-4 border-t border-beige-frame">
             <Link href="/admin" className="text-sm text-gray-medium hover:text-gray-dark">
               ← Dashboard
             </Link>
