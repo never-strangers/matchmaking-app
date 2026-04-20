@@ -29,6 +29,7 @@ export default defineConfig({
     /tests\/e2e\/paid-event-to-chat\.spec\.ts/,
     /tests\/e2e\/event-time-timezone\.spec\.ts/,
     // Optional: add /tests\/e2e\/admin-matches-rounds\.spec\.ts/ when ready to run that spec in CI/local e2e.
+    // Optional: /tests\/e2e\/events-filter\.spec\.ts/ (run manually; needs stable seed + Playwright browsers).
   ],
   /* Keep deterministic order for shared fixtures/storage states */
   fullyParallel: false,

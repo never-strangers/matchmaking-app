@@ -6,7 +6,11 @@
  */
 import { test, expect } from "@playwright/test";
 import { loginUser } from "./authHelpers";
-import { E2E_APPROVED_USER } from "../fixtures/e2e-users";
+import {
+  E2E_APPROVED_USER,
+  E2E_CITY_MANILA_USER,
+  E2E_NO_CITY_USER,
+} from "../fixtures/e2e-users";
 
 async function loginAndGoToEvents(page: any) {
   await loginUser(page, E2E_APPROVED_USER);
@@ -43,11 +47,10 @@ test.describe("Events filter bar", () => {
     const ok = await loginAndGoToEvents(page);
     if (!ok) { test.skip(); return; }
 
-    // City dropdown only renders when there are events with cities.
+    // City dropdown renders when `city_config` has at least one live city (see `/events` server data).
     const citySelect = page.getByTestId("events-filter-city");
     const hasCity = await citySelect.isVisible().catch(() => false);
     if (!hasCity) {
-      // No events with cities — acceptable; skip city-specific assertions
       test.skip();
       return;
     }
@@ -144,6 +147,99 @@ test.describe("Events filter bar", () => {
     await expect(page).toHaveURL(/category=dating/, { timeout: 3000 });
     await expect(datingPill).toHaveAttribute("aria-pressed", "true");
   });
+
+  // ── City default behaviour ────────────────────────────────────────────────
+
+  test("URL param ?city overrides profile city default", async ({ page }) => {
+    // Approved user has city=sg (Singapore). Visiting with ?city=Hong+Kong
+    // must show Hong Kong selected regardless of profile city.
+    await loginUser(page, E2E_APPROVED_USER);
+    await page.goto("/events?city=Hong+Kong", { waitUntil: "networkidle" });
+    if (!page.url().includes("/events")) { test.skip(); return; }
+
+    const citySelect = page.getByTestId("events-filter-city");
+    const hasCity = await citySelect.isVisible().catch(() => false);
+    if (!hasCity) { test.skip(); return; }
+
+    const value = await citySelect.inputValue();
+    expect(value).toBe("Hong Kong");
+  });
+
+  test("user with profile city defaults to that city when events exist", async ({ page }) => {
+    // Approved user has city=sg (Singapore).
+    await loginUser(page, E2E_APPROVED_USER);
+    await page.goto("/events", { waitUntil: "networkidle" });
+    if (!page.url().includes("/events")) { test.skip(); return; }
+
+    const citySelect = page.getByTestId("events-filter-city");
+    const hasCity = await citySelect.isVisible().catch(() => false);
+    if (!hasCity) { test.skip(); return; }
+
+    const options = await citySelect.locator("option").allTextContents();
+    const hasSingapore = options.some((o) => o.includes("Singapore"));
+    if (!hasSingapore) {
+      // No Singapore events — can't assert; skip.
+      test.skip();
+      return;
+    }
+
+    const value = await citySelect.inputValue();
+    expect(value).toBe("Singapore");
+  });
+
+  test("user with profile city Manila defaults to Manila when events exist", async ({ page }) => {
+    await loginUser(page, E2E_CITY_MANILA_USER);
+    await page.goto("/events", { waitUntil: "networkidle" });
+    if (!page.url().includes("/events")) { test.skip(); return; }
+
+    const citySelect = page.getByTestId("events-filter-city");
+    const hasCity = await citySelect.isVisible().catch(() => false);
+    if (!hasCity) { test.skip(); return; }
+
+    const options = await citySelect.locator("option").allTextContents();
+    const hasManila = options.some((o) => o.includes("Manila"));
+    if (!hasManila) {
+      // No Manila events in this environment — skip (not a product bug).
+      test.skip();
+      return;
+    }
+
+    const value = await citySelect.inputValue();
+    expect(value).toBe("Manila");
+  });
+
+  test("user with no city set defaults to All cities", async ({ page }) => {
+    await loginUser(page, E2E_NO_CITY_USER);
+    await page.goto("/events", { waitUntil: "networkidle" });
+    if (!page.url().includes("/events")) { test.skip(); return; }
+
+    const citySelect = page.getByTestId("events-filter-city");
+    const hasCity = await citySelect.isVisible().catch(() => false);
+    if (!hasCity) { test.skip(); return; }
+
+    // Value "" means "All cities" option is selected.
+    const value = await citySelect.inputValue();
+    expect(value).toBe("");
+  });
+
+  test("URL param ?city=Singapore overrides no-city user default", async ({ page }) => {
+    await loginUser(page, E2E_NO_CITY_USER);
+    await page.goto("/events?city=Singapore", { waitUntil: "networkidle" });
+    if (!page.url().includes("/events")) { test.skip(); return; }
+
+    const citySelect = page.getByTestId("events-filter-city");
+    const hasCity = await citySelect.isVisible().catch(() => false);
+    if (!hasCity) { test.skip(); return; }
+
+    const options = await citySelect.locator("option").allTextContents();
+    const hasSingapore = options.some((o) => o.includes("Singapore"));
+    if (!hasSingapore) { test.skip(); return; }
+
+    const value = await citySelect.inputValue();
+    expect(value).toBe("Singapore");
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
 
   test("combined city + category filters reflect in URL", async ({ page }) => {
     const ok = await loginAndGoToEvents(page);

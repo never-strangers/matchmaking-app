@@ -1,5 +1,5 @@
 /**
- * Seed predefined E2E users (pending, approved, rejected).
+ * Seed predefined E2E users (pending, approved, rejected, cityManila, noCity).
  * Run once before E2E tests: npm run seed:e2e
  * Uses SUPABASE_SERVICE_ROLE_KEY (admin) only at seed time; tests do not use admin.
  */
@@ -15,16 +15,31 @@ const E2E_USERS = {
     email: "e2e-pending@example.com",
     password: "E2ePending1!",
     status: "pending_verification",
+    city: "sg",
   },
   approved: {
     email: "e2e-approved@example.com",
     password: "E2eApproved1!",
     status: "approved",
+    city: "sg",
   },
   rejected: {
     email: "e2e-rejected@example.com",
     password: "E2eRejected1!",
     status: "rejected",
+    city: "sg",
+  },
+  cityManila: {
+    email: "e2e-city-manila@example.com",
+    password: "E2eManila1!",
+    status: "approved",
+    city: "mnl",
+  },
+  noCity: {
+    email: "e2e-no-city@example.com",
+    password: "E2eNoCity1!",
+    status: "approved",
+    city: null,
   },
 };
 
@@ -43,7 +58,7 @@ async function main() {
     auth: { persistSession: false },
   });
 
-  console.log("Seeding E2E users (pending, approved, rejected)...\n");
+  console.log("Seeding E2E users (pending, approved, rejected, cityManila, noCity)...\n");
 
   for (const [label, user] of Object.entries(E2E_USERS)) {
     const email = user.email.trim().toLowerCase();
@@ -80,7 +95,7 @@ async function main() {
                 display_name: name,
                 full_name: name,
                 email: email,
-                city: "sg",
+                city: user.city ?? null,
                 status: user.status,
                 instagram: label === "rejected" ? "e2e_rejected" : null,
                 updated_at: new Date().toISOString(),
@@ -114,7 +129,7 @@ async function main() {
         display_name: name,
         full_name: name,
         email,
-        city: "sg",
+        city: user.city ?? null,
         status: user.status,
         instagram: label === "rejected" ? "e2e_rejected" : null,
         updated_at: new Date().toISOString(),

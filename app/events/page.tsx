@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { requireApprovedUser } from "@/lib/auth/requireApprovedUser";
+import { getCityConfig } from "@/lib/cities/getCityConfig";
 import { getServiceSupabaseClient } from "@/lib/supabase/serverClient";
-import { cityForFilter } from "@/lib/constants/profileOptions";
-import { CITIES_META } from "@/lib/geo/cities";
 import { Button } from "@/components/ui/Button";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EventsListClient } from "@/app/events/EventsListClient";
@@ -62,18 +61,29 @@ async function getEventsPageData(
     if (invited?.city) userCity = invited.city;
   }
 
+  const [cityConfig, res] = await Promise.all([
+    getCityConfig(),
+    supabase
+      .from("events")
+      .select(
+        "id, title, status, city, category, created_at, start_at, payment_required, price_cents, poster_path"
+      )
+      .eq("status", "live")
+      .is("deleted_at", null)
+      .order("start_at", { ascending: true, nullsFirst: false }),
+  ]);
+
+  const liveCityLabels = cityConfig.live.map((c) => c.label);
+
+  const mergeAvailableCities = (citiesInEvents: string[]): string[] => {
+    const liveSet = new Set(liveCityLabels);
+    const extras = citiesInEvents.filter((c) => Boolean(c) && !liveSet.has(c));
+    return [...liveCityLabels, ...extras];
+  };
+
   // Fetch ALL live events
   let events: (DbEvent & { payment_required?: boolean; price_cents?: number })[] | null = null;
   let error: unknown = null;
-
-  const res = await supabase
-    .from("events")
-    .select(
-      "id, title, status, city, category, created_at, start_at, payment_required, price_cents, poster_path"
-    )
-    .eq("status", "live")
-    .is("deleted_at", null)
-    .order("start_at", { ascending: true, nullsFirst: false });
 
   events = res.data;
   error = res.error;
@@ -92,22 +102,28 @@ async function getEventsPageData(
 
   if (error) {
     console.error("Error loading events:", error);
-    return { events: [], isAdmin: role === "admin", userCity, availableCities: [] };
+    return {
+      events: [],
+      isAdmin: role === "admin",
+      userCity,
+      availableCities: liveCityLabels,
+    };
   }
 
   const baseEvents: DbEvent[] = events || [];
   const eventIds = baseEvents.map((e) => e.id);
 
   if (eventIds.length === 0) {
-    return { events: [], isAdmin: role === "admin", userCity, availableCities: [] };
+    return {
+      events: [],
+      isAdmin: role === "admin",
+      userCity,
+      availableCities: liveCityLabels,
+    };
   }
 
-  // Available cities
   const citiesInEvents = [...new Set(baseEvents.map((e) => e.city).filter(Boolean) as string[])];
-  const availableCities = [
-    ...CITIES_META.map((m) => m.label).filter((l) => citiesInEvents.includes(l)),
-    ...citiesInEvents.filter((c) => !CITIES_META.some((m) => m.label === c)),
-  ];
+  const availableCities = mergeAvailableCities(citiesInEvents);
 
   // Attendees: payment_status + checked_in
   const { data: attendeeRows } = await supabase

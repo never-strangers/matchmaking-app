@@ -89,6 +89,7 @@ The live/coming-soon split is managed via the `city_config` table in Supabase. A
 ### 🎟️ Events Management
 - **Events Feed** (`/events`)
   - Event listing with city and date information
+  - City filter lists every **live** city from `city_config` (same source as registration/profile), in `sort_order`, plus any extra `events.city` values not in that list. Choosing a city filters the grid client-side; the default selection is the user’s profile city when set.
   - Only **upcoming** events are shown; events whose start date/time is in the past are hidden from users (they remain visible to admins in `/admin/events`)
   - **Enter Event** opens a preview modal (poster, details, questionnaire status). For **paid events**: **Continue to payment** (Stripe Checkout) first, then **Complete Questions**; for free events, go straight to questions. See `docs/STRIPE_LOCAL_TESTING.md`.
   - Create new event button (admin)
@@ -220,7 +221,7 @@ The demo version now enforces all business rules end-to-end using localStorage a
 - **Registration & OTP**: Mock email OTP verification (code: `123456`)
 - **User Status**: PENDING → APPROVED/REJECTED workflow with 24h cooldown. In the Supabase-backed flows, rejected users see an explicit rejected state (not “pending”) and cannot reapply with the same email or Instagram handle.
 - **City Locking**: City locked after approval; change requires admin approval
-- **Event Filtering**: Approved users only see events in their city
+- **Event Filtering**: On `/events`, the list defaults to the user’s profile city but **All cities** and every platform **live** city (from `city_config`) are available in the dropdown; the server still returns all upcoming `live` events.
 - **Per-Event Questionnaire**: Answers stored per event; >=10 answers required for RSVP
 - **RSVP State Machine**: HOLD (10min) → CONFIRMED (after payment) → WAITLIST
 - **Capacity Enforcement**: Hard capacity limits with waitlist promotion

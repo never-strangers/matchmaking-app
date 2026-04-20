@@ -16,8 +16,12 @@ export const E2E_USERS = e2eUsersJson as {
   pending: E2EUser;
   approved: E2EUser;
   rejected: E2EUser;
+  cityManila: E2EUser;
+  noCity: E2EUser;
 };
 
 export const E2E_PENDING_USER = E2E_USERS.pending;
 export const E2E_APPROVED_USER = E2E_USERS.approved;
 export const E2E_REJECTED_USER = E2E_USERS.rejected;
+export const E2E_CITY_MANILA_USER = E2E_USERS.cityManila;
+export const E2E_NO_CITY_USER = E2E_USERS.noCity;

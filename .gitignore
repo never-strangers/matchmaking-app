@@ -50,6 +50,8 @@ next-env.d.ts
 
 # Local CSV exports / migration reports under scripts (not source)
 /scripts/*.csv
+# One-off DB/event backups (may contain PII)
+/scripts/backup-*.json
 
 docs/security-scan-report.md
 
