@@ -35,6 +35,20 @@ describe("formatLocalPrice", () => {
     expect(result!.local).toContain("PHP");
   });
 
+  it("resolves full city labels from events.city (Kuala Lumpur → MYR)", () => {
+    const result = formatLocalPrice(9900, "Kuala Lumpur");
+    expect(result).not.toBeNull();
+    expect(result!.sgd).toBe("S$99.00 SGD");
+    expect(result!.local).toContain("MYR");
+    expect(result!.isSameCurrency).toBe(false);
+  });
+
+  it("resolves full city label Cebu → PHP", () => {
+    const result = formatLocalPrice(9900, "Cebu");
+    expect(result).not.toBeNull();
+    expect(result!.local).toContain("PHP");
+  });
+
   it("returns THB estimate for Bangkok", () => {
     const result = formatLocalPrice(4000, "bkk");
     expect(result!.local).toContain("THB");
@@ -44,6 +58,22 @@ describe("formatLocalPrice", () => {
     const result = formatLocalPrice(5000, "hcmc");
     expect(result!.local).toContain("VND");
     expect(result!.local).toMatch(/₫[\d,]+/);
+  });
+
+  it("returns IDR estimate for Bali", () => {
+    const result = formatLocalPrice(5000, "bali");
+    expect(result!.local).toContain("IDR");
+    expect(result!.local).toMatch(/Rp[\d,]+/);
+  });
+
+  it("returns IDR estimate for Jakarta", () => {
+    const result = formatLocalPrice(5000, "jkt");
+    expect(result!.local).toContain("IDR");
+  });
+
+  it("resolves full city label Bali → IDR", () => {
+    const result = formatLocalPrice(5000, "Bali");
+    expect(result!.local).toContain("IDR");
   });
 
   it("returns null local for unknown city", () => {

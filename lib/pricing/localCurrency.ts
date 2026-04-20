@@ -1,3 +1,5 @@
+import { SEED_ALL_CITIES } from "@/lib/constants/cities";
+
 /**
  * Static FX rates relative to SGD.
  * Update the rates and lastUpdated date periodically — no live API is used.
@@ -10,9 +12,23 @@ export const FX_RATES: Record<string, { currency: string; symbol: string; rate: 
   mnl:  { currency: "PHP", symbol: "₱",   rate: 44 },
   ceb:  { currency: "PHP", symbol: "₱",   rate: 44 },
   hcmc: { currency: "VND", symbol: "₫",   rate: 19200 },
+  bali: { currency: "IDR", symbol: "Rp",  rate: 11900 },
+  jkt:  { currency: "IDR", symbol: "Rp",  rate: 11900 },
 };
 
 export const FX_LAST_UPDATED = "2025-04-01";
+
+/** Map display labels (as stored on `events.city`) and city codes to `FX_RATES` keys. */
+const CITY_LABEL_LOWER_TO_FX_KEY: Record<string, string> = Object.fromEntries(
+  SEED_ALL_CITIES.filter((c) => FX_RATES[c.value]).map((c) => [c.label.toLowerCase(), c.value]),
+);
+
+function resolveFxKey(city: string | null | undefined): string | undefined {
+  if (!city?.trim()) return undefined;
+  const t = city.trim().toLowerCase();
+  if (FX_RATES[t]) return t;
+  return CITY_LABEL_LOWER_TO_FX_KEY[t];
+}
 
 /**
  * Returns formatted local price string for a city, or null if city is unknown
@@ -27,8 +43,8 @@ export function formatLocalPrice(
   const sgdAmount = priceCents / 100;
   const sgd = `S$${sgdAmount.toFixed(2)} SGD`;
 
-  const cityKey = (city ?? "").toLowerCase();
-  const fx = FX_RATES[cityKey];
+  const fxKey = resolveFxKey(city);
+  const fx = fxKey ? FX_RATES[fxKey] : undefined;
 
   if (!fx || fx.currency === "SGD") {
     return { sgd, local: null, isSameCurrency: true };
