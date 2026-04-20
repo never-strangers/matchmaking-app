@@ -47,13 +47,15 @@ This repo hosts the new **Matching Core** — a lightweight, AI-powered system r
 - `POST /api/admin/invite/generate` — Generate invite tokens (body: `{ count: 1–50 }`).
 - `GET /api/admin/invite/list` — List invite links (admin only).
 - `GET /api/cities` — Public. Returns `{ live, comingSoon }` city lists from `city_config` table (falls back to seed if table unavailable). `Cache-Control: no-store`.
+- `POST /api/admin/cities` — Admin only. Add a new city (`value`, `label`, `status`); auto-assigns `sort_order`.
 - `PATCH /api/admin/cities/[value]` — Admin only. Update a city's `status` (`"live"` | `"coming_soon"`) and/or `sort_order`.
+- `DELETE /api/admin/cities/[value]` — Admin only. Remove a city. Note: does not clean up orphan codes in `profiles.city` or `events.city`.
 
 ## City Selection
 
 City dropdowns on registration, profile edit, and admin forms show two groups: **Live now** and **Coming soon**. Both groups are selectable; coming-soon cities show a note but do not block registration or save.
 
-The live/coming-soon split is managed via the `city_config` table in Supabase. Admins can toggle cities at `/admin/cities` without a redeploy. The client (`useCityConfig` hook) pre-seeds from `lib/constants/cities.ts` and silently updates from `/api/cities` on mount.
+The live/coming-soon split is managed via the `city_config` table in Supabase. Admins can add, toggle, and delete cities at `/admin/cities` without a redeploy. The client (`useCityConfig` hook) pre-seeds from `lib/constants/cities.ts` and silently updates from `/api/cities` on mount.
 
 **DB:** `supabase/migrations/20260420000000_city_config.sql` — run `supabase db push` after merging.
 

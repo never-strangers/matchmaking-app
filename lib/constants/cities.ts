@@ -37,7 +37,10 @@ export function normalizeCityForSelect(city: string | null): string {
   if (!city?.trim()) return "";
   const trimmed = city.trim();
   if (CITY_VALUES.includes(trimmed)) return trimmed;
-  return LABEL_TO_CODE[trimmed.toLowerCase()] ?? "";
+  const byLabel = LABEL_TO_CODE[trimmed.toLowerCase()];
+  if (byLabel) return byLabel;
+  // Unknown code (DB-only city) — pass through so the select doesn't blank
+  return trimmed;
 }
 
 export function cityForFilter(city: string | null): string | null {

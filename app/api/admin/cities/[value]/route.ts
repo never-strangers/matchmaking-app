@@ -60,14 +60,18 @@ export async function DELETE(
   const { value } = await context.params;
 
   const supabase = getServiceSupabaseClient();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("city_config")
     .delete()
-    .eq("value", value);
+    .eq("value", value)
+    .select();
 
   if (error) {
     console.error("[DELETE /api/admin/cities]", error);
     return Response.json({ error: "Delete failed" }, { status: 500 });
+  }
+  if (!data || data.length === 0) {
+    return Response.json({ error: `City '${value}' not found` }, { status: 404 });
   }
 
   return new Response(null, { status: 204 });
