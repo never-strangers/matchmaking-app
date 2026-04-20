@@ -1,3 +1,7 @@
+-- Drop cleanly (cascade removes dependent triggers, policies, etc.)
+drop function if exists public.city_config_set_updated_at() cascade;
+drop table    if exists city_config cascade;
+
 create table city_config (
   value        text primary key,
   label        text not null,
@@ -41,15 +45,15 @@ create policy "public read" on city_config
 
 create policy "admin insert" on city_config
   for insert with check (
-    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
+    exists (select 1 from public.profiles p where p.id = (auth.uid())::text and p.role = 'admin')
   );
 
 create policy "admin update" on city_config
   for update using (
-    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
+    exists (select 1 from public.profiles p where p.id = (auth.uid())::text and p.role = 'admin')
   );
 
 create policy "admin delete" on city_config
   for delete using (
-    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
+    exists (select 1 from public.profiles p where p.id = (auth.uid())::text and p.role = 'admin')
   );
