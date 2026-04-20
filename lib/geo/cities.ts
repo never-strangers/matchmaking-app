@@ -19,6 +19,7 @@ const FLAG_MAP: Record<string, { countryCode: string; flagEmoji: string }> = {
   hcmc: { countryCode: "VN", flagEmoji: "🇻🇳" },
   bali: { countryCode: "ID", flagEmoji: "🇮🇩" },
   jkt:  { countryCode: "ID", flagEmoji: "🇮🇩" },
+  tyo:  { countryCode: "JP", flagEmoji: "🇯🇵" },
 };
 
 export const CITIES_META: CityMeta[] = SEED_ALL_CITIES.map((c) => ({

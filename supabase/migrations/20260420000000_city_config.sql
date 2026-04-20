@@ -7,14 +7,20 @@ create table city_config (
   updated_at   timestamptz default now()
 );
 
-create or replace function set_updated_at()
-returns trigger language plpgsql as $$
-begin new.updated_at = now(); return new; end;
+create or replace function public.city_config_set_updated_at()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
 $$;
 
 create trigger city_config_updated_at
   before update on city_config
-  for each row execute procedure set_updated_at();
+  for each row execute function public.city_config_set_updated_at();
 
 insert into city_config (value, label, status, sort_order) values
   ('sg',   'Singapore',        'live',         1),
@@ -25,7 +31,8 @@ insert into city_config (value, label, status, sort_order) values
   ('ceb',  'Cebu',             'live',         6),
   ('hcmc', 'Ho Chi Minh City', 'live',         7),
   ('bali', 'Bali',             'coming_soon',  8),
-  ('jkt',  'Jakarta',          'coming_soon',  9);
+  ('jkt',  'Jakarta',          'coming_soon',  9),
+  ('tyo',  'Tokyo',            'coming_soon',  10);
 
 alter table city_config enable row level security;
 

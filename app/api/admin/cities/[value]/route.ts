@@ -29,7 +29,7 @@ export async function PATCH(
     return Response.json({ error: "Provide at least one of: status, sort_order" }, { status: 400 });
   }
 
-  const update: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  const update: Record<string, unknown> = {};
   if (status !== undefined) update.status = status;
   if (sort_order !== undefined) update.sort_order = sort_order;
 

@@ -13,16 +13,13 @@ export const SEED_LIVE_CITIES: CityOption[] = [
 export const SEED_COMING_SOON_CITIES: CityOption[] = [
   { value: "bali", label: "Bali",    status: "coming_soon" },
   { value: "jkt",  label: "Jakarta", status: "coming_soon" },
+  { value: "tyo",  label: "Tokyo",   status: "coming_soon" },
 ];
 
 export const SEED_ALL_CITIES: CityOption[] = [
   ...SEED_LIVE_CITIES,
   ...SEED_COMING_SOON_CITIES,
 ];
-
-export function isLiveCity(value: string): boolean {
-  return SEED_LIVE_CITIES.some((c) => c.value === value);
-}
 
 // ── Re-exports for existing consumers ────────────────────────────────────────
 
