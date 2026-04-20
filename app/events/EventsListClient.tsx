@@ -11,6 +11,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { getCityFlag } from "@/lib/geo/cities";
 import { cityForFilter } from "@/lib/constants/profileOptions";
 import { formatEventCardDate } from "@/lib/time/formatEventTime";
+import { formatLocalPrice } from "@/lib/pricing/localCurrency";
 import type { EventPreviewData, AttendeePreviewState } from "@/lib/events/eventPreview";
 
 type ListEvent = {
@@ -32,6 +33,7 @@ type ListEvent = {
   checkedIn: boolean;
   hasRevealedMatches: boolean;
   posterUrl?: string | null;
+  price_cents?: number | null;
 };
 
 type Props = {
@@ -397,6 +399,29 @@ export function EventsListClient({
                       {event.title}
                     </Link>
                   </h2>
+
+                  {/* Price */}
+                  {(() => {
+                    const priceCents = event.price_cents ?? 0;
+                    if (!priceCents) {
+                      return (
+                        <p className="text-sm font-medium mb-3" style={{ color: "var(--text-subtle)" }}>Free</p>
+                      );
+                    }
+                    const lp = formatLocalPrice(priceCents, event.city);
+                    return (
+                      <div className="mb-3">
+                        <p className="text-sm font-medium" style={{ color: "var(--text)" }}>
+                          {lp?.sgd ?? `S$${(priceCents / 100).toFixed(2)} SGD`}
+                        </p>
+                        {lp?.local && (
+                          <p className="text-xs" style={{ color: "var(--text-subtle)" }}>
+                            ≈ {lp.local} est.
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })()}
 
                   {/* Badges */}
                   <div className="flex flex-wrap gap-1.5 mb-4">

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { formatLocalPrice, FX_LAST_UPDATED } from "@/lib/pricing/localCurrency";
 import { requireApprovedUser } from "@/lib/auth/requireApprovedUser";
 import { getServiceSupabaseClient } from "@/lib/supabase/serverClient";
 import { Card } from "@/components/ui/Card";
@@ -265,9 +266,19 @@ export default async function EventDetailPage({
                   >
                     <span style={{ color: "var(--text)", fontFamily: "var(--font-sans)", fontWeight: 500 }}>{t.name}</span>
                     <div className="flex items-center gap-4">
-                      <span style={{ color: "var(--text)", fontFamily: "var(--font-sans)" }}>
-                        {(t.price_cents / 100).toFixed(2)} SGD
-                      </span>
+                      <div className="text-right">
+                        <span style={{ color: "var(--text)", fontFamily: "var(--font-sans)" }}>
+                          S${(t.price_cents / 100).toFixed(2)} SGD
+                        </span>
+                        {(() => {
+                          const lp = formatLocalPrice(t.price_cents, event.city);
+                          return lp?.local ? (
+                            <div style={{ color: "var(--text-subtle)", fontFamily: "var(--font-sans)", fontSize: "11px" }}>
+                              ≈ {lp.local} est.
+                            </div>
+                          ) : null;
+                        })()}
+                      </div>
                       <span style={{ color: "var(--text-subtle)", fontFamily: "var(--font-sans)", fontSize: "12px" }}>
                         {t.cap - t.sold} left
                       </span>
@@ -275,6 +286,33 @@ export default async function EventDetailPage({
                   </div>
                 ))}
               </div>
+              {(() => {
+                const lp = formatLocalPrice(priceCents, event.city);
+                return lp?.local ? (
+                  <p className="mt-2 text-xs" style={{ color: "var(--text-subtle)" }}>
+                    Final charge is processed in SGD. Local price shown is an estimate based on rates as of {FX_LAST_UPDATED}.
+                  </p>
+                ) : null;
+              })()}
+            </div>
+          )}
+
+          {!hasTicketTypes && priceCents > 0 && (
+            <div className="mb-4">
+              <p className="text-sm font-medium" style={{ color: "var(--text)" }}>
+                {formatLocalPrice(priceCents, event.city)?.sgd ?? `S$${(priceCents / 100).toFixed(2)} SGD`}
+              </p>
+              {(() => {
+                const lp = formatLocalPrice(priceCents, event.city);
+                return lp?.local ? (
+                  <>
+                    <p className="text-xs" style={{ color: "var(--text-subtle)" }}>≈ {lp.local} est.</p>
+                    <p className="text-xs mt-1" style={{ color: "var(--text-subtle)" }}>
+                      Final charge is processed in SGD. Local price shown is an estimate based on rates as of {FX_LAST_UPDATED}.
+                    </p>
+                  </>
+                ) : null;
+              })()}
             </div>
           )}
 
