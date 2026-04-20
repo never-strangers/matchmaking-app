@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { getAuthUser } from "@/lib/auth/getAuthUser";
 import { getServiceSupabaseClient } from "@/lib/supabase/serverClient";
+import { fetchAllRows } from "@/lib/supabase/fetchAll";
 
 const VALID_SEGMENTS = ["all", "checked_in", "paid", "eligible"] as const;
 type Segment = (typeof VALID_SEGMENTS)[number];
@@ -94,18 +95,23 @@ export async function GET(
     }
 
     if (totalQuestions > 0) {
-      // Fetch all answers for these profiles in this event (no N+1)
-      const { data: answerRows } = await supabase
-        .from("answers")
-        .select("profile_id, event_question_id, question_id")
-        .eq("event_id", eventId)
-        .in("profile_id", profileIds);
+      const answerRows = await fetchAllRows<{
+        profile_id: string;
+        event_question_id: string | null;
+        question_id: string | null;
+      }>(
+        (offset, limit) =>
+          supabase
+            .from("answers")
+            .select("profile_id, event_question_id, question_id")
+            .eq("event_id", eventId)
+            .in("profile_id", profileIds)
+            .range(offset, offset + limit - 1)
+      );
 
       // Count distinct questions answered per profile
       const answerCounts = new Map<string, Set<string>>();
-      (
-        answerRows ?? []
-      ).forEach(
+      answerRows.forEach(
         (row: {
           profile_id: string;
           event_question_id: string | null;

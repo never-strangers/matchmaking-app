@@ -621,6 +621,23 @@ See **[docs/STRIPE_LOCAL_TESTING.md](./docs/STRIPE_LOCAL_TESTING.md)** for full 
 
 - A generic server error page is available at `/500` for unexpected failures during runtime and export.
 
+### Supabase query pagination (important)
+
+Supabase JS `.select()` returns **max 1000 rows** by default with **no error or warning**. Any query on a table that can exceed 1000 rows must use the paginated helper:
+
+```typescript
+import { fetchAllRows } from "@/lib/supabase/fetchAll";
+
+const rows = await fetchAllRows<{ profile_id: string; answer: unknown }>(
+  (offset, limit) =>
+    supabase.from("answers").select("profile_id, answer")
+      .eq("event_id", eventId)
+      .range(offset, offset + limit - 1)
+);
+```
+
+The `answers` table is the primary risk — it scales as `attendees × questions` (e.g. 60 attendees × 23 questions = 1,380 rows). Without pagination, users whose answer rows fall past the 1000th row are silently excluded from matching.
+
 ### Supabase event cleanup + seeding (dev/local)
 
 For deterministic event data in dev/local (and staging, if explicitly confirmed), you can reset events using Supabase directly:
@@ -761,6 +778,126 @@ Safety and behaviour:
 - Cleanup order (FK-safe): **messages** → **conversations** → match_reveals → match_reveal_queue → match_results → **match_rounds** → match_runs → likes → answers → event_attendees → questions → event_ticket_types → events; then by seed_run_id: answers, event_attendees, invited_users → auth users → profiles → seed_runs.
 - Only seeded data (tagged by `seed_run_id` or belonging to seeded events) is removed; production data is untouched.
 - JSON summary: `scripts/.seed-output/cleanup-test-data-*.json`.
+
+---
+
+## 🗂 Production Data Import — WordPress / Amelia
+
+These scripts handle importing real users and event bookings from the WordPress/Amelia backend into Supabase.
+
+### Overview
+
+The production flow for a real event (e.g. Call a Cupid):
+
+1. **Import Amelia bookings** — creates Supabase auth users + profiles + `event_attendees` rows for all paid bookings
+2. **Sync WP profile data** — fills in gender, attracted_to, orientation, dob, city, instagram, reason from WordPress user meta
+3. **Send password reset emails** — lets new users set their password and log in
+
+---
+
+### Step 1 — Import Amelia bookings
+
+Takes a JSON export of Amelia bookings (approved + paid) and:
+- Creates Supabase auth users for emails not yet registered
+- Creates `profiles` (name + gender inferred from ticket type, `status=approved`, `city=sg`)
+- Adds rows to `event_attendees` (`payment_status=paid`, `ticket_status=paid`)
+- Skips users already in `event_attendees` for that event
+
+**Ticket ID → gender mapping** (event 125 / Call a Cupid):
+| Ticket ID | Type | Gender |
+|---|---|---|
+| 303 | Male | male |
+| 304 | Female | female |
+| 305 | Early Bird Male | male |
+| 306 | Early Bird Female | female |
+
+```bash
+# See scripts/import-amelia-bookings-event125.cjs for the canonical import script
+node scripts/import-amelia-bookings-event125.cjs --dry-run
+CONFIRM=true node scripts/import-amelia-bookings-event125.cjs
+```
+
+---
+
+### Step 2 — Sync WordPress profile data
+
+After users are created, pull their full profile data from WordPress using the ACP (Admin Columns Pro) plugin API.
+
+**Requires:**
+- Fresh WP admin session cookies (copy from DevTools → any XHR → Copy as cURL → grab `-b "..."`)
+- ACP nonce (from any working ACP AJAX request in DevTools → FormData → `_ajax_nonce`)
+
+**Populates:** `gender`, `attracted_to`, `orientation` (lookingFor), `dob`, `city`, `instagram`, `reason`, `wp_user_id`
+
+```bash
+# Dry run (shows what would be patched, nothing written)
+node scripts/update-profiles-from-wp.cjs \
+  --cookies "wordpress_logged_in_xxx=VALUE; ..." \
+  --nonce "55dc7f4c03" \
+  --emails-file /tmp/emails.txt \
+  --dry-run
+
+# Apply (only fills missing fields — safe to re-run)
+node scripts/update-profiles-from-wp.cjs \
+  --cookies "..." \
+  --nonce "..." \
+  --emails-file /tmp/emails.txt
+
+# Force overwrite existing fields
+node scripts/update-profiles-from-wp.cjs \
+  --cookies "..." --nonce "..." --overwrite foo@bar.com baz@qux.com
+```
+
+**Getting cookies and nonce:**
+1. Open WP admin → Users page (`/wp-admin/users.php?layout=67610f8391ada`)
+2. Open DevTools → Network tab
+3. Click any user row to trigger an inline edit / ACP request
+4. Find the `admin-ajax.php` request → Right-click → Copy as cURL
+5. Extract the `-b "..."` cookie string and the `_ajax_nonce` field from the form data
+
+**Note:** Only fills fields that are missing in Supabase unless `--overwrite` is passed. Safe to run repeatedly.
+
+---
+
+### Step 3 — Send password reset emails
+
+After creating accounts, send branded password-reset emails so new users can set their password.
+
+```bash
+# Single email
+node scripts/send-reset-passwords.cjs user@example.com
+
+# Multiple emails from file
+node scripts/send-reset-passwords.cjs --file /tmp/emails.txt
+
+# Dry run (generates links, prints them — does not send)
+node scripts/send-reset-passwords.cjs --dry-run --file /tmp/emails.txt
+```
+
+Requires `RESEND_API_KEY` and `EMAIL_FROM` in `.env.local`. Emails are sent from `hello@thisisneverstrangers.com` with a branded "Set my password →" CTA linking to the app.
+
+---
+
+### Full example — adding 7 new attendees mid-event
+
+```bash
+# 1. Identify missing attendees (compare Amelia bookings vs event_attendees)
+#    → creates auth users + profiles + event_attendees rows
+
+# 2. Sync their WP data
+node scripts/update-profiles-from-wp.cjs \
+  --cookies "..." --nonce "..." \
+  darryl7798@gmail.com jbin99@hotmail.com pranav357@gmail.com \
+  nabiljml26@gmail.com reisende@outlook.com ohmylaur2403@gmail.com \
+  maryanahermawan@gmail.com
+
+# 3. Send password reset emails
+node scripts/send-reset-passwords.cjs \
+  darryl7798@gmail.com jbin99@hotmail.com pranav357@gmail.com \
+  nabiljml26@gmail.com reisende@outlook.com ohmylaur2403@gmail.com \
+  maryanahermawan@gmail.com
+```
+
 
 ---
 

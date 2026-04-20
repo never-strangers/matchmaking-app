@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Question, QuestionnaireAnswers } from "@/types/questionnaire";
+import { fetchAllRows } from "@/lib/supabase/fetchAll";
 
 /**
  * Load questions for an event, preferring event_questions (new) over questions (legacy).
@@ -50,19 +51,23 @@ export async function loadEventQuestionsAndAnswers(
     );
   }
 
-  const { data: answerRows } = await supabase
-    .from("answers")
-    .select("profile_id, question_id, event_question_id, answer")
-    .eq("event_id", eventId);
+  const answerRows = await fetchAllRows<{
+    profile_id: string;
+    question_id: string;
+    event_question_id: string | null;
+    answer: unknown;
+  }>(
+    (offset, limit) =>
+      supabase
+        .from("answers")
+        .select("profile_id, question_id, event_question_id, answer")
+        .eq("event_id", eventId)
+        .range(offset, offset + limit - 1)
+  );
 
   const answersByProfile = new Map<string, QuestionnaireAnswers>();
-  (answerRows || []).forEach(
-    (row: {
-      profile_id: string;
-      question_id: string;
-      event_question_id: string | null;
-      answer: unknown;
-    }) => {
+  answerRows.forEach(
+    (row) => {
       const pid = String(row.profile_id);
       const qid = useEventQuestions
         ? String(row.event_question_id ?? row.question_id)

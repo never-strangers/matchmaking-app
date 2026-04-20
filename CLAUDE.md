@@ -160,6 +160,7 @@ lib/
     ├── adminClient.ts         # Admin Supabase client helper
     ├── server.ts              # SSR Supabase client (cookies)
     ├── middleware.ts           # Supabase auth middleware helper
+    ├── fetchAll.ts            # Paginated fetch helper (works around 1000-row default limit)
     └── userService.ts         # User lookup helpers
 # Other lib modules (not exhaustive):
 # lib/email/            — transactional email (send.ts, provider.ts, templates.ts)
@@ -220,6 +221,28 @@ v_event_1_id, v_event_2_id (views), seed_runs, wp-users
 **Note:** Tables named `matches` and `event_registrations` do NOT exist in the public schema.
 The correct tables are `match_results` and `answers` respectively.
 
+### ⚠️ Supabase 1000-Row Default Limit
+
+Supabase JS `.select()` returns **max 1000 rows** by default — silently, with no error. Any query that can return >1000 rows **MUST** use `fetchAllRows()` from `lib/supabase/fetchAll.ts`:
+
+```typescript
+import { fetchAllRows } from "@/lib/supabase/fetchAll";
+
+const rows = await fetchAllRows<MyType>(
+  (offset, limit) =>
+    supabase.from("answers").select("profile_id, answer")
+      .eq("event_id", eventId)
+      .range(offset, offset + limit - 1)
+);
+```
+
+**High-risk table:** `answers` — scales as attendees × questions (e.g. 80 users × 23 questions = 1,840 rows). Already caused production bugs where users were silently excluded from matching.
+
+**Safe patterns (no pagination needed):**
+- `{ count: "exact", head: true }` — server-side count, no rows transferred
+- `.maybeSingle()` / `.single()` — single row
+- Tables bounded by design (event_questions, event_attendees, match_results)
+
 ### Key Architectural Patterns
 
 #### 1. Role-Based Access Control
@@ -248,6 +271,7 @@ Four user roles:
 **Entry point:** `POST /api/admin/events/[id]/run-matching` (admin only)
 
 **Core logic:** `lib/matching/roundPairing.ts` → `computeSingleRound()`
+**Data loader:** `lib/matching/loadEventQuestions.ts` → loads questions + answers (uses paginated fetch)
 
 **Scoring** (from `lib/matching/questionnaireMatch.ts`):
 1. Per-question similarity: `sim = 1 - abs(answerA - answerB) / 3`

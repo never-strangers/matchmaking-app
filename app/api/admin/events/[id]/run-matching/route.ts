@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { getAuthUser } from "@/lib/auth/getAuthUser";
 import { getServiceSupabaseClient } from "@/lib/supabase/serverClient";
+import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import type { QuestionnaireAnswers, MatchUser, Question } from "@/types/questionnaire";
 import {
   computeSingleRound,
@@ -54,7 +55,7 @@ export async function POST(
   // Free events: all checked-in attendees are eligible regardless of payment_status
   // (avoids excluding users whose payment_status wasn't explicitly set to "free")
 
-  const [roundsRes, attendeesRes, eqRes, answersRes, existingResultsRes] = await Promise.all([
+  const [roundsRes, attendeesRes, eqRes, allAnswerRows, existingResultsRes] = await Promise.all([
     supabase
       .from("match_rounds")
       .select("last_revealed_round, last_computed_round")
@@ -66,10 +67,14 @@ export async function POST(
       .select("id, prompt, weight")
       .eq("event_id", eventId)
       .order("sort_order", { ascending: true }),
-    supabase
-      .from("answers")
-      .select("profile_id, question_id, event_question_id, answer")
-      .eq("event_id", eventId),
+    fetchAllRows<{ profile_id: string; question_id: string; event_question_id: string | null; answer: unknown }>(
+      (offset, limit) =>
+        supabase
+          .from("answers")
+          .select("profile_id, question_id, event_question_id, answer")
+          .eq("event_id", eventId)
+          .range(offset, offset + limit - 1)
+    ),
     supabase
       .from("match_results")
       .select("a_profile_id, b_profile_id, round")
@@ -213,7 +218,7 @@ export async function POST(
 
   // Build answers map
   const answersByProfile = new Map<string, QuestionnaireAnswers>();
-  (answersRes.data || []).forEach((row: { profile_id: string; question_id: string; event_question_id: string | null; answer: unknown }) => {
+  allAnswerRows.forEach((row) => {
     const pid = String(row.profile_id);
     if (!attendeeIds.includes(pid)) return;
     const qid = String(row.event_question_id ?? row.question_id);

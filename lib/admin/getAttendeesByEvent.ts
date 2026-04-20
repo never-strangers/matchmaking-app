@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { fetchAllRows } from "@/lib/supabase/fetchAll";
 
 export type AttendeeRow = {
   id: string;
@@ -102,13 +103,17 @@ export async function getAttendeesByEvent(
     validEqIdsByEvent[eid].add(String(r.id));
   });
 
-  const { data: answerRows } = await supabase
-    .from("answers")
-    .select("event_id, profile_id, event_question_id")
-    .in("event_id", eventIds);
+  const answerRows = await fetchAllRows<{ event_id: string; profile_id: string; event_question_id: string | null }>(
+    (offset, limit) =>
+      supabase
+        .from("answers")
+        .select("event_id, profile_id, event_question_id")
+        .in("event_id", eventIds)
+        .range(offset, offset + limit - 1)
+  );
   // Count DISTINCT event_question_ids per user that match current event_questions
   const answersByEventProfile: Record<string, Set<string>> = {};
-  (answerRows || []).forEach((r: { event_id: string; profile_id: string; event_question_id: string | null }) => {
+  answerRows.forEach((r) => {
     const eid = String(r.event_id);
     const eqId = r.event_question_id ? String(r.event_question_id) : null;
     // Only count if this question is in the current event_questions set
