@@ -288,7 +288,7 @@ export function AdminEventEditForm({ eventId, event, ticketTypes, posterPublicUr
               </optgroup>
               <optgroup label="Coming soon">
                 {cityConfig.comingSoon.map((c) => (
-                  <option key={c.value} value={c.label}>{c.label} (coming soon)</option>
+                  <option key={c.value} value={c.label}>{c.label}</option>
                 ))}
               </optgroup>
             </select>

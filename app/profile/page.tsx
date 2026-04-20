@@ -613,7 +613,7 @@ export default function ProfilePage() {
               </optgroup>
               <optgroup label="Coming soon">
                 {cityConfig.comingSoon.map((c) => (
-                  <option key={c.value} value={c.value}>{c.label} (coming soon)</option>
+                  <option key={c.value} value={c.value}>{c.label}</option>
                 ))}
               </optgroup>
             </StyledSelect>

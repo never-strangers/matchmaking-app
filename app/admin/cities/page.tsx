@@ -14,6 +14,13 @@ export default function AdminCitiesPage() {
   const [toggling, setToggling] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Add city form state
+  const [addValue, setAddValue] = useState("");
+  const [addLabel, setAddLabel] = useState("");
+  const [addStatus, setAddStatus] = useState<"live" | "coming_soon">("coming_soon");
+  const [adding, setAdding] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
+
   const fetchCities = useCallback(async () => {
     setLoading(true);
     const res = await fetch("/api/cities");
@@ -50,6 +57,27 @@ export default function AdminCitiesPage() {
     setToggling(null);
   };
 
+  const addCity = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAdding(true);
+    setAddError(null);
+    const res = await fetch("/api/admin/cities", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ value: addValue.trim(), label: addLabel.trim(), status: addStatus }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      setAddError(body.error ?? "Failed to add city");
+    } else {
+      setAddValue("");
+      setAddLabel("");
+      setAddStatus("coming_soon");
+      await fetchCities();
+    }
+    setAdding(false);
+  };
+
   const live = cities.filter((c) => c.status === "live");
   const comingSoon = cities.filter((c) => c.status === "coming_soon");
 
@@ -83,7 +111,7 @@ export default function AdminCitiesPage() {
             </h2>
             <div className="divide-y" style={{ borderColor: "var(--border)" }}>
               {live.map((city) => (
-                <CityRow key={city.value} city={city} toggling={toggling} onToggle={toggle} />
+                <CityRowItem key={city.value} city={city} toggling={toggling} onToggle={toggle} />
               ))}
               {live.length === 0 && (
                 <p className="py-3 text-sm" style={{ color: "var(--text-muted)" }}>No live cities.</p>
@@ -97,12 +125,79 @@ export default function AdminCitiesPage() {
             </h2>
             <div className="divide-y" style={{ borderColor: "var(--border)" }}>
               {comingSoon.map((city) => (
-                <CityRow key={city.value} city={city} toggling={toggling} onToggle={toggle} />
+                <CityRowItem key={city.value} city={city} toggling={toggling} onToggle={toggle} />
               ))}
               {comingSoon.length === 0 && (
                 <p className="py-3 text-sm" style={{ color: "var(--text-muted)" }}>No coming-soon cities.</p>
               )}
             </div>
+          </section>
+
+          <section>
+            <h2 className="text-sm font-semibold uppercase tracking-wide mb-3" style={{ color: "var(--text-muted)" }}>
+              Add city
+            </h2>
+            <form onSubmit={addCity} className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs mb-1" style={{ color: "var(--text-muted)" }}>
+                    Code (e.g. sby)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="sby"
+                    value={addValue}
+                    onChange={(e) => setAddValue(e.target.value.toLowerCase())}
+                    required
+                    pattern="[a-z0-9_-]+"
+                    className="w-full text-sm px-3 py-2 rounded-md border"
+                    style={{ borderColor: "var(--border)", background: "var(--bg-input, var(--bg))", color: "var(--text)" }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs mb-1" style={{ color: "var(--text-muted)" }}>
+                    Label (e.g. Surabaya)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Surabaya"
+                    value={addLabel}
+                    onChange={(e) => setAddLabel(e.target.value)}
+                    required
+                    className="w-full text-sm px-3 py-2 rounded-md border"
+                    style={{ borderColor: "var(--border)", background: "var(--bg-input, var(--bg))", color: "var(--text)" }}
+                  />
+                </div>
+              </div>
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input
+                    type="radio"
+                    name="addStatus"
+                    value="coming_soon"
+                    checked={addStatus === "coming_soon"}
+                    onChange={() => setAddStatus("coming_soon")}
+                  />
+                  Coming soon
+                </label>
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input
+                    type="radio"
+                    name="addStatus"
+                    value="live"
+                    checked={addStatus === "live"}
+                    onChange={() => setAddStatus("live")}
+                  />
+                  Live
+                </label>
+              </div>
+              {addError && (
+                <p className="text-sm" style={{ color: "var(--danger)" }}>{addError}</p>
+              )}
+              <Button type="submit" size="sm" disabled={adding}>
+                {adding ? "Adding…" : "Add city"}
+              </Button>
+            </form>
           </section>
         </div>
       )}
@@ -110,7 +205,7 @@ export default function AdminCitiesPage() {
   );
 }
 
-function CityRow({
+function CityRowItem({
   city,
   toggling,
   onToggle,
