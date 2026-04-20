@@ -621,6 +621,14 @@ See **[docs/STRIPE_LOCAL_TESTING.md](./docs/STRIPE_LOCAL_TESTING.md)** for full 
 
 - A generic server error page is available at `/500` for unexpected failures during runtime and export.
 
+### Unit tests (Vitest)
+
+```bash
+npm test
+```
+
+`tests/unit/matching/questionnaireMatch.test.ts` covers scoring, dealbreakers, and **aligned match-card copy** (Likert labels 1–4: strongly disagree → strongly agree) so explanations are not mislabeled as “agree” when users both selected disagree.
+
 ### Supabase query pagination (important)
 
 Supabase JS `.select()` returns **max 1000 rows** by default with **no error or warning**. Any query on a table that can exceed 1000 rows must use the paginated helper:

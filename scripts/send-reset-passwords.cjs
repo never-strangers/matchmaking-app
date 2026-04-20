@@ -64,79 +64,11 @@ function request(method, url, headers, body) {
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-// ── Email template (matches Supabase custom template design) ──────────────────
+// ── Email template (from shared module) ───────────────────────────────────────
 const APP_NAME = "Never Strangers";
 const APP_URL  = "https://app.thisisneverstrangers.com";
+const { resetPasswordHtml } = require("../lib/email/resetPasswordHtml.js");
 
-function emailHtml(resetUrl) {
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="color-scheme" content="light">
-</head>
-<body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:40px 16px">
-    <tr><td align="center">
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:500px">
-
-        <!-- Logo -->
-        <tr><td style="text-align:center;padding-bottom:24px">
-          <span style="font-family:Georgia,'Times New Roman',serif;font-size:32px;font-weight:700;font-style:italic;color:#c0392b;letter-spacing:-0.5px">Never<br>Strangers</span>
-        </td></tr>
-
-        <!-- Intro text -->
-        <tr><td style="text-align:center;padding-bottom:20px">
-          <p style="margin:0;font-size:16px;color:#374151;line-height:1.6">
-            You asked to reset your password. Here's your link &mdash; it expires in <strong>24 hours</strong>.
-          </p>
-        </td></tr>
-
-        <!-- Dark card -->
-        <tr><td style="background:#111827;border-radius:16px;padding:40px 36px;text-align:center">
-
-          <!-- Pill -->
-          <div style="display:inline-block;background:#c0392b;color:#fff;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;padding:5px 14px;border-radius:20px;margin-bottom:20px">
-            PASSWORD RESET
-          </div>
-
-          <!-- Heading -->
-          <h1 style="margin:0 0 16px;font-family:Georgia,'Times New Roman',serif;font-size:30px;font-weight:700;font-style:italic;color:#ffffff;line-height:1.2">
-            Set your new<br>password.
-          </h1>
-
-          <!-- Body -->
-          <p style="margin:0 0 28px;font-size:15px;color:#9ca3af;line-height:1.6">
-            Click the button below to choose a new password and<br>regain access to your ${APP_NAME} account.
-          </p>
-
-          <!-- CTA -->
-          <a href="${resetUrl}" style="display:inline-block;background:#c0392b;color:#ffffff;text-decoration:none;font-size:15px;font-weight:600;padding:14px 36px;border-radius:8px;margin-bottom:24px">
-            Reset Password &rarr;
-          </a>
-
-          <!-- App URL -->
-          <p style="margin:0;font-size:12px;color:#6b7280">${APP_URL}</p>
-
-        </td></tr>
-
-        <!-- Footer -->
-        <tr><td style="padding-top:24px;text-align:center">
-          <p style="margin:0 0 8px;font-size:13px;color:#6b7280;line-height:1.6">
-            If you didn't request a password reset, you can safely ignore this email &mdash; your password won't change.
-          </p>
-          <p style="margin:0;font-size:13px;color:#9ca3af">
-            You're receiving this because you have an account on ${APP_NAME}.
-          </p>
-        </td></tr>
-
-      </table>
-    </td></tr>
-  </table>
-</body>
-</html>`;
-}
 
 // ── Generate reset link via Supabase Admin API ────────────────────────────────
 async function generateResetLink(supabaseUrl, serviceKey, email) {
@@ -168,7 +100,7 @@ async function sendViaResend(resendKey, from, to, resetLink) {
       from,
       to,
       subject: `Reset your ${APP_NAME} password`,
-      html: emailHtml(resetLink),
+      html: resetPasswordHtml(resetLink, { appName: APP_NAME, appUrl: APP_URL }),
     }
   );
   if (res.status !== 200 && res.status !== 201) {

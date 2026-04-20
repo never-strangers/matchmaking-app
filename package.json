@@ -30,7 +30,8 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:report": "playwright show-report",
-    "download-media": "node scripts/download-media.js"
+    "download-media": "node scripts/download-media.js",
+    "generate:email-templates": "node -e \"const{resetPasswordHtml}=require('./lib/email/resetPasswordHtml.js');process.stdout.write(resetPasswordHtml('{{ .ConfirmationURL }}'))\" > supabase/email-templates/reset-password.html"
   },
   "dependencies": {
     "@supabase/ssr": "^0.8.0",

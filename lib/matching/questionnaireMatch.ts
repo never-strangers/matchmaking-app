@@ -18,6 +18,22 @@ function questionSimilarity(a: AnswerValue, b: AnswerValue): number {
   return 1 - diff / 3; // Maps: 0→1, 1→0.67, 2→0.33, 3→0
 }
 
+/** 1–4 Likert labels (must match QuestionForm copy). */
+function answerLabel(v: AnswerValue): string {
+  switch (v) {
+    case 1:
+      return "strongly disagree";
+    case 2:
+      return "disagree";
+    case 3:
+      return "agree";
+    case 4:
+      return "strongly agree";
+    default:
+      return "answered the same way";
+  }
+}
+
 /**
  * Check if a dealbreaker is violated
  * @param question The question definition
@@ -114,13 +130,10 @@ function getAlignedReasons(
   return alignments.slice(0, topN).map(({ question }) => {
     const answerA = userA[question.id];
     const answerB = userB[question.id];
-    
-    // Determine agreement level
-    if (answerA === answerB) {
-      if (answerA === 4 || answerA === 1) {
-        return `You both strongly agree: ${question.text}`;
-      }
-      return `You both agree: ${question.text}`;
+
+    if (answerA === answerB && answerA) {
+      // Same numeric answer — describe the actual Likert level (1–4), not "agree" generically
+      return `You both ${answerLabel(answerA)}: ${question.text}`;
     }
     return `You align on: ${question.text}`;
   });

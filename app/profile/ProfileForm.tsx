@@ -280,21 +280,17 @@ export function ProfileForm({
                 if (resetState !== "idle" || resetCooldown > 0) return;
                 setResetState("sending");
                 try {
-                  const { createClient } = await import("@/lib/supabase/client");
-                  const supabase = createClient();
-                  const { data: { user } } = await supabase.auth.getUser();
-                  const email = user?.email ?? profile.email?.trim();
+                  const email = profile.email?.trim();
                   if (!email) {
                     setResetState("idle");
                     return;
                   }
-                  const siteUrl =
-                    typeof window !== "undefined"
-                      ? window.location.origin
-                      : (process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || "");
-                  const redirectTo = `${siteUrl.replace(/\/$/, "")}/auth/reset-password`;
-                  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
-                  if (error) {
+                  const res = await fetch("/api/auth/reset-password", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email }),
+                  });
+                  if (!res.ok) {
                     setResetState("idle");
                     return;
                   }

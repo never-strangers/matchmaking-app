@@ -1,0 +1,47 @@
+{
+  "label": "demo-bali-dating-85",
+  "city": "Bali",
+  "event": {
+    "titlePrefix": "[SEED:BALI85]",
+    "category": "dating",
+    "startAt": "+7d",
+    "payment": {
+      "required": true,
+      "priceCents": 3100,
+      "currency": "idr"
+    }
+  },
+  "users": {
+    "total": 85,
+    "genderSplit": {
+      "female": 43,
+      "male": 42
+    },
+    "statuses": {
+      "approved": 85,
+      "pending": 0,
+      "rejected": 0
+    },
+    "dobMinAge": 21,
+    "archetypes": [
+      "social_extrovert",
+      "deep_talker",
+      "balanced",
+      "adventurous"
+    ]
+  },
+  "attendees": {
+    "joinAllApproved": true,
+    "checkedIn": {
+      "mode": "all"
+    },
+    "questionnaire": {
+      "complete": true,
+      "questionsCount": 23,
+      "selection": "defaults"
+    },
+    "paymentStatus": {
+      "paidPercent": 100
+    }
+  }
+}

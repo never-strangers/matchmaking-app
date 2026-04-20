@@ -1,7 +1,8 @@
 import { Page, expect } from '@playwright/test';
 
 /**
- * Clear all localStorage keys starting with "ns_"
+ * Clear all localStorage keys starting with "ns_".
+ * Used in tests that need a clean local state before the page loads.
  */
 export async function clearNsLocalStorage(page: Page): Promise<void> {
   await page.addInitScript(() => {
@@ -14,61 +15,7 @@ export async function clearNsLocalStorage(page: Page): Promise<void> {
 }
 
 /**
- * Set chat user via dropdown
- * userId should be lowercase (e.g., "mikhail", "anna")
- */
-export async function setChatUser(page: Page, userId: string): Promise<void> {
-  // Click user switcher dropdown
-  await page.click('[data-testid="chat-user-switcher"]');
-  
-  // Wait for dropdown to appear
-  await page.waitForSelector('div[class*="absolute"]', {
-    state: 'visible',
-    timeout: 2000,
-  });
-  
-  // Map userId to user name (capitalized first letter)
-  const userName = userId.charAt(0).toUpperCase() + userId.slice(1);
-  
-  // Find and click the user option by name
-  const userButton = page.locator(`button:has-text("${userName}")`).first();
-  await userButton.click();
-  
-  // Wait for page reload after user change (ChatHeader reloads page)
-  await page.waitForLoadState('networkidle');
-  // Additional wait for React to re-render
-  await page.waitForTimeout(500);
-}
-
-/**
- * Navigate to URL and assert page has title element by test id
- */
-export async function gotoAndAssertTitle(
-  page: Page,
-  url: string,
-  testId: string
-): Promise<void> {
-  await page.goto(url);
-  await expect(page.locator(`[data-testid="${testId}"]`)).toBeVisible({
-    timeout: 5000,
-  });
-}
-
-/**
- * Safe expect visible with retry logic
- */
-export async function safeExpectVisible(
-  page: Page,
-  testId: string,
-  timeout: number = 5000
-): Promise<void> {
-  await expect(page.locator(`[data-testid="${testId}"]`)).toBeVisible({
-    timeout,
-  });
-}
-
-/**
- * Check if chat is enabled (based on Messages nav link visibility)
+ * Returns true if the Messages nav link is visible, indicating chat is enabled.
  */
 export async function isChatEnabled(page: Page): Promise<boolean> {
   const messagesLink = page.locator('[data-testid="nav-messages"]');
@@ -76,22 +23,8 @@ export async function isChatEnabled(page: Page): Promise<boolean> {
 }
 
 /**
- * Log in as the seeded E2E approved user so protected pages can load.
- * Requires: npm run seed:e2e and Supabase env vars.
- */
-export async function loginViaRegister(
-  page: Page,
-  _opts: { name?: string; phoneDigits?: string } = {}
-): Promise<void> {
-  const { loginUser } = await import('./authHelpers');
-  const { E2E_APPROVED_USER } = await import('../fixtures/e2e-users');
-  await loginUser(page, E2E_APPROVED_USER);
-  await expect(page).toHaveURL(/\/(events|pending)/, { timeout: 10_000 });
-  await expect(page.locator('[data-testid="events-headline"], [data-testid="events-title"], [data-testid="pending-headline"]').first()).toBeVisible({ timeout: 5000 });
-}
-
-/**
- * Wait for message to appear in chat (with polling for realtime)
+ * Polls until a message bubble containing messageText appears in the chat.
+ * Useful after sending a message to verify it rendered in the conversation.
  */
 export async function waitForMessage(
   page: Page,
@@ -113,4 +46,3 @@ export async function waitForMessage(
     }
   ).toBe(true);
 }
-

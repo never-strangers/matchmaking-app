@@ -144,7 +144,7 @@ describe("getExplanationsForPair", () => {
     const answers: QuestionnaireAnswers = { q1: 4, q2: 4, q3: 3 };
     const { aligned, mismatched } = getExplanationsForPair(answers, answers, QUESTIONS);
     expect(aligned.length).toBeGreaterThan(0);
-    expect(aligned[0]).toMatch(/strongly agree|agree/i);
+    expect(aligned[0]).toMatch(/^You both strongly agree:/);
     expect(mismatched).toHaveLength(0);
   });
 
@@ -163,15 +163,46 @@ describe("getExplanationsForPair", () => {
     expect(aligned).toHaveLength(1);
   });
 
-  it("uses 'strongly agree' phrasing for extreme identical answers (1 or 4)", () => {
+  it("uses 'strongly agree' when both answer 4 on the same question", () => {
     const a: QuestionnaireAnswers = { q1: 4, q2: 4, q3: 4 };
     const { aligned } = getExplanationsForPair(a, a, QUESTIONS);
-    expect(aligned.some((s) => s.includes("strongly agree"))).toBe(true);
+    expect(aligned.some((s) => s.startsWith("You both strongly agree:"))).toBe(true);
   });
 
-  it("uses plain 'agree' for mid-range identical answers", () => {
+  it("uses 'strongly disagree' when both answer 1 (not 'strongly agree')", () => {
+    const a: QuestionnaireAnswers = { q1: 1, q2: 1, q3: 1 };
+    const { aligned } = getExplanationsForPair(a, a, QUESTIONS);
+    expect(aligned.every((s) => !s.includes("strongly agree"))).toBe(true);
+    expect(aligned.some((s) => s.startsWith("You both strongly disagree:"))).toBe(true);
+  });
+
+  it("uses 'disagree' when both answer 2 (not generic 'You both agree')", () => {
     const a: QuestionnaireAnswers = { q1: 2, q2: 3, q3: 3 };
     const { aligned } = getExplanationsForPair(a, a, [Q_NORMAL]);
+    expect(aligned[0]).toMatch(/^You both disagree:/);
+    expect(aligned[0]).not.toMatch(/^You both agree:/);
+  });
+
+  it("uses 'agree' when both answer 3", () => {
+    const a: QuestionnaireAnswers = { q1: 3 };
+    const { aligned } = getExplanationsForPair(a, a, [Q_NORMAL]);
     expect(aligned[0]).toMatch(/^You both agree:/);
+    expect(aligned[0]).not.toContain("disagree");
+  });
+
+  it("labels same-answer alignment with correct Likert word for each value 1–4", () => {
+    const Q: Question = { id: "qx", text: "I like being center of attention", category: "Lifestyle", weight: 1 };
+    expect(getExplanationsForPair({ qx: 1 }, { qx: 1 }, [Q]).aligned[0]).toBe(
+      "You both strongly disagree: I like being center of attention"
+    );
+    expect(getExplanationsForPair({ qx: 2 }, { qx: 2 }, [Q]).aligned[0]).toBe(
+      "You both disagree: I like being center of attention"
+    );
+    expect(getExplanationsForPair({ qx: 3 }, { qx: 3 }, [Q]).aligned[0]).toBe(
+      "You both agree: I like being center of attention"
+    );
+    expect(getExplanationsForPair({ qx: 4 }, { qx: 4 }, [Q]).aligned[0]).toBe(
+      "You both strongly agree: I like being center of attention"
+    );
   });
 });

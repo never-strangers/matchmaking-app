@@ -27,7 +27,11 @@ export async function registerUser(page: Page, user: TestUser): Promise<void> {
 
 export async function loginUser(page: Page, credentials: LoginCredentials): Promise<void> {
   await page.goto("/login", { waitUntil: "load" });
-  // Ensure submit button is visible so form is ready (avoids native form submit before hydration)
+  // The login page shows a splash screen first; click the Login CTA to reveal the form.
+  const splashCta = page.getByTestId("splash-login-cta");
+  if (await splashCta.isVisible()) {
+    await splashCta.click();
+  }
   await page.getByTestId("login-submit").waitFor({ state: "visible" });
   await page.getByTestId("login-email").fill(credentials.email);
   await page.getByTestId("login-password").fill(credentials.password);
@@ -71,4 +75,32 @@ export async function savePendingStorageState(page: Page): Promise<void> {
 
 export async function saveApprovedStorageState(page: Page): Promise<void> {
   await page.context().storageState({ path: approvedStorageStatePath });
+}
+
+/**
+ * Logs in and navigates to /admin/events. Returns the first event's ID if the
+ * user has admin access and at least one event exists; otherwise returns null.
+ *
+ * All admin tests that depend on a real event should call this helper and skip
+ * when it returns null:
+ *
+ *   const eventId = await getFirstAdminEventId(page, E2E_APPROVED_USER);
+ *   if (!eventId) { test.skip(true, "No admin events available"); return; }
+ */
+export async function getFirstAdminEventId(
+  page: Page,
+  credentials: LoginCredentials
+): Promise<string | null> {
+  await loginUser(page, credentials);
+  await page.goto("/admin/events", { waitUntil: "networkidle" });
+  if (!page.url().includes("/admin/events")) return null;
+
+  const firstEventLink = page.locator('a[href^="/admin/events/"]').first();
+  const isVisible = await firstEventLink.isVisible({ timeout: 5_000 }).catch(() => false);
+  if (!isVisible) return null;
+
+  const href = await firstEventLink.getAttribute("href");
+  if (!href) return null;
+
+  return href.replace("/admin/events/", "").split("?")[0].split("/")[0] || null;
 }

@@ -95,47 +95,10 @@ export function passwordResetEmail(
   _firstName: string,
   resetUrl: string
 ): EmailTemplate {
+  const { resetPasswordHtml } = require("@/lib/email/resetPasswordHtml.js");
   return {
     subject: `Reset your ${appName} password`,
-    html: `<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#f5f5f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f0">
-<tr><td align="center" style="padding:40px 16px">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px">
-
-<!-- Logo header -->
-<tr><td style="text-align:center;padding-bottom:24px">
-  <span style="font-family:Georgia,'Times New Roman',serif;font-size:32px;font-weight:700;color:#c0392b;font-style:italic;display:block;line-height:1.1">Never</span>
-  <span style="font-family:Georgia,'Times New Roman',serif;font-size:36px;font-weight:700;color:#c0392b;display:block;line-height:1.1">Strangers</span>
-</td></tr>
-
-<!-- Intro text -->
-<tr><td style="text-align:center;padding-bottom:24px">
-  <p style="margin:0;font-size:15px;color:#444;line-height:1.6">You asked to reset your password. Here&#39;s your link &mdash; it expires in <strong>24 hours</strong>.</p>
-</td></tr>
-
-<!-- Dark card -->
-<tr><td style="background:#1a1a1a;border-radius:12px;padding:36px 32px;text-align:center">
-  <p style="margin:0 0 16px;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#c0392b">Password Reset</p>
-  <h2 style="margin:0 0 16px;font-family:Georgia,'Times New Roman',serif;font-size:28px;font-weight:700;color:#fff;font-style:italic;line-height:1.2">Set your new<br>password.</h2>
-  <p style="margin:0 0 28px;font-size:14px;color:#aaa;line-height:1.6">Click the button below to choose a new password and<br>regain access to your ${appName} account.</p>
-  <a href="${resetUrl}" style="background:#c0392b;color:#fff;text-decoration:none;padding:14px 36px;border-radius:8px;font-weight:600;font-size:15px;display:inline-block;margin-bottom:20px">Reset Password &rarr;</a>
-  <br>
-  <a href="${resetUrl}" style="font-size:12px;color:#888;word-break:break-all">${appUrl}</a>
-</td></tr>
-
-<!-- Footer -->
-<tr><td style="padding:24px 0;text-align:center">
-  <p style="margin:0 0 8px;font-size:13px;color:#888;line-height:1.5">If you didn&#39;t request a password reset, you can safely ignore this email &mdash; your password won&#39;t change.</p>
-  <p style="margin:0;font-size:12px;color:#aaa">You&#39;re receiving this because you have an account on ${appName}.</p>
-</td></tr>
-
-</table>
-</td></tr>
-</table>
-</body></html>`,
+    html: resetPasswordHtml(resetUrl, { appName, appUrl }),
   };
 }
 
