@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import {
   validateDob21Plus,
   parseDateOfBirth,
@@ -175,6 +176,10 @@ export default function RegisterPage() {
       setError("Please tell us why Never Strangers is for you.");
       return;
     }
+    if (!photoFile) {
+      setError("Please upload a profile photo. It is required for identity verification.");
+      return;
+    }
     if (!agreementAccurate) {
       setError("You must confirm that your details are accurate and that you may be required to present ID at the event.");
       return;
@@ -217,51 +222,63 @@ export default function RegisterPage() {
   };
 
   return (
-    <div
-      style={{
+    <div style={{ display: "flex", minHeight: "100svh", backgroundColor: "var(--bg)" }} className="register-layout">
+      {/* Left sticky panel */}
+      <div style={{
+        width: "40%",
         minHeight: "100svh",
+        position: "sticky",
+        top: 0,
+        alignSelf: "flex-start",
+        height: "100svh",
         display: "flex",
-        alignItems: "flex-start",
-        justifyContent: "center",
-        padding: "40px 16px 60px",
-        backgroundColor: "var(--bg)",
-      }}
-    >
-      <div style={{ width: "100%", maxWidth: 480 }}>
-        {/* Wordmark */}
-        <p
-          className="text-center mb-8"
-          style={{
+        flexDirection: "column",
+        padding: "32px 40px",
+        borderRight: "1px solid var(--border)",
+      }} className="register-left">
+        <Image src="/logo.png" alt="Never Strangers" width={130} height={44} style={{ objectFit: "contain", objectPosition: "left" }} priority />
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }} className="register-hero">
+          <h1 style={{
             fontFamily: "var(--font-heading)",
-            fontSize: 28,
+            fontSize: "clamp(44px, 5.5vw, 68px)",
+            lineHeight: 1.0,
+            letterSpacing: "-0.03em",
             color: "var(--text)",
-            letterSpacing: "-0.02em",
-          }}
-        >
-          Never Strangers
-        </p>
-
-        <div
-          style={{
-            backgroundColor: "var(--bg-panel)",
-            border: "1px solid var(--border)",
-            borderRadius: "var(--radius-lg)",
-            padding: "32px",
-          }}
-          className="sm:shadow-[var(--shadow-card)]"
-        >
-          <h1
-            className="mb-1"
-            style={{
-              fontFamily: "var(--font-heading)",
-              fontSize: "clamp(22px, 5vw, 28px)",
-              color: "var(--text)",
-              letterSpacing: "-0.02em",
-            }}
-          >
-            Join Never Strangers
+            marginBottom: 0,
+          }}>
+            You won&apos;t be
           </h1>
-          <p style={{ fontSize: 14, color: "var(--text-muted)", marginBottom: 24 }}>
+          <h1 style={{
+            fontFamily: "var(--font-heading)",
+            fontSize: "clamp(44px, 5.5vw, 68px)",
+            lineHeight: 1.0,
+            letterSpacing: "-0.03em",
+            color: "var(--text)",
+            marginBottom: 0,
+          }}>
+            strangers
+          </h1>
+          <h1 style={{
+            fontFamily: "var(--font-heading)",
+            fontSize: "clamp(44px, 5.5vw, 68px)",
+            lineHeight: 1.0,
+            letterSpacing: "-0.03em",
+            color: "var(--primary)",
+            fontStyle: "italic",
+            marginBottom: 28,
+          }}>
+            for long.
+          </h1>
+          <p style={{ fontSize: 15, color: "var(--text)", lineHeight: 1.65, maxWidth: 340 }}>
+            Just be open about who you are and what you&apos;re here for. We review every application ourselves.
+          </p>
+        </div>
+      </div>
+
+      {/* Right: scrollable form */}
+      <div style={{ flex: 1, padding: "48px 48px 80px", overflowY: "auto" }} className="register-right">
+        <div style={{ maxWidth: 480 }}>
+          <p style={{ fontSize: 14, color: "var(--text-muted)", marginBottom: 28 }}>
             Create your account. You must be 21+ to join.
           </p>
 
@@ -452,7 +469,7 @@ export default function RegisterPage() {
             </div>
 
             <div>
-              <label style={labelStyle}>Upload your Profile Photo</label>
+              <label style={labelStyle}>Upload your Profile Photo <span style={{ color: "var(--danger)" }}>*</span></label>
               <input
                 type="file"
                 accept="image/jpeg,image/jpg,image/png,image/webp"
@@ -460,7 +477,7 @@ export default function RegisterPage() {
                 onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)}
                 data-testid="register-photo"
               />
-              <p style={{ fontSize: 12, color: "var(--text-subtle)", marginTop: 4 }}>Optional</p>
+              <p style={{ fontSize: 12, color: "var(--text-subtle)", marginTop: 4 }}>Required for identity verification</p>
             </div>
 
             <div>
@@ -506,7 +523,7 @@ export default function RegisterPage() {
             </div>
 
             {error && (
-              <p role="alert" style={{ fontSize: 14, color: "var(--danger)" }}>
+              <p role="alert" data-testid="register-error" style={{ fontSize: 14, color: "var(--danger)" }}>
                 {error}
               </p>
             )}

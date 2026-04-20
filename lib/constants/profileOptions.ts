@@ -3,6 +3,12 @@ export const CITIES = [
   { value: "sg", label: "Singapore" },
   { value: "hk", label: "Hong Kong" },
   { value: "bkk", label: "Bangkok" },
+  { value: "kl", label: "Kuala Lumpur" },
+  { value: "mnl", label: "Manila" },
+  { value: "ceb", label: "Cebu" },
+  { value: "bali", label: "Bali" },
+  { value: "hcmc", label: "Ho Chi Minh City" },
+  { value: "jkt", label: "Jakarta" },
 ] as const;
 
 export type CityCode = (typeof CITIES)[number]["value"];
