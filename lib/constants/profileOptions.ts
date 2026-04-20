@@ -1,48 +1,12 @@
-/** Predefined cities (stored as code, displayed as label) */
-export const CITIES = [
-  { value: "sg", label: "Singapore" },
-  { value: "hk", label: "Hong Kong" },
-  { value: "bkk", label: "Bangkok" },
-  { value: "kl", label: "Kuala Lumpur" },
-  { value: "mnl", label: "Manila" },
-  { value: "ceb", label: "Cebu" },
-  { value: "bali", label: "Bali" },
-  { value: "hcmc", label: "Ho Chi Minh City" },
-  { value: "jkt", label: "Jakarta" },
-] as const;
+export {
+  SEED_ALL_CITIES as CITIES,
+  CITY_VALUES,
+  normalizeCityForSelect,
+  cityForFilter,
+  type CityOption,
+} from "./cities";
 
-export type CityCode = (typeof CITIES)[number]["value"];
-export const CITY_VALUES = CITIES.map((c) => c.value);
-
-/** Map legacy full names to city code for backwards compatibility */
-const LABEL_TO_CODE: Record<string, CityCode> = Object.fromEntries(
-  CITIES.map((c) => [c.label.toLowerCase(), c.value])
-);
-/** Map city code to display label (for DB queries where events use labels e.g. "Singapore") */
-const CODE_TO_LABEL: Record<CityCode, string> = Object.fromEntries(
-  CITIES.map((c) => [c.value, c.label])
-) as Record<CityCode, string>;
-
-export function normalizeCityForSelect(city: string | null): string {
-  if (!city || !city.trim()) return "";
-  const code = CITY_VALUES.find((v) => v === city.trim());
-  if (code) return code;
-  const byLabel = LABEL_TO_CODE[city.trim().toLowerCase()];
-  return byLabel ?? "";
-}
-
-/**
- * Return a canonical city value for filtering (e.g. events by city).
- * Converts codes ("sg") to labels ("Singapore") so profile city matches event city in DB.
- */
-export function cityForFilter(city: string | null): string | null {
-  if (!city || !city.trim()) return null;
-  const trimmed = city.trim();
-  const code = CITY_VALUES.find((v) => v === trimmed);
-  if (code) return CODE_TO_LABEL[code] ?? trimmed;
-  if (CITIES.some((c) => c.label === trimmed)) return trimmed;
-  return trimmed;
-}
+export type CityCode = string;
 
 /** Gender options */
 export const GENDERS = [

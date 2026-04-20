@@ -111,8 +111,11 @@ npm run download-media         # Download media assets
 ```
 app/                           # Next.js 15 App Router
 ├── admin/                     # Admin dashboard & matches management
-│   └── invite/                 # Invite links & QR codes (generate 1–50, copy URLs, printable)
+│   ├── invite/                 # Invite links & QR codes (generate 1–50, copy URLs, printable)
+│   └── cities/                 # Toggle cities Live ↔ Coming soon (no redeploy needed)
 ├── api/
+│   ├── cities/                # GET — public city list {live, comingSoon} from city_config table
+│   ├── admin/cities/[value]/  # PATCH — toggle city status/sort_order (admin only)
 │   ├── admin/events/[id]/
 │   │   ├── run-matching/      # POST — triggers matching for one round
 │   │   ├── reveal-round/      # POST — reveals next match round to users
@@ -210,6 +213,15 @@ match_reveals     — per-user reveal records
 match_reveal_queue — reveal queue
 likes             — event_id, from_profile_id, to_profile_id, created_at
 ```
+
+**City config table:**
+```
+city_config       — value (PK, code e.g. "sg"), label, status ("live"|"coming_soon"),
+                    sort_order, created_at, updated_at
+```
+Managed by admins at `/admin/cities`. Drives the grouped city dropdown on registration,
+profile edit, and admin event forms. Single source of truth: `lib/constants/cities.ts`
+(static seed/fallback) + `lib/cities/getCityConfig.ts` (server DB reader).
 
 **Other tables:**
 ```
