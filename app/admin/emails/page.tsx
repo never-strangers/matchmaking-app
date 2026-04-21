@@ -126,25 +126,12 @@ export default function AdminEmailsPage() {
   }
 
   function handlePreview() {
-    const appUrl = window.location.origin;
-    const wrapped = `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin:0;padding:0;background:#faf9f6;font-family:sans-serif">
+    const wrapped = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:0;background:#faf9f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#faf9f6">
 <tr><td align="center" style="padding:24px 16px">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px">
-<tr><td style="background:#1a1a1a;padding:28px 32px;border-radius:12px 12px 0 0;text-align:center">
-  <span style="font-family:Georgia,serif;font-size:28px;font-weight:700;color:#fff;font-style:italic">never</span><br>
-  <span style="font-family:Georgia,serif;font-size:36px;font-weight:700;color:#fff">Strangers</span>
-</td></tr>
-<tr><td style="background:#fff;padding:32px;border-left:1px solid #e8e5e0;border-right:1px solid #e8e5e0">
 ${bodyHtml}
 </td></tr>
-<tr><td style="background:#fff;padding:0 32px 28px;border:1px solid #e8e5e0;border-top:none;border-radius:0 0 12px 12px">
-  <table width="100%"><tr><td style="border-top:1px solid #eee;padding-top:20px;text-align:center">
-    <p style="margin:0 0 4px;font-size:12px;color:#999">Never Strangers</p>
-    <a href="${appUrl}" style="font-size:12px;color:#b5703a">${appUrl}</a>
-  </td></tr></table>
-</td></tr>
-</table></td></tr></table>
+</table>
 </body></html>`;
     setPreviewHtml(wrapped);
   }
@@ -170,7 +157,7 @@ ${bodyHtml}
         </Link>
       </div>
 
-      <PageHeader title="Email Templates" subtitle="Edit subject and body copy. Layout and branding stay fixed in code." />
+      <PageHeader title="Email Templates" subtitle="Edit subject and full email HTML including header and footer." />
 
       {loading ? (
         <p className="text-sm" style={{ color: "var(--text-muted)" }}>Loading…</p>
