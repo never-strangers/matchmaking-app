@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { getServiceSupabaseClient } from "@/lib/supabase/serverClient";
 import { verifyPendingInviteToken, signSessionToken, SessionRole } from "@/lib/auth/sessionToken";
 import { enqueueEmail } from "@/lib/email/send";
-import { applicationReceivedEmail } from "@/lib/email/templates";
+import { loadTemplate } from "@/lib/email/templateLoader";
 
 type RegisterBody = {
   display_name?: string;
@@ -246,11 +246,8 @@ export async function POST(req: NextRequest) {
 
   // Fire-and-forget: application received email (only if user has a real email)
   if (realEmail) {
-    void enqueueEmail(
-      `application-received:${String(inserted.id)}`,
-      "application_received",
-      realEmail,
-      applicationReceivedEmail((body.first_name ?? "").trim())
+    void loadTemplate("pending_review", { first_name: (body.first_name ?? "").trim() }).then((tpl) =>
+      enqueueEmail(`application-received:${String(inserted.id)}`, "pending_review", realEmail, tpl)
     );
   }
 

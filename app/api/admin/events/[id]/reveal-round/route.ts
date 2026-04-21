@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { getAuthUser } from "@/lib/auth/getAuthUser";
 import { getServiceSupabaseClient } from "@/lib/supabase/serverClient";
 import { enqueueEmail } from "@/lib/email/send";
-import { matchesRevealedEmail } from "@/lib/email/templates";
+import { loadTemplate } from "@/lib/email/templateLoader";
 
 type Round = 1 | 2 | 3;
 
@@ -189,11 +189,8 @@ export async function POST(
           if (!profile?.email || profile.email.includes("@demo.local")) continue;
           const firstName = (profile.name ?? "").split(" ")[0] ?? "";
           emailPromises.push(
-            enqueueEmail(
-              `matches-revealed:${eventId}:r${round}:${pid}`,
-              "matches_revealed",
-              profile.email,
-              matchesRevealedEmail(firstName, eventTitle, count)
+            loadTemplate("matches_revealed", { first_name: firstName, event_title: eventTitle, match_count: String(count) }).then((tpl) =>
+              enqueueEmail(`matches-revealed:${eventId}:r${round}:${pid}`, "matches_revealed", profile.email ?? "", tpl)
             )
           );
         }

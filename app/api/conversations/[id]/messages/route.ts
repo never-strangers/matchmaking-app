@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { requireApprovedUserForApi } from "@/lib/auth/requireApprovedUser";
 import { getServiceSupabaseClient } from "@/lib/supabase/serverClient";
 import { enqueueEmail } from "@/lib/email/send";
-import { newMessageEmail } from "@/lib/email/templates";
+import { loadTemplate } from "@/lib/email/templateLoader";
 
 export async function GET(
   _req: NextRequest,
@@ -160,12 +160,8 @@ export async function POST(
       if (!recipient?.email || recipient.email.includes("@demo.local")) return;
       const recipientFirstName = (recipient.name ?? "").split(" ")[0] ?? "";
       const senderName = (sender?.name ?? "").split(" ")[0] || "Someone";
-      await enqueueEmail(
-        `first-message:${conversationId}`,
-        "new_message",
-        recipient.email,
-        newMessageEmail(recipientFirstName, senderName)
-      );
+      const tpl = await loadTemplate("new_message", { first_name: recipientFirstName, sender_name: senderName });
+      await enqueueEmail(`first-message:${conversationId}`, "new_message", recipient.email, tpl);
     } catch (err) {
       console.error("[email] first message notification error:", err);
     }

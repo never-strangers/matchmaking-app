@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServiceSupabaseClient } from "@/lib/supabase/serverClient";
 import { enqueueEmail } from "@/lib/email/send";
-import { passwordResetEmail } from "@/lib/email/templates";
+import { loadTemplate } from "@/lib/email/templateLoader";
 
 export async function POST(request: Request) {
   try {
@@ -24,12 +24,8 @@ export async function POST(request: Request) {
     }
 
     const resetUrl = data.properties.action_link;
-    await enqueueEmail(
-      `user-reset:${email}:${Date.now()}`,
-      "password_reset",
-      email,
-      passwordResetEmail("", resetUrl)
-    );
+    const tpl = await loadTemplate("password_reset", { first_name: "", reset_url: resetUrl });
+    await enqueueEmail(`user-reset:${email}:${Date.now()}`, "password_reset", email, tpl);
 
     return NextResponse.json({ ok: true }, { status: 200 });
   } catch {

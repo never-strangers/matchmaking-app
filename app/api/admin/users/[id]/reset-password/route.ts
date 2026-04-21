@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { getAuthUser } from "@/lib/auth/getAuthUser";
 import { getServiceSupabaseClient } from "@/lib/supabase/serverClient";
 import { enqueueEmail } from "@/lib/email/send";
-import { passwordResetEmail } from "@/lib/email/templates";
+import { loadTemplate } from "@/lib/email/templateLoader";
 
 export async function POST(
   _req: NextRequest,
@@ -57,12 +57,8 @@ export async function POST(
       "")
       .split(" ")[0] ?? "";
 
-  await enqueueEmail(
-    `admin-reset:${profileId}:${Date.now()}`,
-    "password_reset",
-    email,
-    passwordResetEmail(firstName, resetUrl)
-  );
+  const tpl = await loadTemplate("password_reset", { first_name: firstName, reset_url: resetUrl });
+  await enqueueEmail(`admin-reset:${profileId}:${Date.now()}`, "password_reset", email, tpl);
 
   return Response.json({ ok: true, email });
 }

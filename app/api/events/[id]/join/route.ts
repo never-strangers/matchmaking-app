@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { requireApprovedUserForApi } from "@/lib/auth/requireApprovedUser";
 import { getServiceSupabaseClient } from "@/lib/supabase/serverClient";
 import { enqueueEmail } from "@/lib/email/send";
-import { rsvpConfirmationEmail } from "@/lib/email/templates";
+import { loadTemplate } from "@/lib/email/templateLoader";
 
 export async function POST(
   _req: NextRequest,
@@ -61,12 +61,8 @@ export async function POST(
         const firstName = (profile.name ?? "").split(" ")[0] ?? "";
         const eventTitle = (event as { title?: string })?.title ?? "an event";
         const eventDate = (event as { date?: string })?.date ?? "";
-        await enqueueEmail(
-          `rsvp-confirmed:${eventId}:${auth.profile_id}`,
-          "rsvp_confirmed",
-          profile.email,
-          rsvpConfirmationEmail(firstName, eventTitle, eventDate)
-        );
+        const tpl = await loadTemplate("rsvp_confirmation", { first_name: firstName, event_title: eventTitle, event_date: eventDate });
+        await enqueueEmail(`rsvp-confirmed:${eventId}:${auth.profile_id}`, "rsvp_confirmation", profile.email, tpl);
       } catch (err) {
         console.error("[email] rsvp confirmation error:", err);
       }

@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { getAuthUser } from "@/lib/auth/getAuthUser";
 import { getServiceSupabaseClient } from "@/lib/supabase/serverClient";
 import { enqueueEmail } from "@/lib/email/send";
-import { accountApprovedEmail, accountRejectedEmail } from "@/lib/email/templates";
+import { loadTemplate } from "@/lib/email/templateLoader";
 
 const VALID_STATUSES = ["approved", "rejected", "pending_verification"] as const;
 
@@ -82,16 +82,9 @@ export async function POST(req: NextRequest) {
         if (profile?.email && !profile.email.includes("@demo.local")) {
           const firstName = (profile.name ?? "").split(" ")[0] ?? "";
           const city = profile.city ?? "";
-          const tmpl =
-            newStatus === "approved"
-              ? accountApprovedEmail(firstName, city)
-              : accountRejectedEmail(firstName);
-          await enqueueEmail(
-            `status-${newStatus}:${profileId}`,
-            newStatus === "approved" ? "account_approved" : "account_rejected",
-            profile.email,
-            tmpl
-          );
+          const tplKey = newStatus === "approved" ? "approved" : "rejected";
+          const tmpl = await loadTemplate(tplKey, { first_name: firstName, city });
+          await enqueueEmail(`status-${newStatus}:${profileId}`, tplKey, profile.email, tmpl);
         }
       } catch (err) {
         console.error("[email] status email error:", err);

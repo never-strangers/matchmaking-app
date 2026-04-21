@@ -1,0 +1,31 @@
+{
+  "label": "currency-demo-kl-99sgd",
+  "city": "Kuala Lumpur",
+  "event": {
+    "titlePrefix": "[SEED:CURR99-KL]",
+    "category": "dating",
+    "startAt": "+21d",
+    "payment": {
+      "required": true,
+      "priceCents": 9900,
+      "currency": "sgd"
+    }
+  },
+  "users": {
+    "total": 10,
+    "genderSplit": { "female": 5, "male": 5 },
+    "statuses": { "approved": 10, "pending": 0, "rejected": 0 },
+    "dobMinAge": 21,
+    "archetypes": ["social_extrovert", "deep_talker", "balanced", "adventurous"]
+  },
+  "attendees": {
+    "joinAllApproved": true,
+    "checkedIn": { "mode": "all" },
+    "questionnaire": {
+      "complete": true,
+      "questionsCount": 15,
+      "selection": "defaults"
+    },
+    "paymentStatus": { "paidPercent": 100 }
+  }
+}

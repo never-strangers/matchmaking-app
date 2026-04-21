@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import Stripe from "stripe";
 import { getServiceSupabaseClient } from "@/lib/supabase/serverClient";
 import { enqueueEmail } from "@/lib/email/send";
-import { paymentConfirmationEmail } from "@/lib/email/templates";
+import { loadTemplate } from "@/lib/email/templateLoader";
 
 function getStripe(): Stripe {
   const key = process.env.STRIPE_SECRET_KEY;
@@ -107,12 +107,8 @@ export async function POST(req: NextRequest) {
           const eventDate = (ev as { date?: string })?.date ?? "";
           const currency = (ev as { currency?: string })?.currency ?? "sgd";
           const amount = Number(session.amount_total ?? 0);
-          await enqueueEmail(
-            `payment-confirmed:${eventId}:${profileId}`,
-            "payment_confirmed",
-            profile.email,
-            paymentConfirmationEmail(firstName, eventTitle, eventDate, formatCurrency(amount, currency))
-          );
+          const tpl = await loadTemplate("payment_confirmation", { first_name: firstName, event_title: eventTitle, event_date: eventDate, amount_formatted: formatCurrency(amount, currency) });
+          await enqueueEmail(`payment-confirmed:${eventId}:${profileId}`, "payment_confirmation", profile.email, tpl);
         } catch (err) {
           console.error("[email] payment confirmation error:", err);
         }

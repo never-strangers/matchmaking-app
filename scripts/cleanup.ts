@@ -5,9 +5,9 @@
  *   SEED_CONFIRM=true npx tsx scripts/cleanup.ts --label <label> [--dry-run]
  *
  * Delete order (FK-safe):
- *   messages → conversations → match_results → match_rounds →
- *   match_runs → match_reveals → answers → event_attendees →
- *   event_questions → questions → events →
+ *   messages → conversations → match_* →
+ *   answers (by event_id, then by seed_run_id) → event_attendees →
+ *   event_ticket_types → event_questions → questions → events →
  *   profiles → auth users → seed_runs
  */
 import "dotenv/config";
@@ -158,13 +158,21 @@ async function main() {
     results.push({ table: "match_reveals", deleted: 0 });
   }
 
+  // answers: must clear event_question_id FKs before event_questions (some rows lack seed_run_id)
+  if (eventIds.length) {
+    results.push(await countAndDelete("answers", "event_id", eventIds, dryRun));
+  } else {
+    results.push({ table: "answers (by event_id)", deleted: 0 });
+  }
   results.push(await countAndDelete("answers", "seed_run_id", runIds, dryRun));
   results.push(await countAndDelete("event_attendees", "seed_run_id", runIds, dryRun));
 
   if (eventIds.length) {
+    results.push(await countAndDelete("event_ticket_types", "event_id", eventIds, dryRun));
     results.push(await countAndDelete("event_questions", "event_id", eventIds, dryRun));
     results.push(await countAndDelete("questions", "event_id", eventIds, dryRun));
   } else {
+    results.push({ table: "event_ticket_types", deleted: 0 });
     results.push({ table: "event_questions", deleted: 0 });
     results.push({ table: "questions", deleted: 0 });
   }

@@ -12,6 +12,8 @@
     "cleanup": "SEED_CONFIRM=true npx tsx scripts/cleanup.ts",
     "seed:dating-30": "SEED_CONFIRM=true npx tsx scripts/seed.ts --config scripts/seed/configs/dating-bkk-30.json",
     "seed:friends-30": "SEED_CONFIRM=true npx tsx scripts/seed.ts --config scripts/seed/configs/friends-bkk-30.json",
+    "seed:currency-demo-kl": "SEED_CONFIRM=true npx tsx scripts/seed.ts --config scripts/seed/configs/paid-kl-99sgd-dating.json",
+    "seed:currency-demo-cebu": "SEED_CONFIRM=true npx tsx scripts/seed.ts --config scripts/seed/configs/paid-cebu-99sgd-dating.json",
     "seed:events": "SEED_CONFIRM=true npx tsx scripts/seed.ts --label legacy-events --category friends --city Bangkok --users 10",
     "cleanup:events": "SEED_CONFIRM=true npx tsx scripts/cleanup.ts --label legacy-events",
     "reset:events": "SEED_CONFIRM=true npx tsx scripts/cleanup.ts --label legacy-events && SEED_CONFIRM=true npx tsx scripts/seed.ts --label legacy-events --category friends --city Bangkok --users 10",
@@ -30,6 +32,7 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:report": "playwright show-report",
+    "backup:profiles": "npx tsx scripts/backup-profiles.ts",
     "download-media": "node scripts/download-media.js",
     "generate:email-templates": "node -e \"const{resetPasswordHtml}=require('./lib/email/resetPasswordHtml.js');process.stdout.write(resetPasswordHtml('{{ .ConfirmationURL }}'))\" > supabase/email-templates/reset-password.html"
   },

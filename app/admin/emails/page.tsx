@@ -1,144 +1,359 @@
-import { redirect } from "next/navigation";
+"use client";
+
+import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
-import { getAuthUser } from "@/lib/auth/getAuthUser";
-import { getServiceSupabaseClient } from "@/lib/supabase/serverClient";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 
-type EmailLogRow = {
-  id: string;
-  idempotency_key: string;
-  template: string;
-  to_email: string;
-  subject: string;
-  status: string;
-  provider_id: string | null;
-  error_message: string | null;
-  created_at: string;
+type TemplateSummary = {
+  key: string;
+  label: string;
+  hasOverride: boolean;
+  vars: string[];
+  requiredVars: string[];
+  updatedAt: string | null;
+  updatedBy: string | null;
+  sentCount7d: number;
+  errorCount7d: number;
+  lastSentAt: string | null;
 };
 
-export default async function AdminEmailsPage() {
-  const user = await getAuthUser();
-  if (!user) redirect("/");
-  if (user.role !== "admin") redirect("/events");
+type TemplateDetail = {
+  key: string;
+  meta: TemplateSummary;
+  override: { subject: string; body_html: string; updated_at: string } | null;
+  codeDefault: { subject: string; body_html: string };
+};
 
-  const supabase = getServiceSupabaseClient();
-  const { data: rows, error } = await supabase
-    .from("email_log")
-    .select(
-      "id, idempotency_key, template, to_email, subject, status, provider_id, error_message, created_at"
-    )
-    .order("created_at", { ascending: false })
-    .limit(200);
+function formatTimeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ago`;
+}
 
-  const emails: EmailLogRow[] = (rows ?? []) as EmailLogRow[];
+export default function AdminEmailsPage() {
+  const [templates, setTemplates] = useState<TemplateSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState<TemplateDetail | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerLoading, setDrawerLoading] = useState(false);
 
-  const statusColor = (s: string) => {
-    if (s === "sent") return "#2a7a4b";
-    if (s === "mock") return "#888";
-    if (s === "error") return "#c0392b";
-    return "#999";
-  };
+  const [subject, setSubject] = useState("");
+  const [bodyHtml, setBodyHtml] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [restoring, setRestoring] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [previewHtml, setPreviewHtml] = useState<string | null>(null);
+
+  const bodyRef = useRef<HTMLTextAreaElement>(null);
+
+  async function fetchTemplates() {
+    setLoading(true);
+    const res = await fetch("/api/admin/emails");
+    const data = await res.json();
+    setTemplates(data.templates ?? []);
+    setLoading(false);
+  }
+
+  useEffect(() => { fetchTemplates(); }, []);
+
+  async function openEdit(key: string) {
+    setDrawerLoading(true);
+    setDrawerOpen(true);
+    setEditing(null);
+    setError(null);
+    setSuccessMsg(null);
+    setPreviewHtml(null);
+
+    const res = await fetch(`/api/admin/emails/${key}`);
+    const data: TemplateDetail = await res.json();
+    setEditing(data);
+    setSubject(data.override?.subject ?? data.codeDefault.subject);
+    setBodyHtml(data.override?.body_html ?? data.codeDefault.body_html);
+    setDrawerLoading(false);
+  }
+
+  async function handleSave() {
+    if (!editing) return;
+    setSaving(true);
+    setError(null);
+    setSuccessMsg(null);
+    const res = await fetch(`/api/admin/emails/${editing.key}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ subject, body_html: bodyHtml }),
+    });
+    const data = await res.json();
+    setSaving(false);
+    if (!res.ok) { setError(data.error ?? "Save failed"); return; }
+    setSuccessMsg("Saved.");
+    await fetchTemplates();
+  }
+
+  async function handleRestore() {
+    if (!editing) return;
+    if (!confirm("Restore default? Any saved override will be deleted.")) return;
+    setRestoring(true);
+    setError(null);
+    if (editing.override) {
+      await fetch(`/api/admin/emails/${editing.key}`, { method: "DELETE" });
+    }
+    setSubject(editing.codeDefault.subject);
+    setBodyHtml(editing.codeDefault.body_html);
+    setPreviewHtml(null);
+    setRestoring(false);
+    setSuccessMsg("Restored to default.");
+    await fetchTemplates();
+  }
+
+  async function handleTest() {
+    if (!editing) return;
+    setTesting(true);
+    setError(null);
+    setSuccessMsg(null);
+    const res = await fetch(`/api/admin/emails/${editing.key}/test`, { method: "POST" });
+    const data = await res.json();
+    setTesting(false);
+    if (!res.ok) { setError(data.error ?? "Test send failed"); return; }
+    setSuccessMsg("Test email sent to your address.");
+  }
+
+  function handlePreview() {
+    const appUrl = window.location.origin;
+    const wrapped = `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin:0;padding:0;background:#faf9f6;font-family:sans-serif">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#faf9f6">
+<tr><td align="center" style="padding:24px 16px">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px">
+<tr><td style="background:#1a1a1a;padding:28px 32px;border-radius:12px 12px 0 0;text-align:center">
+  <span style="font-family:Georgia,serif;font-size:28px;font-weight:700;color:#fff;font-style:italic">never</span><br>
+  <span style="font-family:Georgia,serif;font-size:36px;font-weight:700;color:#fff">Strangers</span>
+</td></tr>
+<tr><td style="background:#fff;padding:32px;border-left:1px solid #e8e5e0;border-right:1px solid #e8e5e0">
+${bodyHtml}
+</td></tr>
+<tr><td style="background:#fff;padding:0 32px 28px;border:1px solid #e8e5e0;border-top:none;border-radius:0 0 12px 12px">
+  <table width="100%"><tr><td style="border-top:1px solid #eee;padding-top:20px;text-align:center">
+    <p style="margin:0 0 4px;font-size:12px;color:#999">Never Strangers</p>
+    <a href="${appUrl}" style="font-size:12px;color:#b5703a">${appUrl}</a>
+  </td></tr></table>
+</td></tr>
+</table></td></tr></table>
+</body></html>`;
+    setPreviewHtml(wrapped);
+  }
+
+  function insertVar(v: string) {
+    const el = bodyRef.current;
+    if (!el) { setBodyHtml((b) => b + `{{${v}}}`); return; }
+    const start = el.selectionStart;
+    const end = el.selectionEnd;
+    const next = bodyHtml.slice(0, start) + `{{${v}}}` + bodyHtml.slice(end);
+    setBodyHtml(next);
+    setTimeout(() => {
+      el.focus();
+      el.setSelectionRange(start + v.length + 4, start + v.length + 4);
+    }, 0);
+  }
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 sm:py-8">
       <div className="mb-4">
-        <Link
-          href="/admin"
-          className="text-sm hover:underline py-2 inline-block touch-manipulation"
-          style={{ color: "var(--text-muted)" }}
-        >
+        <Link href="/admin" className="text-sm hover:underline py-2 inline-block" style={{ color: "var(--text-muted)" }}>
           ← Admin Dashboard
         </Link>
       </div>
 
-      <PageHeader
-        title="Email Log"
-        subtitle={`${emails.length} most recent transactional emails`}
-      />
+      <PageHeader title="Email Templates" subtitle="Edit subject and body copy. Layout and branding stay fixed in code." />
 
-      {error && (
-        <Card padding="md" className="mb-4">
-          <p className="text-sm" style={{ color: "#c0392b" }}>
-            Error loading email log: {error.message}
-          </p>
-        </Card>
-      )}
-
-      {emails.length === 0 && !error && (
-        <Card padding="lg">
-          <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-            No emails sent yet.
-          </p>
-        </Card>
-      )}
-
-      {emails.length > 0 && (
-        <div className="overflow-x-auto">
+      {loading ? (
+        <p className="text-sm" style={{ color: "var(--text-muted)" }}>Loading…</p>
+      ) : (
+        <Card padding="none">
           <table className="w-full text-sm border-collapse">
             <thead>
               <tr style={{ borderBottom: "2px solid var(--border, #eee)" }}>
-                <th className="text-left py-2 pr-4 font-semibold" style={{ color: "var(--text-muted)" }}>
-                  Time
-                </th>
-                <th className="text-left py-2 pr-4 font-semibold" style={{ color: "var(--text-muted)" }}>
-                  To
-                </th>
-                <th className="text-left py-2 pr-4 font-semibold" style={{ color: "var(--text-muted)" }}>
-                  Template
-                </th>
-                <th className="text-left py-2 pr-4 font-semibold" style={{ color: "var(--text-muted)" }}>
-                  Subject
-                </th>
-                <th className="text-left py-2 font-semibold" style={{ color: "var(--text-muted)" }}>
-                  Status
-                </th>
+                <th className="text-left px-4 py-3 font-semibold" style={{ color: "var(--text-muted)" }}>Template</th>
+                <th className="text-left px-4 py-3 font-semibold" style={{ color: "var(--text-muted)" }}>Status</th>
+                <th className="text-left px-4 py-3 font-semibold" style={{ color: "var(--text-muted)" }}>Sent (7d)</th>
+                <th className="text-left px-4 py-3 font-semibold" style={{ color: "var(--text-muted)" }}>Last updated</th>
+                <th className="px-4 py-3" />
               </tr>
             </thead>
             <tbody>
-              {emails.map((row) => (
-                <tr
-                  key={row.id}
-                  style={{ borderBottom: "1px solid var(--border, #eee)" }}
-                >
-                  <td className="py-2 pr-4 whitespace-nowrap" style={{ color: "var(--text-muted)" }}>
-                    {new Date(row.created_at).toLocaleString("en-GB", {
-                      month: "short",
-                      day: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
+              {templates.map((t) => (
+                <tr key={t.key} style={{ borderBottom: "1px solid var(--border, #eee)" }}>
+                  <td className="px-4 py-3">
+                    <p className="font-medium" style={{ color: "var(--text)" }}>{t.label}</p>
+                    <code className="text-xs" style={{ color: "var(--text-muted)" }}>{t.key}</code>
                   </td>
-                  <td className="py-2 pr-4" style={{ color: "var(--text)" }}>
-                    {row.to_email}
-                  </td>
-                  <td className="py-2 pr-4" style={{ color: "var(--text-muted)" }}>
-                    <code className="text-xs">{row.template}</code>
-                  </td>
-                  <td className="py-2 pr-4" style={{ color: "var(--text)" }}>
-                    {row.subject}
-                  </td>
-                  <td className="py-2">
-                    <span
-                      className="text-xs font-semibold"
-                      style={{ color: statusColor(row.status) }}
-                    >
-                      {row.status.toUpperCase()}
-                    </span>
-                    {row.error_message && (
-                      <span
-                        className="block text-xs mt-0.5"
-                        style={{ color: "#c0392b" }}
-                        title={row.error_message}
-                      >
-                        {row.error_message.slice(0, 60)}
+                  <td className="px-4 py-3">
+                    {t.hasOverride ? (
+                      <span className="text-xs font-semibold px-2 py-0.5 rounded" style={{ background: "#fef3c7", color: "#92400e" }}>
+                        ● custom
                       </span>
+                    ) : (
+                      <span className="text-xs" style={{ color: "var(--text-muted)" }}>default</span>
                     )}
+                  </td>
+                  <td className="px-4 py-3">
+                    {(t.sentCount7d > 0 || t.errorCount7d > 0) ? (
+                      <div>
+                        <p className="text-xs font-medium" style={{ color: "var(--text)" }}>
+                          {t.sentCount7d} sent
+                          {t.errorCount7d > 0 && (
+                            <span className="ml-1.5 font-semibold" style={{ color: "#dc2626" }}>
+                              · {Math.round((t.errorCount7d / (t.sentCount7d + t.errorCount7d)) * 100)}% err
+                            </span>
+                          )}
+                        </p>
+                        {t.lastSentAt && (
+                          <p className="text-xs" style={{ color: "var(--text-muted)" }}>last {formatTimeAgo(t.lastSentAt)}</p>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-xs" style={{ color: "var(--text-muted)" }}>—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    {t.updatedAt ? (
+                      <div>
+                        <p className="text-xs" style={{ color: "var(--text)" }}>
+                          {new Date(t.updatedAt).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                        </p>
+                        {t.updatedBy && (
+                          <p className="text-xs" style={{ color: "var(--text-muted)" }}>{t.updatedBy}</p>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-xs" style={{ color: "var(--text-muted)" }}>—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <Button variant="secondary" size="sm" onClick={() => openEdit(t.key)}>
+                      Edit
+                    </Button>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+        </Card>
+      )}
+
+      {/* Drawer */}
+      {drawerOpen && (
+        <div className="fixed inset-0 z-50 flex justify-end" style={{ background: "rgba(0,0,0,0.4)" }} onClick={(e) => { if (e.target === e.currentTarget) { setDrawerOpen(false); setPreviewHtml(null); } }}>
+          <div className="h-full overflow-y-auto flex flex-col" style={{ background: "var(--bg, #fff)", width: "min(680px, 100vw)", boxShadow: "-4px 0 24px rgba(0,0,0,0.15)" }}>
+            {drawerLoading || !editing ? (
+              <div className="flex-1 flex items-center justify-center">
+                <p className="text-sm" style={{ color: "var(--text-muted)" }}>Loading…</p>
+              </div>
+            ) : (
+              <>
+                {/* Header */}
+                <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: "var(--border, #eee)" }}>
+                  <div>
+                    <p className="font-semibold" style={{ color: "var(--text)" }}>{editing.meta.label}</p>
+                    <code className="text-xs" style={{ color: "var(--text-muted)" }}>{editing.key}</code>
+                  </div>
+                  <button onClick={() => { setDrawerOpen(false); setPreviewHtml(null); }} className="text-2xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
+                </div>
+
+                <div className="flex-1 px-6 py-5 space-y-5">
+                  {/* Alerts */}
+                  {error && (
+                    <div className="rounded p-3 text-sm font-medium" style={{ background: "#fee2e2", color: "#991b1b" }}>{error}</div>
+                  )}
+                  {successMsg && (
+                    <div className="rounded p-3 text-sm font-medium" style={{ background: "#dcfce7", color: "#166534" }}>{successMsg}</div>
+                  )}
+
+                  {/* Subject */}
+                  <div>
+                    <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>Subject</label>
+                    <input
+                      className="w-full rounded border px-3 py-2 text-sm"
+                      style={{ borderColor: "var(--border, #ddd)", background: "var(--bg)", color: "var(--text)" }}
+                      value={subject}
+                      onChange={(e) => { setSubject(e.target.value); setSuccessMsg(null); }}
+                    />
+                  </div>
+
+                  {/* Available vars */}
+                  <div>
+                    <p className="text-xs font-semibold mb-1.5 uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
+                      Available variables <span className="normal-case font-normal">(click to insert at cursor)</span>
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {editing.meta.vars.map((v) => (
+                        <button
+                          key={v}
+                          onClick={() => insertVar(v)}
+                          className="text-xs px-2 py-0.5 rounded font-mono border hover:opacity-75"
+                          style={{ borderColor: "var(--border, #ddd)", color: "var(--text-muted)", background: "var(--bg-muted, #f9f9f9)" }}
+                        >
+                          {`{{${v}}}`}
+                          {editing.meta.requiredVars.includes(v) && (
+                            <span style={{ color: "#dc2626" }} title="required"> *</span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Body HTML */}
+                  <div>
+                    <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>Body HTML</label>
+                    <textarea
+                      ref={bodyRef}
+                      className="w-full rounded border px-3 py-2 text-xs font-mono"
+                      style={{ borderColor: "var(--border, #ddd)", background: "var(--bg)", color: "var(--text)", minHeight: 300, resize: "vertical" }}
+                      value={bodyHtml}
+                      onChange={(e) => { setBodyHtml(e.target.value); setSuccessMsg(null); setPreviewHtml(null); }}
+                    />
+                  </div>
+
+                  {/* Preview */}
+                  {previewHtml && (
+                    <div>
+                      <p className="text-xs font-semibold mb-1.5 uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>Preview</p>
+                      <div className="rounded border overflow-hidden" style={{ borderColor: "var(--border, #ddd)" }}>
+                        <iframe
+                          srcDoc={previewHtml}
+                          style={{ width: "100%", height: 480, border: "none" }}
+                          title="Email preview"
+                          sandbox="allow-same-origin"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Footer actions */}
+                <div className="sticky bottom-0 px-6 py-4 border-t flex flex-wrap gap-2 items-center justify-between" style={{ borderColor: "var(--border, #eee)", background: "var(--bg, #fff)" }}>
+                  <div className="flex gap-2 flex-wrap">
+                    <Button onClick={handleSave} disabled={saving}>
+                      {saving ? "Saving…" : "Save"}
+                    </Button>
+                    <Button variant="secondary" onClick={handlePreview}>Preview</Button>
+                    <Button variant="secondary" onClick={handleTest} disabled={testing}>
+                      {testing ? "Sending…" : "Send test to me"}
+                    </Button>
+                  </div>
+                  <Button variant="secondary" onClick={handleRestore} disabled={restoring}>
+                    {restoring ? "Restoring…" : "Restore default"}
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       )}
     </div>

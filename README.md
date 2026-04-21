@@ -645,6 +645,10 @@ const rows = await fetchAllRows<{ profile_id: string; answer: unknown }>(
 
 The `answers` table is the primary risk — it scales as `attendees × questions` (e.g. 60 attendees × 23 questions = 1,380 rows). Without pagination, users whose answer rows fall past the 1000th row are silently excluded from matching.
 
+### Profiles export (local backup)
+
+`npm run backup:profiles` dumps all rows from `public.profiles` to `scripts/backup-profiles-<timestamp>.json` (paginated reads). Files match `.gitignore` (`/scripts/backup-*.json`) — they contain **PII**; do not commit.
+
 ### Supabase event cleanup + seeding (dev/local)
 
 For deterministic event data in dev/local (and staging, if explicitly confirmed), you can reset events using Supabase directly:
@@ -731,6 +735,17 @@ What this creates:
 
 **Output:** `scripts/.seed-output/dating30.json` — contains `event_id`, `event_url`, `admin_event_url`, `demo_accounts` (one male, one female recommended login), and full user list.
 
+### Paid events for local currency display (99 SGD, KL + Cebu)
+
+Two small paid **dating** seeds charge **S$99.00** (`price_cents: 9900`, `currency: sgd`) so `/events` and `/events/[id]` can show **MYR** / **PHP** estimates via `lib/pricing/localCurrency.ts` (FX is indicative, not live).
+
+```bash
+npm run seed:currency-demo-kl
+npm run seed:currency-demo-cebu
+```
+
+Configs: `scripts/seed/configs/paid-kl-99sgd-dating.json`, `paid-cebu-99sgd-dating.json`. Cleanup: `SEED_CONFIRM=true npx tsx scripts/cleanup.ts --label currency-demo-kl-99sgd` (and similarly for `currency-demo-cebu-99sgd`).
+
 **Admin flow after seeding:**
 
 1. Open `admin_event_url` from the JSON (or Admin → Events)
@@ -782,7 +797,7 @@ Safety and behaviour:
 
 - Refuses to run destructive cleanup unless `SEED_CONFIRM=true`. Refuses in production without it.
 - If no `--run-id` or `--label` is given, cleanup uses default label `test-seed` (so `reset:test-data` works without extra args).
-- Cleanup order (FK-safe): **messages** → **conversations** → match_reveals → match_reveal_queue → match_results → **match_rounds** → match_runs → likes → answers → event_attendees → questions → event_ticket_types → events; then by seed_run_id: answers, event_attendees, invited_users → auth users → profiles → seed_runs.
+- Cleanup order in `scripts/cleanup.ts` (FK-safe): **messages** → **conversations** → **match_results** → **match_rounds** → **match_runs** → **match_reveals** → **answers** (by `event_id`, then by `seed_run_id`) → **event_attendees** → **event_ticket_types** → **event_questions** → **questions** → **events** → **profiles** → **auth users** → **seed_runs**.
 - Only seeded data (tagged by `seed_run_id` or belonging to seeded events) is removed; production data is untouched.
 - JSON summary: `scripts/.seed-output/cleanup-test-data-*.json`.
 

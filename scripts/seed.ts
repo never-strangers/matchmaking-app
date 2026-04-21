@@ -448,6 +448,7 @@ async function runSeed(cfg: SeedConfig, dryRun: boolean, e2e = false) {
       : new Date(new Date(startAt).getTime() + 4 * 3600_000).toISOString();
     const cityLabel = resolveCityLabel(cfg.city);
     const title = `${evCfg.titlePrefix ?? "[SEED]"} ${cityLabel} ${evCfg.category === "dating" ? "Dating Night" : "Friends Mixer"}`;
+    const currency = (evCfg.payment.currency ?? "sgd").toLowerCase();
     const { data: evt, error: evtErr } = await sb().from("events").insert({
       title,
       description: `Seeded data (${cfg.label}) for admin testing. Category: ${evCfg.category}.`,
@@ -458,6 +459,7 @@ async function runSeed(cfg: SeedConfig, dryRun: boolean, e2e = false) {
       category: evCfg.category,
       payment_required: evCfg.payment.required,
       price_cents: evCfg.payment.priceCents ?? (evCfg.payment.required ? 4900 : 0),
+      currency,
       seed_run_id: seedRunId,
     }).select("id").single();
     if (evtErr || !evt) { console.error("❌ event:", evtErr?.message); process.exit(1); }
@@ -512,7 +514,7 @@ async function runSeed(cfg: SeedConfig, dryRun: boolean, e2e = false) {
         code: "general",
         name: "General Entry",
         price_cents: evCfg.payment.priceCents ?? 4900,
-        currency: evCfg.payment.currency ?? "thb",
+        currency,
         cap: cfg.users.total + 10,
         sold: cfg.users.statuses.approved,
         is_active: true,
