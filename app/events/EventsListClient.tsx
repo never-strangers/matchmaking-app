@@ -454,11 +454,6 @@ export function EventsListClient({
                     </p>
                   )}
 
-                  {/* Disclaimer */}
-                  <p className="text-xs mt-3 mb-1 leading-snug" style={{ color: "var(--text-subtle)" }}>
-                    By attending, you agree that the organizer may use photos/videos taken at the event for advertising or publicity. No refunds within 7 days of the event for any reason.
-                  </p>
-
                   {/* CTA */}
                   <div className="mt-auto pt-2">
                     {showPrimary ? (
