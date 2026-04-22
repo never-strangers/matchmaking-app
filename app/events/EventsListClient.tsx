@@ -411,12 +411,18 @@ export function EventsListClient({
                     const lp = formatLocalPrice(priceCents, event.city);
                     return (
                       <div className="mb-3">
-                        <p className="text-sm font-medium" style={{ color: "var(--text)" }}>
-                          {lp?.sgd ?? `S$${(priceCents / 100).toFixed(2)} SGD`}
-                        </p>
-                        {lp?.local && (
-                          <p className="text-xs" style={{ color: "var(--text-subtle)" }}>
-                            ≈ {lp.local} est.
+                        {lp?.local ? (
+                          <>
+                            <p className="text-sm font-bold" style={{ color: "var(--text)" }}>
+                              ≈ {lp.local} est.
+                            </p>
+                            <p className="text-xs" style={{ color: "var(--text-subtle)" }}>
+                              {lp.sgd}
+                            </p>
+                          </>
+                        ) : (
+                          <p className="text-sm font-medium" style={{ color: "var(--text)" }}>
+                            {lp?.sgd ?? `S$${(priceCents / 100).toFixed(2)} SGD`}
                           </p>
                         )}
                       </div>
@@ -447,6 +453,11 @@ export function EventsListClient({
                       {statusMessage}
                     </p>
                   )}
+
+                  {/* Disclaimer */}
+                  <p className="text-xs mt-3 mb-1 leading-snug" style={{ color: "var(--text-subtle)" }}>
+                    By attending, you agree that the organizer may use photos/videos taken at the event for advertising or publicity. No refunds within 7 days of the event for any reason.
+                  </p>
 
                   {/* CTA */}
                   <div className="mt-auto pt-2">

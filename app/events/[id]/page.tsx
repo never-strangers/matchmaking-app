@@ -267,16 +267,22 @@ export default async function EventDetailPage({
                     <span style={{ color: "var(--text)", fontFamily: "var(--font-sans)", fontWeight: 500 }}>{t.name}</span>
                     <div className="flex items-center gap-4">
                       <div className="text-right">
-                        <span style={{ color: "var(--text)", fontFamily: "var(--font-sans)" }}>
-                          S${(t.price_cents / 100).toFixed(2)} SGD
-                        </span>
                         {(() => {
                           const lp = formatLocalPrice(t.price_cents, event.city);
                           return lp?.local ? (
-                            <div style={{ color: "var(--text-subtle)", fontFamily: "var(--font-sans)", fontSize: "11px" }}>
-                              ≈ {lp.local} est.
-                            </div>
-                          ) : null;
+                            <>
+                              <div style={{ color: "var(--text)", fontFamily: "var(--font-sans)", fontWeight: 700 }}>
+                                ≈ {lp.local} est.
+                              </div>
+                              <div style={{ color: "var(--text-subtle)", fontFamily: "var(--font-sans)", fontSize: "11px" }}>
+                                {lp.sgd}
+                              </div>
+                            </>
+                          ) : (
+                            <span style={{ color: "var(--text)", fontFamily: "var(--font-sans)" }}>
+                              S${(t.price_cents / 100).toFixed(2)} SGD
+                            </span>
+                          );
                         })()}
                       </div>
                       <span style={{ color: "var(--text-subtle)", fontFamily: "var(--font-sans)", fontSize: "12px" }}>
@@ -343,6 +349,10 @@ export default async function EventDetailPage({
               )}
             </div>
           )}
+
+          <p className="mt-5 text-xs leading-relaxed" style={{ color: "var(--text-subtle)" }}>
+            By attending the event, you agree that the organizer reserves the right to use photographs or videos taken during the event for advertising or publicity purposes. No refunds will be granted for any reason within 7 days of the event, including but not limited to illness, travel issues, or change of plans.
+          </p>
         </div>
       </Card>
     </div>
