@@ -50,6 +50,7 @@ This repo hosts the new **Matching Core** — a lightweight, AI-powered system r
 - `POST /api/admin/cities` — Admin only. Add a new city (`value`, `label`, `status`); auto-assigns `sort_order`.
 - `PATCH /api/admin/cities/[value]` — Admin only. Update a city's `status` (`"live"` | `"coming_soon"`) and/or `sort_order`.
 - `DELETE /api/admin/cities/[value]` — Admin only. Remove a city. Note: does not clean up orphan codes in `profiles.city` or `events.city`.
+- `POST /api/auth/reset-password` — Public. Body: `{ "email": "user@example.com" }`. Generates a Supabase recovery link and sends the `password_reset` template. `{{first_name}}` is taken from `profiles` (`name`, else `full_name`, else `display_name`; first word only). The admin **Send test** action on `/admin/emails` uses sample data and prefixes the subject with `[TEST]`.
 
 ## City Selection
 

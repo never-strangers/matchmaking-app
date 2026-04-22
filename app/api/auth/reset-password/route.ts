@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServiceSupabaseClient } from "@/lib/supabase/serverClient";
 import { enqueueEmail } from "@/lib/email/send";
+import { firstNameFromProfileFields } from "@/lib/email/profileFirstName";
 import { loadTemplate } from "@/lib/email/templateLoader";
 
 export async function POST(request: Request) {
@@ -24,7 +25,15 @@ export async function POST(request: Request) {
     }
 
     const resetUrl = data.properties.action_link;
-    const tpl = await loadTemplate("password_reset", { first_name: "", reset_url: resetUrl });
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("name, full_name, display_name")
+      .eq("email", email)
+      .maybeSingle();
+    const firstName = profile ? firstNameFromProfileFields(profile) : "";
+
+    const tpl = await loadTemplate("password_reset", { first_name: firstName, reset_url: resetUrl });
     await enqueueEmail(`user-reset:${email}:${Date.now()}`, "password_reset", email, tpl);
 
     return NextResponse.json({ ok: true }, { status: 200 });

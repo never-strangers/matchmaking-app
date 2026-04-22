@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { getAuthUser } from "@/lib/auth/getAuthUser";
 import { getServiceSupabaseClient } from "@/lib/supabase/serverClient";
 import { enqueueEmail } from "@/lib/email/send";
+import { firstNameFromProfileFields } from "@/lib/email/profileFirstName";
 import { loadTemplate } from "@/lib/email/templateLoader";
 
 export async function POST(
@@ -50,12 +51,11 @@ export async function POST(
   }
 
   const resetUrl = linkData.properties.action_link;
-  const firstName =
-    ((profile.name as string | null) ??
-      (profile.full_name as string | null) ??
-      (profile.display_name as string | null) ??
-      "")
-      .split(" ")[0] ?? "";
+  const firstName = firstNameFromProfileFields({
+    name: profile.name as string | null,
+    full_name: profile.full_name as string | null,
+    display_name: profile.display_name as string | null,
+  });
 
   const tpl = await loadTemplate("password_reset", { first_name: firstName, reset_url: resetUrl });
   await enqueueEmail(`admin-reset:${profileId}:${Date.now()}`, "password_reset", email, tpl);
