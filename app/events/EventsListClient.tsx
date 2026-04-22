@@ -431,7 +431,7 @@ export function EventsListClient({
 
                   {/* Badges */}
                   <div className="flex flex-wrap gap-1.5 mb-4">
-                    {joined && <Badge variant="success">Joined</Badge>}
+                    {joined && paid && <Badge variant="success">Joined</Badge>}
                     {completed && <Badge variant="info">Questionnaire Complete</Badge>}
                     {joined && completed && paymentRequired && paid && (
                       <Badge variant="success">Paid</Badge>
@@ -458,7 +458,9 @@ export function EventsListClient({
                   <div className="mt-auto pt-2">
                     {showPrimary ? (
                       primaryLabel === "Pay to confirm" ? (
-                        <PayToConfirmButton eventId={event.id} />
+                        <Button href={`/events/${event.id}`} size="md" fullWidth>
+                          Select ticket
+                        </Button>
                       ) : isEnterEvent ? (
                         <Button
                           size="md"

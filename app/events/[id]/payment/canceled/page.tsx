@@ -1,40 +1,48 @@
-import Link from "next/link";
+import { redirect } from "next/navigation";
 import { requireApprovedUser } from "@/lib/auth/requireApprovedUser";
-import { Card } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
-import { PageHeader } from "@/components/ui/PageHeader";
+import { getServiceSupabaseClient } from "@/lib/supabase/serverClient";
 
 type Props = { params: Promise<{ id: string }> };
 
 export default async function PaymentCanceledPage(props: Props) {
-  await requireApprovedUser();
+  const session = await requireApprovedUser();
   const { id: eventId } = await props.params;
 
-  return (
-    <div className="max-w-lg mx-auto px-4 py-8 sm:py-12">
-      <PageHeader
-        title="Payment canceled"
-        subtitle="Your seat is not confirmed until payment is complete."
-      />
-      <Card padding="lg">
-        <p className="text-sm mb-4" style={{ color: "var(--text-muted)" }}>
-          You can try again when you’re ready.
-        </p>
-        <Link href={`/events/${eventId}/questions`}>
-          <Button size="md" data-testid="payment-try-again">
-            Try again
-          </Button>
-        </Link>
-        <div className="mt-4">
-          <Link
-            href="/events"
-            className="text-sm hover:underline"
-            style={{ color: "var(--text-muted)" }}
-          >
-            ← Back to Events
-          </Link>
-        </div>
-      </Card>
-    </div>
-  );
+  const supabase = getServiceSupabaseClient();
+
+  // Clear the ticket reservation so the user can start fresh
+  const { data: attendee } = await supabase
+    .from("event_attendees")
+    .select("id, ticket_type_id")
+    .eq("event_id", eventId)
+    .eq("profile_id", session.profile_id)
+    .maybeSingle();
+
+  if (attendee) {
+    // Decrement sold count if a ticket type was held
+    if (attendee.ticket_type_id) {
+      const { data: tt } = await supabase
+        .from("event_ticket_types")
+        .select("sold")
+        .eq("id", attendee.ticket_type_id)
+        .single();
+      if (tt) {
+        await supabase
+          .from("event_ticket_types")
+          .update({ sold: Math.max(0, (tt.sold || 0) - 1) })
+          .eq("id", attendee.ticket_type_id);
+      }
+    }
+
+    await supabase
+      .from("event_attendees")
+      .update({
+        ticket_type_id: null,
+        payment_status: "unpaid",
+        stripe_checkout_session_id: null,
+      })
+      .eq("id", attendee.id);
+  }
+
+  redirect(`/events/${eventId}`);
 }
