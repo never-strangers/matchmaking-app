@@ -26,7 +26,7 @@ const LABEL_WHY =
 const LABEL_INSTAGRAM =
   "Vibe Check! What's Your Instagram? (With a clear picture of yourself in your display picture!)";
 
-const MIN_PASSWORD_LENGTH = 6;
+const MIN_PASSWORD_LENGTH = 8;
 
 type ProfileRow = {
   name: string | null;
