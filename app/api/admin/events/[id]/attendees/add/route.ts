@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 import { getAuthUser } from "@/lib/auth/getAuthUser";
 import { getServiceSupabaseClient } from "@/lib/supabase/serverClient";
+import { enqueueEmail } from "@/lib/email/send";
+import { loadTemplate } from "@/lib/email/templateLoader";
 
 const VALID_PAYMENT_STATES = ["paid", "pending", "free"] as const;
 type PaymentState = (typeof VALID_PAYMENT_STATES)[number];
@@ -35,7 +37,7 @@ export async function POST(
   // Verify profile is approved
   const { data: profile, error: profileErr } = await supabase
     .from("profiles")
-    .select("id, status, name, full_name")
+    .select("id, status, name, full_name, email")
     .eq("id", profile_id)
     .maybeSingle();
 
@@ -46,10 +48,10 @@ export async function POST(
     return Response.json({ error: "User is not approved" }, { status: 400 });
   }
 
-  // Verify event exists
+  // Verify event exists (fetch details needed for RSVP email)
   const { data: event, error: eventErr } = await supabase
     .from("events")
-    .select("id")
+    .select("id, title, start_at, end_at, description")
     .eq("id", eventId)
     .maybeSingle();
 
@@ -58,8 +60,6 @@ export async function POST(
   }
 
   // Resolve payment fields
-  // payment_status enum (migration 020): unpaid | checkout_created | paid | canceled | refunded | free | not_required
-  // ticket_status enum: reserved | paid | canceled | expired
   const now = new Date().toISOString();
 
   const paymentFields =
@@ -79,9 +79,9 @@ export async function POST(
     .maybeSingle();
 
   let attendeeResult: Record<string, unknown>;
+  const isNew = !existing;
 
   if (existing) {
-    // Update payment/ticket status only (never touch stripe fields)
     const { data: updated, error: updateErr } = await supabase
       .from("event_attendees")
       .update(paymentFields)
@@ -96,7 +96,6 @@ export async function POST(
     }
     attendeeResult = { ...updated, already_existed: true };
   } else {
-    // Insert new attendee row
     const { data: inserted, error: insertErr } = await supabase
       .from("event_attendees")
       .insert({
@@ -113,6 +112,50 @@ export async function POST(
       return Response.json({ error: insertErr.message }, { status: 500 });
     }
     attendeeResult = { ...inserted, already_existed: false };
+  }
+
+  // Send RSVP confirmation only for newly added attendees (never payment confirmation)
+  if (isNew) {
+    void (async () => {
+      try {
+        const email = (profile as { email?: string }).email;
+        if (!email || email.includes("@demo.local")) return;
+
+        const ev = event as { title?: string; start_at?: string; end_at?: string; description?: string };
+        const nameParts = ((profile as { name?: string; full_name?: string }).name ?? (profile as { full_name?: string }).full_name ?? "").split(" ");
+        const firstName = nameParts[0] ?? "";
+        const lastName = nameParts.slice(1).join(" ");
+        const eventTitle = ev.title ?? "";
+        const eventDate = ev.start_at
+          ? new Date(ev.start_at).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" })
+          : "";
+        const eventStartTime = ev.start_at
+          ? new Date(ev.start_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })
+          : "";
+        const eventEndTime = ev.end_at
+          ? new Date(ev.end_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })
+          : "";
+        const eventDescription = ev.description ?? "";
+
+        const tpl = await loadTemplate("rsvp_confirmation", {
+          first_name: firstName,
+          last_name: lastName,
+          event_title: eventTitle,
+          event_date: eventDate,
+          event_start_time: eventStartTime,
+          event_end_time: eventEndTime,
+          event_description: eventDescription,
+        });
+        await enqueueEmail(
+          `rsvp-confirmed:${eventId}:${profile_id}`,
+          "rsvp_confirmation",
+          email,
+          tpl
+        );
+      } catch (err) {
+        console.error("[email] admin-add rsvp confirmation error:", err);
+      }
+    })();
   }
 
   return Response.json({ ok: true, attendee: attendeeResult });
