@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { formatLocalPrice, FX_LAST_UPDATED } from "@/lib/pricing/localCurrency";
+import { formatLocalPrice } from "@/lib/pricing/localCurrency";
 import { requireApprovedUser } from "@/lib/auth/requireApprovedUser";
 import { getServiceSupabaseClient } from "@/lib/supabase/serverClient";
 import { Card } from "@/components/ui/Card";
@@ -296,7 +296,7 @@ export default async function EventDetailPage({
                 const lp = formatLocalPrice(priceCents, event.city);
                 return lp?.local ? (
                   <p className="mt-2 text-xs" style={{ color: "var(--text-subtle)" }}>
-                    Final charge is processed in SGD. Local price shown is an estimate based on rates as of {FX_LAST_UPDATED}.
+                    Final charge is processed in SGD.
                   </p>
                 ) : null;
               })()}
@@ -314,7 +314,7 @@ export default async function EventDetailPage({
                   <>
                     <p className="text-xs" style={{ color: "var(--text-subtle)" }}>≈ {lp.local} est.</p>
                     <p className="text-xs mt-1" style={{ color: "var(--text-subtle)" }}>
-                      Final charge is processed in SGD. Local price shown is an estimate based on rates as of {FX_LAST_UPDATED}.
+                      Final charge is processed in SGD.
                     </p>
                   </>
                 ) : null;
