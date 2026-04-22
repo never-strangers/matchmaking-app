@@ -333,17 +333,6 @@ export default function ProfilePage() {
     setError("");
     const form = e.currentTarget;
     const formData = new FormData(form);
-    const newEmail = (formData.get("email") as string)?.trim() || null;
-    if (newEmail && newEmail !== userEmail) {
-      const supabase = createClient();
-      const { error: emailError } = await supabase.auth.updateUser({ email: newEmail });
-      if (emailError) {
-        setError(emailError.message || "Failed to update email.");
-        return;
-      }
-      setUserEmail(newEmail);
-      setEmailInput(newEmail);
-    }
     const dobRaw = (formData.get("dob") as string | null)?.trim() || null;
     const dob = parseDateOfBirth(dobRaw) ?? dobRaw;
     const dobErr = validateDob21Plus(dob);
@@ -568,12 +557,13 @@ export default function ProfilePage() {
               type="email"
               autoComplete="email"
               value={emailInput}
-              onChange={(e) => setEmailInput(e.target.value)}
-              placeholder="you@example.com"
+              readOnly
+              disabled
+              style={{ opacity: 0.6, cursor: "default" }}
               data-testid="profile-email"
             />
             <p style={{ fontSize: 12, color: "var(--text-subtle)", marginTop: 4 }}>
-              Changing your email may require you to verify the new address.
+              To change your email, contact support.
             </p>
           </div>
           <div>
