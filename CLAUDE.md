@@ -411,3 +411,32 @@ RESEND_API_KEY=
 
 **Config:**
 - `.env.example`, `playwright.config.ts`, `next.config.ts`, `tailwind.config.ts`
+
+## ⚠️ Data Safety: Always Backup Before DELETE or UPDATE
+
+**Never run a DELETE or UPDATE on any Supabase table containing user or admin data without first dumping the affected rows to a local JSON backup.**
+
+This rule exists because `email_template_overrides` rows (CEO-edited email templates) were deleted in a session without backup, causing permanent data loss.
+
+**Required workflow:**
+1. SELECT all rows that will be affected → write to `scripts/backups/[table]-[timestamp].json`
+2. Only then proceed with the DELETE or UPDATE
+
+**Use the backup helper script:**
+```bash
+node scripts/backup-table.cjs <table> [--filter "column=value"]
+# Examples:
+node scripts/backup-table.cjs email_template_overrides
+node scripts/backup-table.cjs profiles --filter "status=pending_verification"
+```
+
+Backup files are written to `scripts/backups/` (gitignored). Verify the file exists and is non-empty before proceeding with the destructive operation.
+
+**Tables that require backup without exception:**
+- `profiles` — user accounts
+- `email_template_overrides` — admin-edited email templates
+- `admins` — admin grants
+- `event_attendees` — attendee records
+- `answers` — questionnaire answers
+- `match_results`, `match_runs`, `match_rounds` — matching state
+- Any table touched by a one-off migration or cleanup script
