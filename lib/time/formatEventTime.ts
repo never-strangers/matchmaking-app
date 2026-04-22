@@ -1,14 +1,38 @@
 /**
  * Shared event-time formatting helpers.
  *
- * Timestamps are parsed with `new Date(iso)` and displayed in the viewer's
- * browser timezone using `Intl` formatting pinned to the en-US locale with
- * 12-hour AM/PM output.
+ * Times are extracted directly from the ISO string (wall-clock time) so that
+ * a KL event stored as "19:30+08:00" always displays as 7:30 PM regardless of
+ * the viewer's timezone.  Date parts use the same literal extraction.
  */
 
-function safeParse(iso: string): Date | null {
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? null : d;
+/** Extract wall-clock parts from an ISO string without any timezone conversion. */
+function parseWallClock(iso: string): {
+  year: number; month: number; day: number;
+  hours: number; minutes: number; weekday: number;
+} | null {
+  // Match: YYYY-MM-DDTHH:MM (with optional seconds / offset / Z)
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+  if (!m) return null;
+  const [, y, mo, d, h, min] = m.map(Number);
+  // Compute weekday from UTC midnight of the wall-clock date (offset irrelevant for day-of-week)
+  const weekday = new Date(Date.UTC(y, mo - 1, d)).getUTCDay();
+  return { year: y, month: mo, day: d, hours: h, minutes: min, weekday };
+}
+
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+function fmtDate(p: NonNullable<ReturnType<typeof parseWallClock>>, withWeekday: boolean): string {
+  const wd = withWeekday ? `${WEEKDAYS[p.weekday]}, ` : "";
+  return `${wd}${p.day} ${MONTHS[p.month - 1]} ${p.year}`;
+}
+
+function fmtTime(p: NonNullable<ReturnType<typeof parseWallClock>>): string {
+  const h12 = p.hours % 12 || 12;
+  const ampm = p.hours < 12 ? "AM" : "PM";
+  const mins = p.minutes.toString().padStart(2, "0");
+  return mins === "00" ? `${h12} ${ampm}` : `${h12}:${mins} ${ampm}`;
 }
 
 /**
@@ -21,25 +45,10 @@ export function formatEventDateTime(
   opts?: { withWeekday?: boolean },
 ): string {
   if (!iso) return "TBD";
-  const d = safeParse(iso);
-  if (!d) return "TBD";
-
+  const p = parseWallClock(iso);
+  if (!p) return "TBD";
   const withWeekday = opts?.withWeekday ?? true;
-
-  const datePart = d.toLocaleDateString("en-US", {
-    weekday: withWeekday ? "short" : undefined,
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-
-  const timePart = d.toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
-
-  return `${datePart} · ${timePart}`;
+  return `${fmtDate(p, withWeekday)} · ${fmtTime(p)}`;
 }
 
 /**
@@ -55,54 +64,23 @@ export function formatEventRange(
   endIso?: string | null,
 ): string {
   if (!startIso) return "TBD";
-  const startDate = safeParse(startIso);
-  if (!startDate) return "TBD";
+  const sp = parseWallClock(startIso);
+  if (!sp) return "TBD";
 
-  const datePart = startDate.toLocaleDateString("en-US", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
+  const datePart = fmtDate(sp, true);
+  const startTime = fmtTime(sp);
 
-  const startTime = startDate.toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
+  if (!endIso) return `${datePart} · ${startTime}`;
 
-  if (!endIso) {
-    return `${datePart} · ${startTime}`;
-  }
+  const ep = parseWallClock(endIso);
+  if (!ep) return `${datePart} · ${startTime}`;
 
-  const endDate = safeParse(endIso);
-  if (!endDate) {
-    return `${datePart} · ${startTime}`;
-  }
+  const sameDay = sp.year === ep.year && sp.month === ep.month && sp.day === ep.day;
+  const endTime = fmtTime(ep);
 
-  const sameDay =
-    startDate.getFullYear() === endDate.getFullYear() &&
-    startDate.getMonth() === endDate.getMonth() &&
-    startDate.getDate() === endDate.getDate();
+  if (sameDay) return `${datePart} · ${startTime} – ${endTime}`;
 
-  const endTime = endDate.toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
-
-  if (sameDay) {
-    return `${datePart} · ${startTime} – ${endTime}`;
-  }
-
-  const endDatePart = endDate.toLocaleDateString("en-US", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-
-  return `${datePart} · ${startTime} – ${endDatePart} · ${endTime}`;
+  return `${datePart} · ${startTime} – ${fmtDate(ep, true)} · ${endTime}`;
 }
 
 /**
@@ -113,9 +91,9 @@ export function formatDateLabel(
   dateStr: string | null | undefined,
 ): string {
   if (!dateStr) return "—";
-  const d = safeParse(dateStr);
-  if (!d) return "—";
-  return d.toLocaleDateString("en-US", { day: "2-digit", month: "short" });
+  const p = parseWallClock(dateStr);
+  if (!p) return "—";
+  return `${p.day.toString().padStart(2, "0")} ${MONTHS[p.month - 1]}`;
 }
 
 /**
@@ -125,13 +103,9 @@ export function formatDateLabelLong(
   dateStr: string | null | undefined,
 ): string {
   if (!dateStr) return "—";
-  const d = safeParse(dateStr);
-  if (!d) return "—";
-  return d.toLocaleDateString("en-US", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
+  const p = parseWallClock(dateStr);
+  if (!p) return "—";
+  return `${p.day.toString().padStart(2, "0")} ${MONTHS[p.month - 1]} ${p.year}`;
 }
 
 /**
@@ -143,22 +117,18 @@ export function formatEventCardDate(
   dateStr: string | null | undefined,
 ): string {
   if (!dateStr) return "Live event";
-  const d = safeParse(dateStr);
-  if (!d) return "Live event";
+  const p = parseWallClock(dateStr);
+  if (!p) return "Live event";
 
-  const today = new Date();
+  const now = new Date();
   const isToday =
-    d.getDate() === today.getDate() &&
-    d.getMonth() === today.getMonth() &&
-    d.getFullYear() === today.getFullYear();
+    p.year === now.getFullYear() &&
+    p.month === now.getMonth() + 1 &&
+    p.day === now.getDate();
 
   const label = isToday
     ? "Today"
-    : d.toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      });
+    : `${MONTHS[p.month - 1]} ${p.day}, ${p.year}`;
 
   return `${label} · Live event`;
 }
