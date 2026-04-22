@@ -200,7 +200,7 @@ export default async function EventDetailPage({
             <Badge variant={category === "dating" ? "info" : "default"}>
               {category === "dating" ? "Dating" : "Friends"}
             </Badge>
-            {joined && <Badge variant="success">Joined</Badge>}
+            {joined && paid && <Badge variant="success">Joined</Badge>}
             {completed && <Badge variant="info">Questionnaire Complete</Badge>}
             {hasReservedTicket && paid && (
               <Badge variant="warning">Ticket Paid</Badge>
