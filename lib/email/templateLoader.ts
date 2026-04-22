@@ -123,8 +123,10 @@ ${emailFooter()}`,
 <div style="background:#faf9f6;border-radius:8px;padding:20px;margin:16px 0;border:1px solid #e8e5e0">
   <p style="margin:0 0 4px;font-size:13px;color:#888;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Event</p>
   <p style="margin:0 0 12px;font-size:17px;font-weight:700;color:#1a1a1a">{{event_title}}</p>
-  <p style="margin:0 0 4px;font-size:13px;color:#888;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">When</p>
-  <p style="margin:0 0 12px;font-size:15px;color:#444">{{event_date}} · {{event_start_time}}–{{event_end_time}}</p>
+  <p style="margin:0 0 4px;font-size:13px;color:#888;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Date</p>
+  <p style="margin:0 0 12px;font-size:15px;color:#444">{{event_date}}</p>
+  <p style="margin:0 0 4px;font-size:13px;color:#888;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Time</p>
+  <p style="margin:0 0 12px;font-size:15px;color:#444">{{event_start_time}} – {{event_end_time}}</p>
   <p style="margin:0 0 4px;font-size:13px;color:#888;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">About</p>
   <p style="margin:0;font-size:15px;color:#444">{{event_description}}</p>
 </div>
