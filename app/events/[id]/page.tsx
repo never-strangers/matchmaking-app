@@ -202,10 +202,8 @@ export default async function EventDetailPage({
             </Badge>
             {joined && <Badge variant="success">Joined</Badge>}
             {completed && <Badge variant="info">Questionnaire Complete</Badge>}
-            {hasReservedTicket && (
-              <Badge variant="warning">
-                Ticket {ticketStatus === "paid" ? "Paid" : "Reserved"}
-              </Badge>
+            {hasReservedTicket && paid && (
+              <Badge variant="warning">Ticket Paid</Badge>
             )}
           </div>
           <PageHeader

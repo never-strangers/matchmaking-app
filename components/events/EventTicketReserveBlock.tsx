@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 
 type TicketType = {
@@ -19,12 +18,11 @@ type Props = {
 };
 
 export function EventTicketReserveBlock({ eventId, ticketTypes }: Props) {
-  const router = useRouter();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleReserve = async () => {
+  const handleBuy = async () => {
     if (!selectedId) {
       setError("Select a ticket type");
       return;
@@ -32,21 +30,39 @@ export function EventTicketReserveBlock({ eventId, ticketTypes }: Props) {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/events/${eventId}/reserve-ticket`, {
+      // Step 1: Reserve the ticket (handles capacity locking)
+      const reserveRes = await fetch(`/api/events/${eventId}/reserve-ticket`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ ticket_type_id: selectedId }),
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setError(data?.error || "Failed to reserve");
+      const reserveData = await reserveRes.json().catch(() => ({}));
+      if (!reserveRes.ok) {
+        setError(reserveData?.error || "Failed to reserve ticket");
         return;
       }
-      router.refresh();
+
+      // Step 2: Immediately create Stripe checkout and redirect
+      const checkoutRes = await fetch("/api/stripe/create-checkout-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ event_id: eventId }),
+      });
+      const checkoutData = await checkoutRes.json().catch(() => ({}));
+      if (!checkoutRes.ok) {
+        setError(checkoutData?.error || "Failed to start checkout");
+        return;
+      }
+      if (checkoutData?.url) {
+        window.location.href = checkoutData.url;
+        return;
+      }
+      setError("Unexpected error — please try again");
     } catch (err) {
       console.error(err);
-      setError("Something went wrong.");
+      setError("Something went wrong. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -93,16 +109,13 @@ export function EventTicketReserveBlock({ eventId, ticketTypes }: Props) {
         </p>
       )}
       <Button
-        onClick={handleReserve}
+        onClick={handleBuy}
         size="md"
         disabled={loading || !selectedId}
         data-testid="reserve-ticket-button"
       >
-        {loading ? "Reserving…" : "Reserve ticket"}
+        {loading ? "Redirecting to payment…" : "Buy ticket"}
       </Button>
-      <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-        Then pay to confirm your seat.
-      </p>
     </div>
   );
 }
