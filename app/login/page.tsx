@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
@@ -19,23 +20,13 @@ function SplashScreen({ onLogin, onRegister }: { onLogin: () => void; onRegister
   return (
     <div style={{ position: "relative", minHeight: "100svh", display: "flex", flexDirection: "column" }}>
       {/* Background image */}
-      <style>{`
-        .login-bg-img { object-position: center 25%; }
-        @media (min-width: 768px) { .login-bg-img { object-position: center 40%; } }
-      `}</style>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src="/image.png"
+      <Image
+        src="/landing/Website_cover.png"
         alt=""
-        aria-hidden
-        className="login-bg-img"
-        style={{
-          position: "absolute",
-          inset: 0,
-          width: "100%",
-          height: "100%",
-          objectFit: "cover",
-        }}
+        fill
+        priority
+        sizes="100vw"
+        style={{ objectFit: "cover", objectPosition: "center 30%" }}
       />
       {/* Gradient overlay — stronger at top/bottom, lighter in middle so faces show */}
       <div style={{
