@@ -15,9 +15,14 @@ export async function POST(_req: NextRequest, ctx: Ctx) {
   const meta = TEMPLATE_META[key];
   if (!meta) return Response.json({ error: "Unknown template key" }, { status: 404 });
 
+  const toEmail = user.email?.trim();
+  if (!toEmail) {
+    return Response.json({ error: "No email address on your account — cannot send test." }, { status: 400 });
+  }
+
   const template = await loadTemplate(key, meta.sampleVars);
   const result = await sendEmail({
-    to: user.email ?? "",
+    to: toEmail,
     subject: `[TEST] ${template.subject}`,
     html: template.html,
   });

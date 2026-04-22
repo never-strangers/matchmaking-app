@@ -56,7 +56,7 @@ export async function getAuthUser(): Promise<AuthUser | null> {
   const serviceSupabase = getServiceSupabaseClient();
   const { data: profile } = await serviceSupabase
     .from("profiles")
-    .select("status, avatar_path, avatar_updated_at")
+    .select("status, avatar_path, avatar_updated_at, email")
     .eq("id", session.profile_id)
     .maybeSingle();
 
@@ -69,5 +69,6 @@ export async function getAuthUser(): Promise<AuthUser | null> {
     phone_e164: session.phone_e164 ?? null,
     avatar_path: profile?.avatar_path ?? null,
     avatar_updated_at: profile?.avatar_updated_at ?? null,
+    email: profile?.email ?? null,
   };
 }
