@@ -106,12 +106,16 @@ ${emailFooter()}`,
   },
   rsvp_confirmation: {
     label: "RSVP Confirmation",
-    vars: ["first_name", "event_title", "event_date"],
+    vars: ["first_name", "last_name", "event_title", "event_date", "event_start_time", "event_end_time", "event_description"],
     requiredVars: ["first_name", "event_title", "event_date"],
     sampleVars: {
       first_name: "Alex",
+      last_name: "Smith",
       event_title: "Speed Friending — Singapore",
-      event_date: "Saturday, 10 May 2026 · 7:00 PM",
+      event_date: "Saturday, 10 May 2026",
+      event_start_time: "7:00 PM",
+      event_end_time: "9:00 PM",
+      event_description: "An evening of fun speed friending rounds to meet new people in Singapore.",
     },
     defaultSubject: `You're going to {{event_title}} 🎟️`,
     defaultBodyHtml: `${emailHeader()}
@@ -120,7 +124,9 @@ ${emailFooter()}`,
   <p style="margin:0 0 4px;font-size:13px;color:#888;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Event</p>
   <p style="margin:0 0 12px;font-size:17px;font-weight:700;color:#1a1a1a">{{event_title}}</p>
   <p style="margin:0 0 4px;font-size:13px;color:#888;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">When</p>
-  <p style="margin:0;font-size:15px;color:#444">{{event_date}}</p>
+  <p style="margin:0 0 12px;font-size:15px;color:#444">{{event_date}} · {{event_start_time}}–{{event_end_time}}</p>
+  <p style="margin:0 0 4px;font-size:13px;color:#888;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">About</p>
+  <p style="margin:0;font-size:15px;color:#444">{{event_description}}</p>
 </div>
 <p style="color:#444;line-height:1.6;font-size:15px">Your spot is confirmed. We can't wait to see you!</p>
 ${ctaButton(`${appUrl}/events`, "View Event Details →")}
