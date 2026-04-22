@@ -255,60 +255,6 @@ export default async function EventDetailPage({
             </div>
           )}
 
-          {hasTicketTypes && (
-            <div className="mb-5">
-              <h3 className="text-sm font-semibold mb-2" style={{ color: "var(--text)", fontFamily: "var(--font-sans)" }}>
-                Ticket types
-              </h3>
-              <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-md)", overflow: "hidden" }}>
-                {(ticketTypes as { name: string; price_cents: number; cap: number; sold: number }[]).map((t, i, arr) => (
-                  <div
-                    key={i}
-                    className="flex items-center justify-between px-4 py-3 text-sm"
-                    style={{
-                      borderBottom: i < arr.length - 1 ? "1px solid var(--border)" : "none",
-                      backgroundColor: "var(--bg-panel)",
-                    }}
-                  >
-                    <span style={{ color: "var(--text)", fontFamily: "var(--font-sans)", fontWeight: 500 }}>{t.name}</span>
-                    <div className="flex items-center gap-4">
-                      <div className="text-right">
-                        {(() => {
-                          const lp = formatLocalPrice(t.price_cents, event.city);
-                          return lp?.local ? (
-                            <>
-                              <div style={{ color: "var(--text)", fontFamily: "var(--font-sans)", fontWeight: 700 }}>
-                                ≈ {lp.local} est.
-                              </div>
-                              <div style={{ color: "var(--text-subtle)", fontFamily: "var(--font-sans)", fontSize: "11px" }}>
-                                {lp.sgd}
-                              </div>
-                            </>
-                          ) : (
-                            <span style={{ color: "var(--text)", fontFamily: "var(--font-sans)" }}>
-                              S${(t.price_cents / 100).toFixed(2)} SGD
-                            </span>
-                          );
-                        })()}
-                      </div>
-                      <span style={{ color: "var(--text-subtle)", fontFamily: "var(--font-sans)", fontSize: "12px" }}>
-                        {t.cap - t.sold} left
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              {(() => {
-                const lp = formatLocalPrice(priceCents, event.city);
-                return lp?.local ? (
-                  <p className="mt-2 text-xs" style={{ color: "var(--text-subtle)" }}>
-                    Final charge is processed in SGD.
-                  </p>
-                ) : null;
-              })()}
-            </div>
-          )}
-
           {!hasTicketTypes && priceCents > 0 && (
             <div className="mb-4">
               <p className="text-sm font-medium" style={{ color: "var(--text)" }}>
