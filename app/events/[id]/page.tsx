@@ -120,8 +120,16 @@ export default async function EventDetailPage({
   let statusMessage: string | null = null;
   let statusAction: { label: string; href: string } | null = null;
 
-  if (!joined) {
-    // A) Not joined — default "Enter Event"
+  if (!joined && paymentRequired && hasTicketTypes) {
+    // A) Not joined, paid event with ticket types — show selector directly
+    primaryLabel = "Select ticket";
+    primaryHref = "";
+  } else if (!joined && paymentRequired && !hasTicketTypes) {
+    // A2) Not joined, paid event, no ticket types — go straight to checkout
+    primaryLabel = "Buy ticket";
+    primaryHref = "";
+  } else if (!joined) {
+    // A3) Not joined, free event — enter directly
   } else if (paymentRequired && !paid) {
     // B) Joined but unpaid
     if (hasTicketTypes && !hasReservedTicket) {
@@ -338,8 +346,8 @@ export default async function EventDetailPage({
           )}
           {showPrimary && primaryLabel !== "Select ticket" && (
             <div className="mt-4">
-              {primaryLabel === "Pay to confirm" ? (
-                <PayToConfirmButton eventId={eventId} />
+              {primaryLabel === "Pay to confirm" || primaryLabel === "Buy ticket" ? (
+                <PayToConfirmButton eventId={eventId} label={primaryLabel} />
               ) : (
                 <Link href={primaryHref}>
                   <Button size="md">{primaryLabel}</Button>

@@ -3,9 +3,9 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 
-type Props = { eventId: string };
+type Props = { eventId: string; label?: string };
 
-export function PayToConfirmButton({ eventId }: Props) {
+export function PayToConfirmButton({ eventId, label = "Pay to confirm" }: Props) {
   const [loading, setLoading] = useState(false);
 
   const handleClick = async () => {
@@ -41,7 +41,7 @@ export function PayToConfirmButton({ eventId }: Props) {
       disabled={loading}
       data-testid="pay-to-confirm-button"
     >
-      {loading ? "Redirecting…" : "Pay to confirm"}
+      {loading ? "Redirecting…" : label}
     </Button>
   );
 }
