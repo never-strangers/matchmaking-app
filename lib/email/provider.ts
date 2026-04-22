@@ -2,7 +2,34 @@
  * Email provider abstraction.
  * EMAIL_PROVIDER=mock  → logs to console (default / CI)
  * EMAIL_PROVIDER=resend → sends via Resend API (requires RESEND_API_KEY)
+ *
+ * Sender name/address: loaded from email_template_overrides key "_sender"
+ * (subject = display name, body_html = email address).
+ * Falls back to EMAIL_FROM env var, then hardcoded default.
  */
+
+import { getServiceSupabaseClient } from "@/lib/supabase/serverClient";
+
+const DEFAULT_SENDER_NAME = "Never Strangers";
+const DEFAULT_SENDER_EMAIL = "hello@thisisneverstrangers.com";
+
+async function getSenderAddress(): Promise<string> {
+  if (process.env.EMAIL_FROM) return process.env.EMAIL_FROM;
+  try {
+    const supabase = getServiceSupabaseClient();
+    const { data } = await supabase
+      .from("email_template_overrides")
+      .select("subject, body_html")
+      .eq("key", "_sender")
+      .maybeSingle();
+    if (data) {
+      const name = data.subject?.trim() || DEFAULT_SENDER_NAME;
+      const email = data.body_html?.trim() || DEFAULT_SENDER_EMAIL;
+      return `${name} <${email}>`;
+    }
+  } catch {}
+  return `${DEFAULT_SENDER_NAME} <${DEFAULT_SENDER_EMAIL}>`;
+}
 
 export type SendEmailOptions = {
   to: string;
@@ -23,8 +50,7 @@ async function sendViaResend(opts: SendEmailOptions): Promise<SendEmailResult> {
     return sendViaMock(opts);
   }
 
-  const fromAddress =
-    process.env.EMAIL_FROM ?? "Never Strangers <hello@neverstrangers.com>";
+  const fromAddress = await getSenderAddress();
 
   try {
     const { Resend } = await import("resend");

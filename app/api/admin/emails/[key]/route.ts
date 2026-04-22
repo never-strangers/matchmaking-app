@@ -43,6 +43,23 @@ export async function PUT(req: NextRequest, ctx: Ctx) {
   }
 
   const { key } = await ctx.params;
+
+  // Special case: _sender config (name + email address)
+  if (key === "_sender") {
+    const body = await req.json();
+    const { name, email } = body as { name?: string; email?: string };
+    if (!name?.trim() || !email?.trim()) {
+      return Response.json({ error: "name and email are required" }, { status: 400 });
+    }
+    const supabase = getServiceSupabaseClient();
+    const { error } = await supabase.from("email_template_overrides").upsert(
+      { key: "_sender", subject: name.trim(), body_html: email.trim(), updated_at: new Date().toISOString(), updated_by: user.profile_id },
+      { onConflict: "key" }
+    );
+    if (error) return Response.json({ error: error.message }, { status: 500 });
+    return Response.json({ ok: true });
+  }
+
   if (!TEMPLATE_META[key]) {
     return Response.json({ error: "Unknown template key" }, { status: 404 });
   }

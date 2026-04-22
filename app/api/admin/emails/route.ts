@@ -51,5 +51,25 @@ export async function GET() {
     };
   });
 
-  return Response.json({ templates });
+  // Load _sender config
+  const senderRow = (overrides as OverrideRow[] ?? []).find(r => r.key === "_sender");
+  const sender = {
+    name: senderRow?.updated_by ? "" : "", // name stored in subject column
+    // we need the actual subject/body_html values — fetch separately
+  };
+  void sender; // fetched below via separate select
+
+  const { data: senderData } = await supabase
+    .from("email_template_overrides")
+    .select("subject, body_html")
+    .eq("key", "_sender")
+    .maybeSingle();
+
+  return Response.json({
+    templates,
+    sender: {
+      name: senderData?.subject ?? "Never Strangers",
+      email: senderData?.body_html ?? "hello@thisisneverstrangers.com",
+    },
+  });
 }

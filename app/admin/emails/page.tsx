@@ -39,6 +39,10 @@ function formatTimeAgo(iso: string): string {
 export default function AdminEmailsPage() {
   const [templates, setTemplates] = useState<TemplateSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [senderName, setSenderName] = useState("Never Strangers");
+  const [senderEmail, setSenderEmail] = useState("hello@thisisneverstrangers.com");
+  const [senderSaving, setSenderSaving] = useState(false);
+  const [senderMsg, setSenderMsg] = useState<string | null>(null);
   const [editing, setEditing] = useState<TemplateDetail | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerLoading, setDrawerLoading] = useState(false);
@@ -59,7 +63,24 @@ export default function AdminEmailsPage() {
     const res = await fetch("/api/admin/emails");
     const data = await res.json();
     setTemplates(data.templates ?? []);
+    if (data.sender) {
+      setSenderName(data.sender.name);
+      setSenderEmail(data.sender.email);
+    }
     setLoading(false);
+  }
+
+  async function handleSaveSender() {
+    setSenderSaving(true);
+    setSenderMsg(null);
+    const res = await fetch("/api/admin/emails/_sender", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: senderName, email: senderEmail }),
+    });
+    const data = await res.json();
+    setSenderSaving(false);
+    setSenderMsg(res.ok ? "Saved." : (data.error ?? "Save failed"));
   }
 
   useEffect(() => { fetchTemplates(); }, []);
@@ -158,6 +179,42 @@ ${bodyHtml}
       </div>
 
       <PageHeader title="Email Templates" subtitle="Edit subject and full email HTML including header and footer." />
+
+      {/* Sender config */}
+      <Card padding="md" className="mb-6">
+        <p className="text-sm font-semibold mb-3" style={{ color: "var(--text)" }}>From address</p>
+        <div className="flex flex-wrap gap-3 items-end">
+          <div className="flex-1 min-w-40">
+            <label className="block text-xs mb-1" style={{ color: "var(--text-muted)" }}>Display name</label>
+            <input
+              className="w-full rounded border px-3 py-2 text-sm"
+              style={{ borderColor: "var(--border, #ddd)", background: "var(--bg)", color: "var(--text)" }}
+              value={senderName}
+              onChange={(e) => { setSenderName(e.target.value); setSenderMsg(null); }}
+              placeholder="Never Strangers"
+            />
+          </div>
+          <div className="flex-1 min-w-48">
+            <label className="block text-xs mb-1" style={{ color: "var(--text-muted)" }}>Email address</label>
+            <input
+              className="w-full rounded border px-3 py-2 text-sm"
+              style={{ borderColor: "var(--border, #ddd)", background: "var(--bg)", color: "var(--text)" }}
+              value={senderEmail}
+              onChange={(e) => { setSenderEmail(e.target.value); setSenderMsg(null); }}
+              placeholder="hello@thisisneverstrangers.com"
+            />
+          </div>
+          <Button onClick={handleSaveSender} disabled={senderSaving}>
+            {senderSaving ? "Saving…" : "Save"}
+          </Button>
+        </div>
+        {senderMsg && (
+          <p className="text-xs mt-2 font-medium" style={{ color: senderMsg === "Saved." ? "#166534" : "#991b1b" }}>{senderMsg}</p>
+        )}
+        <p className="text-xs mt-2" style={{ color: "var(--text-muted)" }}>
+          Preview: <span style={{ color: "var(--text)" }}>{senderName} &lt;{senderEmail}&gt;</span>
+        </p>
+      </Card>
 
       {loading ? (
         <p className="text-sm" style={{ color: "var(--text-muted)" }}>Loading…</p>
