@@ -31,5 +31,5 @@ export async function POST(_req: NextRequest, ctx: Ctx) {
     return Response.json({ error: result.error }, { status: 500 });
   }
 
-  return Response.json({ ok: true, status: result.status });
+  return Response.json({ ok: true, status: result.status, provider: result.provider, messageId: result.id });
 }

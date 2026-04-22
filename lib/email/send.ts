@@ -30,7 +30,6 @@ export async function enqueueEmail(
     );
 
     if (insertError) {
-      // Likely duplicate — already sent
       if (
         insertError.code === "23505" ||
         insertError.message?.includes("duplicate")
@@ -42,12 +41,14 @@ export async function enqueueEmail(
 
     const result = await sendEmail({ to, subject: emailTemplate.subject, html: emailTemplate.html });
 
-    // Update row with result
+    console.log(`[email] template=${template} provider=${result.provider ?? "?"} ok=${result.status !== "error"} id=${result.id ?? "-"}`);
+
     await supabase
       .from("email_log")
       .update({
         status: result.status,
         provider_id: result.id ?? null,
+        provider: result.provider ?? null,
         error_message: result.error ?? null,
       })
       .eq("idempotency_key", idempotencyKey);
