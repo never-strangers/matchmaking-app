@@ -105,14 +105,41 @@ export default async function EventDetailPage({
     paymentStatus === "free" ||
     paymentStatus === "not_required";
 
-  const { data: ticketTypes } = await supabase
-    .from("event_ticket_types")
-    .select("id, code, name, price_cents, currency, cap, sold, is_active")
-    .eq("event_id", eventId)
-    .eq("is_active", true)
-    .order("sort_order", { ascending: true });
+  const [{ data: ticketTypes }, { data: userProfile }] = await Promise.all([
+    supabase
+      .from("event_ticket_types")
+      .select("id, code, name, price_cents, currency, cap, sold, is_active")
+      .eq("event_id", eventId)
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true }),
+    supabase
+      .from("profiles")
+      .select("gender")
+      .eq("id", session.profile_id)
+      .maybeSingle(),
+  ]);
 
-  const hasTicketTypes = Array.isArray(ticketTypes) && ticketTypes.length > 0;
+  const userGender = (userProfile as { gender?: string } | null)?.gender?.toLowerCase() ?? null;
+
+  // Filter ticket types by user gender:
+  // "Male ..." tickets → male users only; "Female ..." → female users only;
+  // gender-neutral names → everyone. Falls back to all if no match found.
+  const isFemaleTicket = (name: string) => /female/i.test(name);
+  const isMaleTicket   = (name: string) => /male/i.test(name) && !/female/i.test(name);
+  const isGendered     = (name: string) => isFemaleTicket(name) || isMaleTicket(name);
+
+  const allTicketTypes = (ticketTypes ?? []) as { id: string; code: string; name: string; price_cents: number; currency: string; cap: number; sold: number; is_active: boolean }[];
+  const filteredTicketTypes = (() => {
+    if (!userGender || !allTicketTypes.some(t => isGendered(t.name))) return allTicketTypes;
+    const matched = allTicketTypes.filter(t =>
+      !isGendered(t.name) ||
+      (userGender === "female" && isFemaleTicket(t.name)) ||
+      (userGender === "male"   && isMaleTicket(t.name))
+    );
+    return matched.length > 0 ? matched : allTicketTypes;
+  })();
+
+  const hasTicketTypes = filteredTicketTypes.length > 0;
 
   let primaryLabel = "Enter Event";
   let primaryHref = `/events/${eventId}/questions`;
@@ -287,7 +314,7 @@ export default async function EventDetailPage({
           {primaryLabel === "Select ticket" && hasTicketTypes && (
             <EventTicketReserveBlock
               eventId={eventId}
-              ticketTypes={(ticketTypes as { id: string; name: string; price_cents: number; currency: string; cap: number; sold: number }[]) || []}
+              ticketTypes={filteredTicketTypes}
             />
           )}
           {showPrimary && primaryLabel !== "Select ticket" && (

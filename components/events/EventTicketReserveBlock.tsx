@@ -18,7 +18,8 @@ type Props = {
 };
 
 export function EventTicketReserveBlock({ eventId, ticketTypes }: Props) {
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const single = ticketTypes.length === 1 ? ticketTypes[0] : null;
+  const [selectedId, setSelectedId] = useState<string | null>(single?.id ?? null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -30,7 +31,6 @@ export function EventTicketReserveBlock({ eventId, ticketTypes }: Props) {
     setLoading(true);
     setError(null);
     try {
-      // Step 1: Reserve the ticket (handles capacity locking)
       const reserveRes = await fetch(`/api/events/${eventId}/reserve-ticket`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -43,7 +43,6 @@ export function EventTicketReserveBlock({ eventId, ticketTypes }: Props) {
         return;
       }
 
-      // Step 2: Immediately create Stripe checkout and redirect
       const checkoutRes = await fetch("/api/stripe/create-checkout-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -68,6 +67,26 @@ export function EventTicketReserveBlock({ eventId, ticketTypes }: Props) {
     }
   };
 
+  // Single ticket: skip selector, show just the button
+  if (single) {
+    return (
+      <div className="mt-4 space-y-3">
+        {error && (
+          <p className="text-sm" style={{ color: "var(--danger)" }}>{error}</p>
+        )}
+        <Button
+          onClick={handleBuy}
+          size="md"
+          disabled={loading}
+          data-testid="reserve-ticket-button"
+        >
+          {loading ? "Redirecting to payment…" : "Buy ticket"}
+        </Button>
+      </div>
+    );
+  }
+
+  // Multiple tickets: show selector
   return (
     <div className="mt-4 space-y-3">
       <p className="text-sm font-medium" style={{ color: "var(--text)" }}>
@@ -104,9 +123,7 @@ export function EventTicketReserveBlock({ eventId, ticketTypes }: Props) {
         })}
       </div>
       {error && (
-        <p className="text-sm" style={{ color: "var(--danger)" }}>
-          {error}
-        </p>
+        <p className="text-sm" style={{ color: "var(--danger)" }}>{error}</p>
       )}
       <Button
         onClick={handleBuy}
