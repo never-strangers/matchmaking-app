@@ -15,14 +15,20 @@
  *   node scripts/migrate-wp-users.cjs --limit 50    # custom limit
  *   node scripts/migrate-wp-users.cjs --dry-run     # preview only, no writes
  *   node scripts/migrate-wp-users.cjs --all         # migrate ALL eligible users
+ *   node scripts/migrate-wp-users.cjs --all --min-wp-id 6000
+ *     # only fetch rows with ID >= 6000 (skips re-scanning thousands of already-migrated low IDs)
  *
  * WordPress passwords are NOT migrated (phpass ≠ bcrypt).
  * After migration, send password-reset emails via:
  *   node scripts/migrate-wp-users.cjs --send-resets
+ *
+ * WP user meta may store PHP-serialized strings (e.g. meta:gender = a:1:{i:0;s:6:"Female";})
+ * or a full meta:submitted blob; those are unserialized with php-serialize.
  */
 
 require("dotenv").config({ path: ".env.local" });
 const { createClient } = require("@supabase/supabase-js");
+const { mapWpUserToProfile } = require("./lib/wp-users-to-profile-fields.cjs");
 const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
@@ -33,7 +39,13 @@ const DRY_RUN = args.includes("--dry-run");
 const SEND_RESETS = args.includes("--send-resets");
 const ALL = args.includes("--all");
 const limitIdx = args.indexOf("--limit");
+const minIdIdx = args.indexOf("--min-wp-id");
 const LIMIT = ALL ? Infinity : (limitIdx !== -1 ? parseInt(args[limitIdx + 1], 10) : 150);
+const MIN_WP_ID = minIdIdx >= 0 ? parseInt(args[minIdIdx + 1], 10) : null;
+if (minIdIdx >= 0 && (Number.isNaN(MIN_WP_ID) || MIN_WP_ID < 0)) {
+  console.error("❌  --min-wp-id must be a non-negative number");
+  process.exit(1);
+}
 
 // ── Config ────────────────────────────────────────────────────────────────────
 const BATCH_SIZE = 50;          // rows fetched per REST call
@@ -60,161 +72,12 @@ function randomPassword() {
   return "Ns!" + crypto.randomBytes(16).toString("hex");
 }
 
-/** Normalize gender to profiles CHECK constraint values */
-function normalizeGender(v) {
-  if (!v) return null;
-  const l = String(v).toLowerCase().trim();
-  if (l === "female" || l === "f") return "female";
-  if (l === "male" || l === "m") return "male";
-  return null;
-}
-
-/** Normalize attracted_to: "Men" / "Women" / "Men, Women" → "men" / "women" / "men,women" */
-function normalizeAttractedTo(v) {
-  if (!v) return null;
-  return String(v)
-    .toLowerCase()
-    .replace(/[;,]/g, ",")
-    .split(",")
-    .map((s) => s.trim())
-    .filter((s) => s === "men" || s === "women")
-    .join(",") || null;
-}
-
-/** Parse "Friends; A Date" / "Friends, A Date" → ["friends","date"] */
-function parseLookingFor(v) {
-  if (!v) return [];
-  return String(v)
-    .toLowerCase()
-    .replace(/[;,]/g, ",")
-    .split(",")
-    .map((s) => s.trim())
-    .map((s) => {
-      if (s.includes("friend")) return "friends";
-      if (s.includes("date") || s.includes("dating")) return "date";
-      return null;
-    })
-    .filter(Boolean);
-}
-
-/** Map country/city string → short city code used in profiles */
-function mapCity(country, billingCity) {
-  const v = String(country || billingCity || "").toLowerCase().trim();
-  if (v.includes("singapore") || v === "sg") return "sg";
-  if (v.includes("thailand") || v.includes("bangkok") || v === "th") return "th";
-  if (v.includes("vietnam") || v.includes("ho chi") || v.includes("hanoi") || v === "vn") return "vn";
-  if (v.includes("hong kong") || v === "hk") return "hk";
-  if (v.includes("malaysia") || v.includes("kuala") || v === "my") return "my";
-  if (v.includes("indonesia") || v.includes("jakarta") || v === "id") return "id";
-  if (v.includes("japan") || v.includes("tokyo") || v === "jp") return "jp";
-  if (v.includes("korea") || v.includes("seoul") || v === "kr") return "kr";
-  if (v.includes("australia") || v === "au") return "au";
-  if (v.includes("united kingdom") || v === "uk" || v === "gb") return "uk";
-  if (v.includes("united states") || v === "us") return "us";
-  // Default to Singapore if unknown (most users are SG-based)
-  return v ? v.slice(0, 20) : "sg";
-}
-
-/** Map WP account_status → profiles status */
-function mapStatus(accountStatus) {
-  const s = String(accountStatus || "").toLowerCase().trim();
-  if (s === "approved") return "approved";
-  if (s === "inactive" || s === "rejected" || s === "banned") return "rejected";
-  return "pending_verification";
-}
-
-/** Map WP role → app role */
-function mapRole(roles) {
-  const r = String(roles || "").toLowerCase();
-  if (r.includes("administrator")) return "admin";
-  if (r.includes("host") || r.includes("editor")) return "host";
-  return "user";
-}
-
-/** Normalize a DOB string to YYYY-MM-DD or null */
-function normalizeDob(v) {
-  if (!v) return null;
-  const s = String(v).trim();
-  // YYYY-MM-DD
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-  // DD/MM/YYYY or DD-MM-YYYY
-  const dmy = /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/.exec(s);
-  if (dmy) {
-    const [, d, m, y] = dmy;
-    return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
-  }
-  // Try Date parse
-  const dt = new Date(s);
-  if (!isNaN(dt.getTime())) {
-    return dt.toISOString().slice(0, 10);
-  }
-  return null;
-}
-
-/** Get a field from wp-user (handles "meta:fieldname" key pattern) */
-function g(user, key) {
-  return user[key] ?? user[`meta:${key}`] ?? null;
-}
-
-/** Map a WP user row → profiles insert object (without id, that comes from auth) */
-function mapWpUserToProfile(user, authUid) {
-  const firstName = String(user.first_name || g(user, "full_name")?.split(" ")[0] || user.display_name || "").trim();
-  const lastName = String(user.last_name || "").trim();
-  const fullName = [firstName, lastName].filter(Boolean).join(" ")
-    || user.display_name
-    || user.user_nicename
-    || user.user_login?.split("@")[0]
-    || "User";
-
-  const lookingForArr = parseLookingFor(g(user, "Looking") || g(user, "looking_for"));
-  const attractedTo = normalizeAttractedTo(g(user, "attracted") || g(user, "attracted_to"));
-  const gender = normalizeGender(g(user, "gender"));
-  const dob = normalizeDob(g(user, "birth_date") || g(user, "dob"));
-  const city = mapCity(g(user, "country"), user.billing_city);
-  const status = mapStatus(g(user, "account_status"));
-  const role = mapRole(user.roles);
-  const phone = (user.billing_phone || g(user, "phone") || "").replace(/\s+/g, "").trim() || null;
-  const instagram = (g(user, "instagram") || "").trim().replace(/^@/, "") || null;
-  const reason = (g(user, "Why") || g(user, "reason") || "").trim() || null;
-  const profilePhoto = g(user, "profile_photo") || g(user, "Photo") || g(user, "register_profile_photo") || null;
-
-  return {
-    id: authUid,
-    name: fullName.slice(0, 100),
-    display_name: fullName.slice(0, 100),
-    full_name: fullName.slice(0, 100),
-    email: user.user_email.trim().toLowerCase(),
-    city,
-    status,
-    role,
-    gender,
-    attracted_to: attractedTo,
-    orientation: lookingForArr.length > 0 ? { lookingFor: lookingForArr } : null,
-    dob: dob || null,
-    instagram,
-    reason,
-    phone_e164: phone,
-    profile_photo_url: profilePhoto,
-    // WP migration linkage
-    wp_user_id: user.ID,
-    wp_user_login: user.user_login,
-    wp_registered_at: user.user_registered || null,
-    wp_source: {
-      roles: user.roles,
-      display_name: user.display_name,
-      account_status: g(user, "account_status"),
-    },
-    email_verified: true,
-    created_at: user.user_registered || new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  };
-}
-
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function fetchWpUsersBatch(offset) {
+  const idFilter = MIN_WP_ID != null ? `&ID=gte.${MIN_WP_ID}` : "";
   const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/wp-users?limit=${BATCH_SIZE}&offset=${offset}&order=ID.asc`,
+    `${SUPABASE_URL}/rest/v1/wp-users?limit=${BATCH_SIZE}&offset=${offset}&order=ID.asc${idFilter}`,
     {
       headers: {
         apikey: SERVICE_KEY,
@@ -345,7 +208,7 @@ async function main() {
   console.log("╔══════════════════════════════════════════════╗");
   console.log("║       WP → Never Strangers User Migration     ║");
   console.log("╚══════════════════════════════════════════════╝");
-  console.log(`Mode: ${DRY_RUN ? "DRY RUN 🔍" : "LIVE ✍️ "} | Limit: ${ALL ? "ALL" : LIMIT} | Batch: ${BATCH_SIZE}`);
+  console.log(`Mode: ${DRY_RUN ? "DRY RUN 🔍" : "LIVE ✍️ "} | Limit: ${ALL ? "ALL" : LIMIT} | Batch: ${BATCH_SIZE}${MIN_WP_ID != null ? ` | min ID: ${MIN_WP_ID}` : ""}`);
   console.log();
 
   const stats = { created: 0, upserted: 0, skipped: 0, error: 0, total: 0 };
@@ -354,6 +217,7 @@ async function main() {
 
   let offset = 0;
   let done = false;
+  let skipOnlyStreak = 0;
 
   while (!done) {
     const batch = await fetchWpUsersBatch(offset);
@@ -370,7 +234,7 @@ async function main() {
 
     // Skip already-migrated
     const emails = eligible.map((u) => u.user_email.trim().toLowerCase());
-    const wpIds = eligible.map((u) => u.ID);
+    const wpIds = eligible.map((u) => u.ID ?? u.id);
     const [existingEmails, existingWpIds] = await Promise.all([
       getExistingEmails(emails),
       getExistingWpIds(wpIds),
@@ -379,13 +243,28 @@ async function main() {
     const toMigrate = eligible.filter(
       (u) =>
         !existingEmails.has(u.user_email.trim().toLowerCase()) &&
-        !existingWpIds.has(u.ID)
+        !existingWpIds.has(u.ID ?? u.id)
     );
 
     const alreadyDone = eligible.length - toMigrate.length;
     if (alreadyDone > 0) {
       stats.skipped += alreadyDone;
-      console.log(`  ⏭️  Skipped ${alreadyDone} already-migrated users`);
+    }
+    // Avoid one line per batch when the whole run is "already in profiles" (very noisy on large tables).
+    if (alreadyDone > 0 && toMigrate.length === 0) {
+      skipOnlyStreak += 1;
+      if (skipOnlyStreak === 1) {
+        console.log("  ⏭️  Batches with no new users to create (all already in profiles) — logging every 25 batches…");
+        console.log("      Tip: use --min-wp-id <ID> to start after already-imported rows, or `node scripts/update-profiles-from-wp.cjs --from-wp-table` to backfill fields.");
+      } else if (skipOnlyStreak % 25 === 0) {
+        const approxRows = skipOnlyStreak * BATCH_SIZE;
+        console.log(`  ⏭️  …${skipOnlyStreak} skip-only batches (~${approxRows} wp-users rows scanned)`);
+      }
+    } else {
+      skipOnlyStreak = 0;
+      if (alreadyDone > 0) {
+        console.log(`  ⏭️  Skipped ${alreadyDone} already-migrated users`);
+      }
     }
 
     if (!toMigrate.length) {

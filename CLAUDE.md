@@ -348,9 +348,12 @@ POST /api/admin/events/{eventId}/questions/bootstrap-defaults
 ```bash
 node scripts/migrate-wp-users.cjs --dry-run        # Preview WP user import
 CONFIRM=true node scripts/migrate-wp-users.cjs     # Execute
+# Migration unserializes PHP `meta:gender` / `meta:attracted` / `meta:Looking` and `meta:submitted` where present.
 
-node scripts/import-amelia-events.cjs              # Preview Amelia events
-CONFIRM=true node scripts/import-amelia-events.cjs # Execute
+node scripts/import-amelia-events.cjs              # Preview (embedded snapshot)
+node scripts/import-amelia-events.cjs --from-json path/to/amelia-events.json  # Preview from API export
+CONFIRM=true node scripts/import-amelia-events.cjs --from-json path/to/amelia-events.json  # Insert
+CONFIRM=true node scripts/import-amelia-events.cjs # Execute embedded snapshot only
 
 node scripts/import-amelia-bookings-event125.cjs              # Preview
 CONFIRM=true node scripts/import-amelia-bookings-event125.cjs # Execute (35 bookings)

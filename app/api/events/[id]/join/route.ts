@@ -16,7 +16,7 @@ export async function POST(
 
   const { data: event } = await supabase
     .from("events")
-    .select("id, title, date, payment_required, price_cents")
+    .select("id, title, date, start_at, end_at, description, payment_required, price_cents")
     .eq("id", eventId)
     .is("deleted_at", null)
     .single();

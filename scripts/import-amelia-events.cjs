@@ -6,16 +6,152 @@
  * Data was exported from https://thisisneverstrangers.com/wp-admin
  *
  * Usage:
- *   node scripts/import-amelia-events.cjs             # dry-run (safe preview)
- *   CONFIRM=true node scripts/import-amelia-events.cjs  # actually insert
- *   CONFIRM=true node scripts/import-amelia-events.cjs --upsert  # upsert on amelia_id
+ *   node scripts/import-amelia-events.cjs                          # dry-run (embedded snapshot)
+ *   node scripts/import-amelia-events.cjs --from-json export.json  # dry-run from API JSON file(s)
+ *   CONFIRM=true node scripts/import-amelia-events.cjs --from-json a.json b.json  # insert
+ *   CONFIRM=true node scripts/import-amelia-events.cjs               # insert embedded snapshot
+ *   ... --only-ids 112,130   # import only these Amelia event ids (after merging JSON files)
+ *   ... --skip-if-title-exists  # skip when any non-deleted row already has the same title
+ *
+ * JSON shape: full API response `{ "data": { "events": [ ... ] } }`, or `{ "events": [...] }`,
+ * or a bare array. Merge multiple files when the API paginates (e.g. countTotal > events.length).
+ *
+ * Safety: only INSERT is ever performed — no UPDATE, DELETE, or upsert on existing rows.
+ * Duplicate handling: skips when title + start_at matches (see --skip-if-title-exists). --force-insert bypasses checks.
  */
 
 require("dotenv").config({ path: ".env.local" });
+const fs = require("fs");
+const path = require("path");
 const { createClient } = require("@supabase/supabase-js");
 
 const DRY_RUN = process.env.CONFIRM !== "true";
-const UPSERT  = process.argv.includes("--upsert");
+const FORCE_INSERT = process.argv.includes("--force-insert");
+const SKIP_IF_TITLE_EXISTS = process.argv.includes("--skip-if-title-exists");
+
+/** Normalize timestamps so DB vs JS ISO strings still match duplicate keys. */
+function startAtKey(ts) {
+  if (ts == null) return "";
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return String(ts);
+  return d.toISOString();
+}
+
+function argvOnlyAmeliaIds() {
+  const i = process.argv.indexOf("--only-ids");
+  if (i === -1) return null;
+  const raw = process.argv[i + 1];
+  if (!raw || raw.startsWith("--")) {
+    throw new Error("--only-ids needs comma-separated Amelia ids, e.g. --only-ids 112");
+  }
+  const ids = raw.split(",").map(s => parseInt(s.trim(), 10)).filter(n => !Number.isNaN(n));
+  if (ids.length === 0) throw new Error("--only-ids: no valid integers");
+  return ids;
+}
+
+function argvJsonPaths() {
+  const i = process.argv.indexOf("--from-json");
+  if (i === -1) return [];
+  const out = [];
+  for (let j = i + 1; j < process.argv.length && !process.argv[j].startsWith("--"); j++) {
+    out.push(process.argv[j]);
+  }
+  return out;
+}
+
+/** @returns {any[]} */
+function extractEventsArray(raw) {
+  if (Array.isArray(raw)) return raw;
+  if (raw?.data?.events && Array.isArray(raw.data.events)) return raw.data.events;
+  if (raw?.events && Array.isArray(raw.events)) return raw.events;
+  throw new Error(
+    "Unrecognized JSON: need an array, { data: { events: [] } }, or { events: [] }"
+  );
+}
+
+function inferLocationIdFromName(name) {
+  const n = (name || "").toLowerCase();
+  if (n.includes("bali")) return 2;
+  return null;
+}
+
+/**
+ * Map one Amelia REST event object to the internal shape used by mapToRow.
+ * @param {any} ev
+ */
+function normalizeAmeliaApiEvent(ev) {
+  if (ev.type && ev.type !== "event") return null;
+
+  const periods = ev.periods || [];
+  if (!periods.length) {
+    console.warn(`  ⚠️  SKIP [WP#${ev.id}] ${ev.name}: no periods`);
+    return null;
+  }
+
+  if (periods.length > 1) {
+    console.warn(
+      `  ⚠️  [WP#${ev.id}] ${ev.name}: ${periods.length} periods — using first only`
+    );
+  }
+
+  const p0 = periods[0];
+  let locationId = ev.locationId;
+  if (locationId == null) {
+    const inferred = inferLocationIdFromName(ev.name);
+    if (inferred != null) {
+      locationId = inferred;
+      console.warn(
+        `  ℹ️  [WP#${ev.id}] ${ev.name}: locationId null → ${LOCATION_TO_CITY[inferred]} (Amelia loc #${inferred})`
+      );
+    } else {
+      console.warn(
+        `  ⚠️  [WP#${ev.id}] ${ev.name}: locationId null → default Singapore`
+      );
+      locationId = 1;
+    }
+  }
+
+  return {
+    ameliaId: ev.id,
+    name: ev.name,
+    description: ev.description || "",
+    locationId,
+    periodStart: p0.periodStart,
+    periodEnd: p0.periodEnd,
+    customTickets: ev.customTickets || [],
+    status: ev.status,
+    maxCapacity: ev.maxCapacity,
+  };
+}
+
+/** @param {string[]} jsonPaths */
+function loadEventsFromJsonFiles(jsonPaths) {
+  const merged = [];
+  for (const rel of jsonPaths) {
+    const abs = path.isAbsolute(rel) ? rel : path.join(process.cwd(), rel);
+    if (!fs.existsSync(abs)) {
+      throw new Error(
+        `File not found: ${abs}\n` +
+          `  cwd: ${process.cwd()}\n` +
+          `  Save your Amelia API response as JSON to that path first (README examples like ` +
+          `amelia-events-page1.json are placeholders, not committed files).\n` +
+          `  Example: curl '…' > scripts/backups/my-amelia-events.json && ` +
+          `node scripts/import-amelia-events.cjs --from-json scripts/backups/my-amelia-events.json`
+      );
+    }
+    const raw = JSON.parse(fs.readFileSync(abs, "utf8"));
+    const arr = extractEventsArray(raw);
+    for (const ev of arr) {
+      const row = normalizeAmeliaApiEvent(ev);
+      if (row) merged.push(row);
+    }
+  }
+  const byId = new Map();
+  for (const e of merged) {
+    byId.set(e.ameliaId, e);
+  }
+  return [...byId.values()];
+}
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -59,8 +195,8 @@ function stripHtml(html) {
 // ── Extract venue from description HTML ──────────────────────────────────────
 function extractVenue(desc) {
   if (!desc) return null;
-  // Match "Location: <venue text>" from HTML
-  const m = desc.match(/Location[:\s<\/strong>]+([^<]+)/i);
+  // Match "Location: <venue text>" from HTML (no /i — i + [strong] would swallow leading "T" in "The …")
+  const m = desc.match(/Location[:\s<\/strong>]+([^<]+)/);
   if (m) return m[1].replace(/&amp;/g, "&").trim();
   return null;
 }
@@ -88,8 +224,8 @@ function lowestPriceCents(customTickets) {
   return Math.min(...enabled.map(t => t.price)) * 100;
 }
 
-// ── Amelia events (exported 2026-04-02) ──────────────────────────────────────
-const AMELIA_EVENTS = [
+// ── Embedded snapshot (2026-04-02) — used when --from-json is not passed ────
+const EMBEDDED_AMELIA_EVENTS = [
   {
     ameliaId: 125,
     name: "Call a Cupid – Live Matchmaking (20s to 30s)",
@@ -223,8 +359,37 @@ function mapToRow(e) {
 }
 
 async function main() {
+  const jsonPaths = argvJsonPaths();
+  let AMELIA_EVENTS =
+    jsonPaths.length > 0
+      ? loadEventsFromJsonFiles(jsonPaths)
+      : EMBEDDED_AMELIA_EVENTS;
+
+  const onlyIds = argvOnlyAmeliaIds();
+  if (onlyIds !== null) {
+    const allow = new Set(onlyIds);
+    AMELIA_EVENTS = AMELIA_EVENTS.filter(e => allow.has(e.ameliaId));
+    console.log(`Filter: --only-ids ${onlyIds.join(",")} → ${AMELIA_EVENTS.length} event(s)`);
+  }
+
+  if (AMELIA_EVENTS.length === 0) {
+    console.error("No events to import (empty list or --only-ids matched nothing).");
+    process.exit(1);
+  }
+
   console.log(`\n🌏 Amelia → Supabase Event Import`);
-  console.log(`Mode: ${DRY_RUN ? "DRY RUN (pass CONFIRM=true to insert)" : "LIVE INSERT"}\n`);
+  console.log(
+    `Mode: ${DRY_RUN ? "DRY RUN (pass CONFIRM=true to insert)" : "LIVE INSERT"}`
+  );
+  if (jsonPaths.length) {
+    console.log(`Source: --from-json ${jsonPaths.join(" ")} (${AMELIA_EVENTS.length} events)`);
+  } else {
+    console.log(`Source: embedded snapshot (${AMELIA_EVENTS.length} events)`);
+  }
+  if (SKIP_IF_TITLE_EXISTS) {
+    console.log("Duplicate policy: skip if title already exists in DB (--skip-if-title-exists)");
+  }
+  console.log();
 
   const rows = AMELIA_EVENTS.map(mapToRow);
 
@@ -247,22 +412,30 @@ async function main() {
     return;
   }
 
-  // Check for duplicates (title + start_at)
+  const importTitles = [...new Set(rows.map(r => r.title))];
+
   const { data: existing } = await supabase
     .from("events")
     .select("id, title, start_at")
-    .in("title", rows.map(r => r.title));
+    .in("title", importTitles)
+    .is("deleted_at", null);
 
   const existingKeys = new Set(
-    (existing || []).map(e => `${e.title}|${e.start_at}`)
+    (existing || []).map(e => `${e.title}|${startAtKey(e.start_at)}`)
   );
+  const titlesSeenInDb = new Set((existing || []).map(e => e.title));
 
   let inserted = 0, skipped = 0;
 
   for (const row of rows) {
-    const key = `${row.title}|${row.start_at}`;
-    if (!UPSERT && existingKeys.has(key)) {
-      console.log(`  ⏭  SKIP  (already exists): ${row.title}`);
+    const key = `${row.title}|${startAtKey(row.start_at)}`;
+    if (!FORCE_INSERT && existingKeys.has(key)) {
+      console.log(`  ⏭  SKIP  (same title + start time): ${row.title}`);
+      skipped++;
+      continue;
+    }
+    if (!FORCE_INSERT && SKIP_IF_TITLE_EXISTS && titlesSeenInDb.has(row.title)) {
+      console.log(`  ⏭  SKIP  (title already in DB): ${row.title}`);
       skipped++;
       continue;
     }

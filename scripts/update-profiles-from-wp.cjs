@@ -5,7 +5,7 @@
  *            instagram, reason, wp_user_id.
  * Only fills missing fields — never overwrites existing data (unless --overwrite).
  *
- * Usage:
+ * Usage (live WordPress ACP — needs admin session):
  *   node scripts/update-profiles-from-wp.cjs \
  *     --cookies "wordpress_logged_in_xxx=VALUE; ..." \
  *     --nonce  "55dc7f4c03" \
@@ -18,11 +18,16 @@
  *
  * Get cookies: WP admin → DevTools → any XHR request → Copy as cURL → grab -b "..." value
  * Get nonce:   from any working ACP AJAX request in DevTools → FormData → _ajax_nonce
+ *
+ * Usage (no WP login — use public."wp-users" already in Supabase + PHP meta parsing):
+ *   node scripts/update-profiles-from-wp.cjs --from-wp-table --emails-file /tmp/emails.txt --dry-run
+ *   node scripts/update-profiles-from-wp.cjs --from-wp-table --all --dry-run
  */
 
 const fs    = require('fs');
 const path  = require('path');
 const https = require('https');
+const { extractBackfillFromWpUserRow } = require('./lib/wp-users-to-profile-fields.cjs');
 
 // ── Load .env.local ───────────────────────────────────────────────────────────
 function loadEnv() {
@@ -91,6 +96,33 @@ const SB_HEADERS = {
 async function sbGet(path) {
   const r = await request('GET', `${SUPABASE_URL}/rest/v1/${path}`, SB_HEADERS);
   return JSON.parse(r.body);
+}
+
+async function fetchAllProfilesWithWpId(selectCols) {
+  const out = [];
+  let off = 0;
+  const step = 500;
+  const cols = selectCols || 'id,email,wp_user_id,gender,attracted_to,orientation,dob,city,instagram,reason,profile_photo_url,phone_e164';
+  for (;;) {
+    const part = await sbGet(
+      `profiles?wp_user_id=not.is.null&select=${cols}&order=id.asc&limit=${step}&offset=${off}`
+    );
+    if (!part.length) break;
+    out.push(...part);
+    if (part.length < step) break;
+    off += step;
+  }
+  return out;
+}
+
+/** One row from public."wp-users" with all columns (select=*). */
+async function fetchWpUserRowById(wpUserId) {
+  const id = String(wpUserId);
+  let rows = await sbGet('wp-users?ID=eq.' + encodeURIComponent(id) + '&select=*');
+  if (!Array.isArray(rows) || !rows.length) {
+    rows = await sbGet('wp-users?id=eq.' + encodeURIComponent(id) + '&select=*');
+  }
+  return Array.isArray(rows) && rows.length ? rows[0] : null;
 }
 
 async function sbPatch(path, body) {
@@ -191,21 +223,39 @@ function normalizeCity(country) {
   return null;
 }
 
+function buildPatchFromBackfill(next, profile, OVERWRITE) {
+  const patch = {};
+  if (next.gender && (OVERWRITE || !profile.gender)) patch.gender = next.gender;
+  if (next.attracted_to && (OVERWRITE || !profile.attracted_to)) patch.attracted_to = next.attracted_to;
+  if (next.orientation && (OVERWRITE || !profile.orientation)) patch.orientation = next.orientation;
+  if (next.dob && (OVERWRITE || !profile.dob)) patch.dob = next.dob;
+  if (next.city && (OVERWRITE || !profile.city)) patch.city = next.city;
+  if (next.instagram && (OVERWRITE || !profile.instagram)) patch.instagram = next.instagram;
+  if (next.reason && (OVERWRITE || !profile.reason)) patch.reason = next.reason;
+  if (next.profile_photo_url && (OVERWRITE || !profile.profile_photo_url)) patch.profile_photo_url = next.profile_photo_url;
+  if (next.phone_e164 && (OVERWRITE || !profile.phone_e164)) patch.phone_e164 = next.phone_e164;
+  return patch;
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 async function main() {
   const args      = process.argv.slice(2);
   const DRY_RUN   = args.includes('--dry-run');
   const OVERWRITE = args.includes('--overwrite');
+  const FROM_WP   = args.includes('--from-wp-table');
+  const ALL       = args.includes('--all');
 
   const cookieIdx = args.indexOf('--cookies');
   const nonceIdx  = args.indexOf('--nonce');
   const fileIdx   = args.indexOf('--emails-file');
 
-  if (cookieIdx < 0) { console.error('Missing --cookies'); process.exit(1); }
-  if (nonceIdx  < 0) { console.error('Missing --nonce');   process.exit(1); }
+  if (!FROM_WP) {
+    if (cookieIdx < 0) { console.error('Missing --cookies (or use --from-wp-table to read public."wp-users" in Supabase)'); process.exit(1); }
+    if (nonceIdx  < 0) { console.error('Missing --nonce (not needed with --from-wp-table)');   process.exit(1); }
+  }
 
-  const cookies = args[cookieIdx + 1];
-  const nonce   = args[nonceIdx  + 1];
+  const cookies = FROM_WP ? '' : (args[cookieIdx + 1] || '');
+  const nonce   = FROM_WP ? '' : (args[nonceIdx  + 1] || '');
 
   let emails = [];
   if (fileIdx >= 0) {
@@ -217,20 +267,30 @@ async function main() {
   }
   emails = [...new Set(emails.map(e => e.toLowerCase()))];
 
-  if (!emails.length) { console.error('No emails provided'); process.exit(1); }
+  if (FROM_WP && !ALL && !emails.length) {
+    console.error('With --from-wp-table, pass --all or provide emails (--emails-file or args)');
+    process.exit(1);
+  }
+  if (!FROM_WP && !emails.length) { console.error('No emails provided'); process.exit(1); }
 
   console.log(`\n🔄  WP → Supabase profile sync`);
-  console.log(`    emails:    ${emails.length}`);
+  console.log(`    mode:      ${FROM_WP ? 'Supabase wp-users + php meta' : 'WordPress ACP (admin-ajax)'}`);
+  if (!FROM_WP || emails.length) console.log(`    email filter: ${emails.length} address(es)`);
   console.log(`    dry-run:   ${DRY_RUN}`);
   console.log(`    overwrite: ${OVERWRITE}\n`);
 
   // Fetch profiles from Supabase
-  const filter   = '(' + emails.map(e => `"${e}"`).join(',') + ')';
-  const profiles = await sbGet(
-    `profiles?email=in.${filter}&select=id,email,wp_user_id,gender,attracted_to,orientation,dob,city,instagram,reason&limit=200`
-  );
-  const byEmail  = Object.fromEntries(profiles.map(p => [p.email.toLowerCase(), p]));
-
+  let profiles;
+  if (FROM_WP && ALL) {
+    console.log('    Loading all profiles with wp_user_id…');
+    profiles = await fetchAllProfilesWithWpId();
+  } else {
+    const filter   = '(' + emails.map(e => `"${e}"`).join(',') + ')';
+    profiles = await sbGet(
+      'profiles?email=in.' + filter + '&select=id,email,wp_user_id,gender,attracted_to,orientation,dob,city,instagram,reason,profile_photo_url,phone_e164&limit=2000'
+    );
+  }
+  console.log(`    profiles:  ${profiles.length} to consider\n`);
   const noWpId = profiles.filter(p => !p.wp_user_id);
   if (noWpId.length) {
     console.warn(`⚠️  No wp_user_id for ${noWpId.length} profile(s) — skipping:`);
@@ -244,45 +304,57 @@ async function main() {
   let updated = 0, skipped = 0;
 
   for (const profile of toFetch) {
-    let row;
-    try {
-      row = await acpFetch(profile.wp_user_id, cookies, nonce);
-    } catch (e) {
-      console.log(`  ❌ ${profile.email}: ${e.message}`);
-      skipped++;
-      await sleep(500);
-      continue;
+    let patch = {};
+
+    if (FROM_WP) {
+      const wpRow = await fetchWpUserRowById(profile.wp_user_id);
+      if (!wpRow) {
+        console.log(`  ⚠️  ${profile.email}: no row in public."wp-users" for ID ${profile.wp_user_id}`);
+        skipped++;
+        await sleep(100);
+        continue;
+      }
+      const next = extractBackfillFromWpUserRow(wpRow);
+      patch = buildPatchFromBackfill(next, profile, OVERWRITE);
+    } else {
+      let row;
+      try {
+        row = await acpFetch(profile.wp_user_id, cookies, nonce);
+      } catch (e) {
+        console.log(`  ❌ ${profile.email}: ${e.message}`);
+        skipped++;
+        await sleep(500);
+        continue;
+      }
+
+      // gender
+      const gender = normalizeGender(row['a293b379eb8520']);
+      if (gender && (OVERWRITE || !profile.gender)) patch.gender = gender;
+
+      // attracted_to
+      const attracted = normalizeAttracted(row['4e137a46ae147c']);
+      if (attracted && (OVERWRITE || !profile.attracted_to)) patch.attracted_to = attracted;
+
+      // orientation / looking_for
+      const looking = normalizeLooking(row['3dfd2aefced916']);
+      if (looking && (OVERWRITE || !profile.orientation)) patch.orientation = { lookingFor: looking };
+
+      // dob
+      const dob = normalizeDob(row['21860f28bf7cee']);
+      if (dob && (OVERWRITE || !profile.dob)) patch.dob = dob;
+
+      // city (from country)
+      const city = normalizeCity(row['2c5b35f4395810']);
+      if (city && (OVERWRITE || !profile.city)) patch.city = city;
+
+      // instagram
+      const instagram = row['18454a9352b021'] ? String(row['18454a9352b021']).trim() : null;
+      if (instagram && (OVERWRITE || !profile.instagram)) patch.instagram = instagram;
+
+      // reason
+      const reason = row['3b52e4f9dced92'] ? String(row['3b52e4f9dced92']).trim() : null;
+      if (reason && (OVERWRITE || !profile.reason)) patch.reason = reason;
     }
-
-    const patch = {};
-
-    // gender
-    const gender = normalizeGender(row['a293b379eb8520']);
-    if (gender && (OVERWRITE || !profile.gender)) patch.gender = gender;
-
-    // attracted_to
-    const attracted = normalizeAttracted(row['4e137a46ae147c']);
-    if (attracted && (OVERWRITE || !profile.attracted_to)) patch.attracted_to = attracted;
-
-    // orientation / looking_for
-    const looking = normalizeLooking(row['3dfd2aefced916']);
-    if (looking && (OVERWRITE || !profile.orientation)) patch.orientation = { lookingFor: looking };
-
-    // dob
-    const dob = normalizeDob(row['21860f28bf7cee']);
-    if (dob && (OVERWRITE || !profile.dob)) patch.dob = dob;
-
-    // city (from country)
-    const city = normalizeCity(row['2c5b35f4395810']);
-    if (city && (OVERWRITE || !profile.city)) patch.city = city;
-
-    // instagram
-    const instagram = row['18454a9352b021'] ? String(row['18454a9352b021']).trim() : null;
-    if (instagram && (OVERWRITE || !profile.instagram)) patch.instagram = instagram;
-
-    // reason
-    const reason = row['3b52e4f9dced92'] ? String(row['3b52e4f9dced92']).trim() : null;
-    if (reason && (OVERWRITE || !profile.reason)) patch.reason = reason;
 
     if (!Object.keys(patch).length) {
       console.log(`  ✓  ${profile.email} — nothing new`);

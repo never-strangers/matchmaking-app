@@ -52,7 +52,7 @@ next-env.d.ts
 /scripts/*.csv
 # One-off DB/event backups (may contain PII)
 /scripts/backup-*.json
-/scripts/backups/
+/scripts/backups/*
 
 docs/security-scan-report.md
 

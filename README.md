@@ -9,13 +9,15 @@ This repo hosts the new **Matching Core** — a lightweight, AI-powered system r
 
 **Goal:** Build a self-owned backend and web app for onboarding, event management, and AI-driven social matching.
 
-| Layer | Tech | Purpose |
-|-------|------|----------|
-| Frontend | Next.js 15 + Tailwind CSS + TypeScript | Dynamic UI & routes |
-| Backend | Supabase (PostgreSQL + Auth + Storage) | Database & authentication |
-| AI Engine | OpenAI Embeddings + pgvector | User similarity matching |
-| Hosting | Vercel (frontend) + Supabase (DB/API) | CI/CD and infra |
-| Analytics | PostHog / Plausible | Behavior & retention tracking |
+
+| Layer     | Tech                                   | Purpose                       |
+| --------- | -------------------------------------- | ----------------------------- |
+| Frontend  | Next.js 15 + Tailwind CSS + TypeScript | Dynamic UI & routes           |
+| Backend   | Supabase (PostgreSQL + Auth + Storage) | Database & authentication     |
+| AI Engine | OpenAI Embeddings + pgvector           | User similarity matching      |
+| Hosting   | Vercel (frontend) + Supabase (DB/API)  | CI/CD and infra               |
+| Analytics | PostHog / Plausible                    | Behavior & retention tracking |
+
 
 ---
 
@@ -60,18 +62,36 @@ The live/coming-soon split is managed via the `city_config` table in Supabase. A
 
 **DB:** `supabase/migrations/20260420000000_city_config.sql` — run `supabase db push` after merging.
 
-**DB (security / WP tooling):** `20260415000000_wp_users_backup.sql` (optional `wp_users_backup` staging table), `20260415100000_security_fixes.sql` (RLS, `active_events` security invoker), `20260415110000_fix_function_search_paths.sql` (`SET search_path` on flagged functions). Apply with `supabase db push` in order.
+**DB (security / WP tooling):** `20260415000000_wp_users_backup.sql` (optional `wp_users_backup` staging table), `20260415100000_security_fixes.sql` (RLS, `active_events` security invoker), `20260415110000_fix_function_search_paths.sql` (`SET search_path` on flagged functions), `20260422130000_wp_users_email_lower_unique.sql` (optional unique index on `lower(trim(user_email))` for `public."wp-users"` — required only if you want the DB to reject duplicate emails), `20260422143000_password_reset_sends.sql` (`password_reset_sends` + RPCs for batched reset emails). Apply with `supabase db push` in order.
 
 ## Local Dev
 
 - Run: `npm run dev` (localhost:3000).
-- Required env: `NEXT_PUBLIC_APP_URL` (e.g. http://localhost:3000), `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`; server-side: `SUPABASE_SERVICE_ROLE_KEY` for admin/DB.
+- Required env: `NEXT_PUBLIC_APP_URL` (e.g. [http://localhost:3000](http://localhost:3000)), `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`; server-side: `SUPABASE_SERVICE_ROLE_KEY` for admin/DB.
+- **WordPress `wp-users` CSV import:** `npm run import:wp-users -- --file "./path/to/export.csv" [--dry-run] [--yes] [--via rest|postgres] [--batch-size 200]`
+  - **Auto:** if `DATABASE_URL` or `SUPABASE_DB_URL` is set → Postgres `COPY`. Otherwise → PostgREST batch `POST` with `NEXT_PUBLIC_SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` (typical `.env.local` setup).
+  - Use `--via rest` to force REST when a DB URL is also set. Direct Postgres URI (port 5432) remains optional for the fastest path.
+  - Dry-run never writes. REST path maps `meta:billing_`* / `meta:shipping_*` and `is_guest_user` → `is_geuest_user`. Optional unique index: `supabase/migrations/20260422130000_wp_users_email_lower_unique.sql`.
+  - **WP → Supabase Auth + `profiles`:** `node scripts/migrate-wp-users.cjs --dry-run` (preview) / `--all` (no row cap) / `--min-wp-id 6000` (only rows with `ID` ≥ 6000 — avoids re-scanning long prefixes that are already migrated). Unserializes PHP `meta:gender` / `meta:attracted` / `meta:Looking` and `meta:submitted` so `gender`, `attracted_to`, `orientation.lookingFor`, and `reason` are not left null when the only copy lives in serialized WP meta. Uses devDependency `php-serialize`.
+- **Batched password resets (approved users only):** apply migrations `20260422143000_password_reset_sends.sql` and `20260423140000_password_reset_batch_wp_users_only.sql`. **Batch 1 / batch 2** only include profiles whose email appears in **`public."wp-users"`** when that table exists (WP export cohort); native signups without a matching WP row are skipped. If `"wp-users"` is absent, behavior is unchanged (all eligible approved users). Env: `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`. For **links inside reset emails**, set **`APP_BASE_URL` or `APP_URL` to production** (e.g. `https://app.thisisneverstrangers.com`) so they are not `localhost` when `NEXT_PUBLIC_APP_URL` is dev-only. Plus `EMAIL_PROVIDER` / `RESEND_API_KEY` or `ENVLOPED_API_KEY` / `EMAIL_FROM` as in `lib/email/provider.ts`.
+  - **Batch 0 (manual):**  
+  `npm run send:password-resets -- --batch batch0 --emails "mikhail@example.com,angelo@example.com" --dry-run`  
+  `npm run send:password-resets -- --batch batch0 --emails "mikhail@example.com,angelo@example.com" --yes`
+  - **Batch 1 (newest 500):**  
+  `npm run send:password-resets -- --batch batch1 --dry-run`  
+  `npm run send:password-resets -- --batch batch1 --yes`
+  - **Batch 2 (next 2000, cursor paging):**  
+  `npm run send:password-resets -- --batch batch2 --dry-run`  
+  `npm run send:password-resets -- --batch batch2 --yes`  
+  `npm run send:password-resets -- --batch batch2 --cursor "2026-04-10T00:00:00.000Z" --yes`  
+  Uses `auth.admin.generateLink` + `lib/email/resetPasswordHtml.js`; logs each attempt to `password_reset_sends`. JSON reports: `scripts/.seed-output/password-resets-{batch}-{timestamp}.json`.
 
 ---
 
 ## 💡 Core Functionality
 
 ### 👤 User Onboarding
+
 - **Basic Profile Setup** (`/onboarding`)
   - Name, email, city collection
   - Interest selection (Running, Books, Coffee, Tech, Fitness, Cinema)
@@ -88,6 +108,7 @@ The live/coming-soon split is managed via the `city_config` table in Supabase. A
   - Category-based question browsing
 
 ### 🎟️ Events Management
+
 - **Events Feed** (`/events`)
   - Event listing with city and date information
   - City filter lists every **live** city from `city_config` (same source as registration/profile), in `sort_order`, plus any extra `events.city` values not in that list. Choosing a city filters the grid client-side; the default selection is the user’s profile city when set.
@@ -100,12 +121,14 @@ The live/coming-soon split is managed via the `city_config` table in Supabase. A
   - Multi-step wizard interface with modern UI components
 
 ### 🎯 Matching System
+
 - **Match Preview** (`/match`)
   - Matches revealed in **exactly 3 rounds** (Round 1, 2, 3); full-screen 3→2→1 countdown when each round is revealed, **triggered by the admin** (Reveal Round 1 / 2 / 3).
   - Display potential matches with profile information (name, score, aligned/mismatched reasons).
   - Card-based match presentation; attendees passively receive one match per round when the host reveals each round. See `docs/MATCH_REVEAL_AND_CHECKIN.md`.
 
 ### 🧮 Admin Dashboard
+
 - **Main Dashboard** (`/admin`)
   - KPI metrics: Total Events, Active Users, This Month's events
   - Community members list with join dates
@@ -123,6 +146,7 @@ The live/coming-soon split is managed via the `city_config` table in Supabase. A
 ## 📊 Implementation Status
 
 ### ✅ Currently Implemented
+
 - **UI Components**: Complete set of reusable components for flows, forms, cards, and admin panels
 - **Onboarding Flow**: Full multi-step onboarding with profile setup, matching customization, and question builder
 - **Event Creation**: Complete event setup wizard with matching preferences and questionnaire builder
@@ -136,6 +160,7 @@ The live/coming-soon split is managed via the `city_config` table in Supabase. A
 The following features are currently using mock data or localStorage and need database integration:
 
 #### 📝 User Registration & Authentication
+
 - **Phone Login (Demo)** (`/register`)
   - Name + Singapore phone only (`+65xxxxxxxx`)
   - Creates a local demo user profile in `localStorage` (`ns_users`)
@@ -145,19 +170,22 @@ The following features are currently using mock data or localStorage and need da
 ## Phone Login (Current) and Future Infra
 
 **Current (internal demo):** Auth is client-only and stored in browser `localStorage`.
+
 - **Session**: `ns_session` (current userId/phone/name/role)
 - **Users**: `ns_users` (demo user profiles)
 - **Security note**: This is not secure and is for demos only.
 
 **Next steps (production-ready):**
-1) Supabase Auth (Phone OTP) **or** Twilio/MessageBird/WhatsApp OTP  
-2) Store users in Supabase Postgres (`profiles` table)  
-3) Rate limiting + bot protection  
-4) Normalize phone numbers (E.164) + expand beyond SG  
-5) Session cookies (httpOnly) instead of `localStorage`  
-6) Audit logs for host/admin actions  
+
+1. Supabase Auth (Phone OTP) **or** Twilio/MessageBird/WhatsApp OTP  
+2. Store users in Supabase Postgres (`profiles` table)  
+3. Rate limiting + bot protection  
+4. Normalize phone numbers (E.164) + expand beyond SG  
+5. Session cookies (httpOnly) instead of `localStorage`  
+6. Audit logs for host/admin actions
 
 #### 👤 User Profiles & Onboarding
+
 - **Basic Onboarding** (`/onboarding`)
   - Form data stored in `localStorage`
   - No profile persistence
@@ -169,6 +197,7 @@ The following features are currently using mock data or localStorage and need da
   - No question library database
 
 #### 🎟️ Events Management
+
 - **Events Listing** (`/events`)
   - Events stored in `localStorage`
   - No database persistence
@@ -183,6 +212,7 @@ The following features are currently using mock data or localStorage and need da
   - No email notifications
 
 #### 🎯 Matching System
+
 - **Match Preview** (`/match`)
   - Uses hardcoded `mockMatches` array
   - No real matching algorithm
@@ -192,6 +222,7 @@ The following features are currently using mock data or localStorage and need da
   - No AI embeddings (OpenAI + pgvector) for similarity beyond the questionnaire score
 
 #### 🧮 Admin Dashboard
+
 - **KPIs** (`/admin`)
   - Hardcoded values from `lib/admin/mock.ts`
   - No real-time analytics
@@ -204,7 +235,9 @@ The following features are currently using mock data or localStorage and need da
 - **Past Events** (`/admin`)
   - Mock data from `lib/admin/mock.ts`
   - No event history tracking
+
 #### 📚 Question Library
+
 - **Question Database** (`lib/events/new/mock.ts`)
   - Hardcoded 72 questions
   - No database storage
@@ -235,12 +268,14 @@ The demo version now enforces all business rules end-to-end using localStorage a
 ### 🎬 CEO Demo Script
 
 **Step 1: Create Users**
+
 1. Navigate to `/register`
 2. Fill out registration form (email, name, city, gender, etc.)
 3. Submit → OTP page appears
 4. Enter OTP: `123456` → Account created with status `PENDING`
 
 **Step 2: Admin Approval**
+
 1. Switch to Admin role (top right)
 2. Go to `/admin` → "User Approvals" tab
 3. Click "Approve" on pending user
@@ -248,6 +283,7 @@ The demo version now enforces all business rules end-to-end using localStorage a
 5. User's city is now locked
 
 **Step 3: Answer Questions & RSVP**
+
 1. Switch back to approved user
 2. Go to `/events` → See events in user's city only
 3. Click on event → Answer at least 10 questions (if not done)
@@ -255,6 +291,7 @@ The demo version now enforces all business rules end-to-end using localStorage a
 5. Click "Pay Now" → Mock payment → RSVP becomes CONFIRMED
 
 **Step 4: Check-in & Matching**
+
 1. Switch to Admin → `/admin` → "Events" tab
 2. Find event → Check in all confirmed attendees
 3. When all checked in → "Run Matching" button appears
@@ -262,6 +299,7 @@ The demo version now enforces all business rules end-to-end using localStorage a
 5. Users receive match notifications
 
 **Step 5: Mutual Like & Chat**
+
 1. Switch to user → `/match` → Select event
 2. See matches → Click "Like" on a match
 3. If other user also likes → Mutual like notification
@@ -269,6 +307,7 @@ The demo version now enforces all business rules end-to-end using localStorage a
 5. Chat is gated: only works if mutual like exists
 
 **Step 6: Test Edge Cases**
+
 - Try RSVPing to overlapping events → Blocked
 - Let RSVP hold expire → Seat released
 - Fill event capacity → Next RSVP goes to waitlist
@@ -276,15 +315,17 @@ The demo version now enforces all business rules end-to-end using localStorage a
 
 ### 📋 Demo vs Production
 
-| Feature | Demo | Production |
-|---------|------|------------|
-| Data Storage | localStorage | PostgreSQL |
-| Authentication | Mock OTP | Real email OTP |
-| Payments | Mock button | Stripe/PayPal |
-| Notifications | In-app + console.log | Email + Push |
-| Background Jobs | None | Job queue |
-| Real-time | BroadcastChannel | WebSockets |
-| Security | Minimal | Full hardening |
+
+| Feature         | Demo                 | Production     |
+| --------------- | -------------------- | -------------- |
+| Data Storage    | localStorage         | PostgreSQL     |
+| Authentication  | Mock OTP             | Real email OTP |
+| Payments        | Mock button          | Stripe/PayPal  |
+| Notifications   | In-app + console.log | Email + Push   |
+| Background Jobs | None                 | Job queue      |
+| Real-time       | BroadcastChannel     | WebSockets     |
+| Security        | Minimal              | Full hardening |
+
 
 See [docs/production-todos.md](./docs/production-todos.md) for complete production checklist.
 
@@ -405,6 +446,7 @@ CREATE INDEX idx_followers_following ON followers(following_id);
 ```
 
 #### 1.2 Authentication Flow
+
 - **Supabase Auth Integration**
   - Email/password authentication
   - Magic link authentication
@@ -414,6 +456,7 @@ CREATE INDEX idx_followers_following ON followers(following_id);
   - Role-based access control (admin, organizer, user)
 
 #### 1.3 File Storage
+
 - **Supabase Storage**
   - Profile photos: `profiles/{user_id}/photo.jpg`
   - Event images: `events/{event_id}/images/`
@@ -424,6 +467,7 @@ CREATE INDEX idx_followers_following ON followers(following_id);
 ### Phase 2: Core Features Implementation
 
 #### 2.1 User Registration & Profiles
+
 - Replace `localStorage` with Supabase `profiles` table
 - Implement profile photo upload to Supabase Storage
 - Add email verification workflow
@@ -431,6 +475,7 @@ CREATE INDEX idx_followers_following ON followers(following_id);
 - Implement profile completion tracking
 
 #### 2.2 Events Management
+
 - Replace `localStorage` with Supabase `events` table
 - Implement event CRUD operations
 - Add event slug generation and validation
@@ -438,12 +483,14 @@ CREATE INDEX idx_followers_following ON followers(following_id);
 - Implement event status workflow (draft → active → completed)
 
 #### 2.3 Question Library
+
 - Migrate questions from `lib/events/new/mock.ts` to `questions` table
 - Create question management API
 - Add question categories management
 - Implement question search and filtering
 
 #### 2.4 Event Signups
+
 - Replace mock signups with `event_signups` table
 - Implement signup form with question answers
 - Add signup approval workflow
@@ -454,6 +501,7 @@ CREATE INDEX idx_followers_following ON followers(following_id);
 ### Phase 3: Matching Algorithm
 
 #### 3.1 AI Embeddings Generation
+
 - **OpenAI Integration**
   - Generate embeddings for user profiles
   - Combine: bio, interests, answers, preferences
@@ -461,6 +509,7 @@ CREATE INDEX idx_followers_following ON followers(following_id);
   - Update embeddings when profile changes
 
 #### 3.2 Matching Algorithm
+
 - **Similarity Calculation**
   - Use pgvector cosine similarity
   - Calculate compatibility scores (0-100)
@@ -468,6 +517,7 @@ CREATE INDEX idx_followers_following ON followers(following_id);
   - Group matches by type (romantic vs friend)
 
 #### 3.3 Match Generation API
+
 - Create `/api/events/[id]/matches` endpoint
 - Run matching algorithm for event signups
 - Store results in `matches` table
@@ -478,6 +528,7 @@ CREATE INDEX idx_followers_following ON followers(following_id);
 ### Phase 4: Admin Dashboard
 
 #### 4.1 Real-time KPIs
+
 - Query Supabase for:
   - Total events count
   - Active users (last 30 days)
@@ -486,12 +537,14 @@ CREATE INDEX idx_followers_following ON followers(following_id);
   - Signup conversion rates
 
 #### 4.2 Community Management
+
 - Replace mock data with `followers` table queries
 - Implement follower search and filtering
 - Add follower export functionality
 - Create follower analytics
 
 #### 4.3 Event Management
+
 - Load real events from database
 - Implement event filtering and search
 - Add event status management
@@ -502,6 +555,7 @@ CREATE INDEX idx_followers_following ON followers(following_id);
 ### Phase 5: Additional Features
 
 #### 5.1 Email Notifications
+
 - **Email Service Integration** (SendGrid/Resend)
   - Registration confirmation
   - Profile verification status
@@ -510,6 +564,7 @@ CREATE INDEX idx_followers_following ON followers(following_id);
   - Event reminders
 
 #### 5.2 Billing Integration
+
 - **Payment Processing** (Stripe)
   - Tier-based pricing
   - Per-guest billing
@@ -517,6 +572,7 @@ CREATE INDEX idx_followers_following ON followers(following_id);
   - Invoice generation
 
 #### 5.3 Analytics
+
 - **PostHog/Plausible Integration**
   - User behavior tracking
   - Event conversion funnels
@@ -528,12 +584,14 @@ CREATE INDEX idx_followers_following ON followers(following_id);
 ### Phase 6: Performance & Security
 
 #### 6.1 Database Optimization
+
 - Add database indexes for common queries
 - Implement query optimization
 - Set up connection pooling
 - Add caching layer (Redis)
 
 #### 6.2 Security
+
 - Implement Row Level Security (RLS) policies
 - Add rate limiting
 - Input validation and sanitization
@@ -541,6 +599,7 @@ CREATE INDEX idx_followers_following ON followers(following_id);
 - XSS prevention
 
 #### 6.3 Monitoring
+
 - Error tracking (Sentry)
 - Performance monitoring
 - Database query monitoring
@@ -666,11 +725,13 @@ npm run reset:events
 ```
 
 Safety:
+
 - `cleanup:events` and `seed:events` **require** `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`.
 - `seed:events` and `reset:events` require `SEED_CONFIRM=true` and will refuse to run when `NODE_ENV="production"` unless `SEED_CONFIRM=true` is set.
 - `cleanup:events --dry-run` shows how many rows per table *would* be deleted without changing data.
 
 The seeding script creates events **without any match_results or reveal state** (admin runs matching from the UI):
+
 - **Past** Friends Mixer (Free)
 - **Future** Friends Mixer (Free) — attendee `payment_status` should be `free`/`not_required`
 - Dating Night (Paid Single Price) — Stripe before questions
@@ -729,6 +790,7 @@ npm run seed:dating-30
 ```
 
 What this creates:
+
 - **1 event** — `[SEED:DATING30] Bangkok Dating Night`, Bangkok, category=`dating`, payment_required=true, Apr 5 2026
 - **30 auth users + profiles** — status=`approved`, 18 female / 12 male, with realistic names, DOBs, answer vectors (4 archetypes + noise)
 - **30 attendees** — `payment_status=paid`, `ticket_status=paid`, `checked_in=true`, `paid_at` + `checked_in_at` set
@@ -812,27 +874,47 @@ These scripts handle importing real users and event bookings from the WordPress/
 
 The production flow for a real event (e.g. Call a Cupid):
 
-1. **Import Amelia bookings** — creates Supabase auth users + profiles + `event_attendees` rows for all paid bookings
-2. **Sync WP profile data** — fills in gender, attracted_to, orientation, dob, city, instagram, reason from WordPress user meta
-3. **Send password reset emails** — lets new users set their password and log in
+1. **Import Amelia events** (optional) — see **Step 0** below (`import-amelia-events.cjs --from-json`). Merge paginated API responses by passing multiple JSON files.
+2. **Import Amelia bookings** — creates Supabase auth users + profiles + `event_attendees` rows for all paid bookings
+3. **Sync WP profile data** — fills in gender, attracted_to, orientation, dob, city, instagram, reason from WordPress user meta
+4. **Send password reset emails** — lets new users set their password and log in
+
+---
+
+### Step 0 — Import Amelia events (optional)
+
+Creates `events` rows from the same Amelia REST shape as `{ "data": { "events": [ … ] } }`.
+
+Save each API page to a real file under `scripts/backups/` (or anywhere); the `amelia-events-page*.json` names below are **examples only** — those files are not in the repo until you create them.
+
+```bash
+node scripts/import-amelia-events.cjs --from-json ./scripts/backups/my-amelia-events-page1.json
+CONFIRM=true node scripts/import-amelia-events.cjs --from-json ./scripts/backups/my-amelia-events-page1.json ./scripts/backups/my-amelia-events-page2.json
+# Single Amelia event only; skip if that title already exists (insert-only, never updates rows):
+CONFIRM=true node scripts/import-amelia-events.cjs --from-json ./scripts/backups/amelia-great-bali-getaway-112.json --only-ids 112 --skip-if-title-exists
+```
 
 ---
 
 ### Step 1 — Import Amelia bookings
 
 Takes a JSON export of Amelia bookings (approved + paid) and:
+
 - Creates Supabase auth users for emails not yet registered
 - Creates `profiles` (name + gender inferred from ticket type, `status=approved`, `city=sg`)
 - Adds rows to `event_attendees` (`payment_status=paid`, `ticket_status=paid`)
 - Skips users already in `event_attendees` for that event
 
 **Ticket ID → gender mapping** (event 125 / Call a Cupid):
-| Ticket ID | Type | Gender |
-|---|---|---|
-| 303 | Male | male |
-| 304 | Female | female |
-| 305 | Early Bird Male | male |
-| 306 | Early Bird Female | female |
+
+
+| Ticket ID | Type              | Gender |
+| --------- | ----------------- | ------ |
+| 303       | Male              | male   |
+| 304       | Female            | female |
+| 305       | Early Bird Male   | male   |
+| 306       | Early Bird Female | female |
+
 
 ```bash
 # See scripts/import-amelia-bookings-event125.cjs for the canonical import script
@@ -844,13 +926,20 @@ CONFIRM=true node scripts/import-amelia-bookings-event125.cjs
 
 ### Step 2 — Sync WordPress profile data
 
-After users are created, pull their full profile data from WordPress using the ACP (Admin Columns Pro) plugin API.
+After users are created, you can backfill `profiles` from either **live WordPress (ACP)** or **`public."wp-users"` already stored in Supabase** (no WP login; uses the same PHP meta parser as `migrate-wp-users.cjs`).
 
-**Requires:**
-- Fresh WP admin session cookies (copy from DevTools → any XHR → Copy as cURL → grab `-b "..."`)
-- ACP nonce (from any working ACP AJAX request in DevTools → FormData → `_ajax_nonce`)
+**Option A — from Supabase `wp-users` (no `--cookies` / `--nonce`)**
 
-**Populates:** `gender`, `attracted_to`, `orientation` (lookingFor), `dob`, `city`, `instagram`, `reason`, `wp_user_id`
+```bash
+node scripts/update-profiles-from-wp.cjs --from-wp-table magicalice1114@example.com --dry-run
+node scripts/update-profiles-from-wp.cjs --from-wp-table --all --dry-run
+```
+
+**Option B — live ACP (Admin Columns Pro) API**
+
+**Requires:** Fresh WP admin session cookies; ACP nonce from a working ACP AJAX request.
+
+**Populates (both options):** `gender`, `attracted_to`, `orientation` (lookingFor), `dob`, `city`, `instagram`, `reason`, and (Option A) `profile_photo_url` / `phone_e164` when empty.
 
 ```bash
 # Dry run (shows what would be patched, nothing written)
@@ -872,6 +961,7 @@ node scripts/update-profiles-from-wp.cjs \
 ```
 
 **Getting cookies and nonce:**
+
 1. Open WP admin → Users page (`/wp-admin/users.php?layout=67610f8391ada`)
 2. Open DevTools → Network tab
 3. Click any user row to trigger an inline edit / ACP request
@@ -921,7 +1011,6 @@ node scripts/send-reset-passwords.cjs \
   maryanahermawan@gmail.com
 ```
 
-
 ---
 
 ## 🚀 Deployment to Vercel
@@ -949,43 +1038,38 @@ git push -u origin main
 ### Step 2: Deploy to Vercel
 
 1. **Go to [Vercel](https://vercel.com)** and sign in (or create an account)
-
 2. **Import your GitHub repository:**
-   - Click "Add New..." → "Project"
-   - Import your GitHub repository
-   - Vercel will auto-detect Next.js settings
-
+  - Click "Add New..." → "Project"
+  - Import your GitHub repository
+  - Vercel will auto-detect Next.js settings
 3. **Configure Environment Variables:**
-   - In the project settings, go to "Environment Variables"
-   - Add the following variables:
-     - `NEXT_PUBLIC_SUPABASE_URL` - Your Supabase project URL
-     - `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Your Supabase anonymous key
-   - Make sure to add them for **Production**, **Preview**, and **Development** environments
-
+  - In the project settings, go to "Environment Variables"
+  - Add the following variables:
+    - `NEXT_PUBLIC_SUPABASE_URL` - Your Supabase project URL
+    - `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Your Supabase anonymous key
+  - Make sure to add them for **Production**, **Preview**, and **Development** environments
 4. **Deploy:**
-   - Click "Deploy"
-   - Vercel will build and deploy your app automatically
-   - You'll get a URL like `your-app.vercel.app`
+  - Click "Deploy"
+  - Vercel will build and deploy your app automatically
+  - You'll get a URL like `your-app.vercel.app`
 
 ### Step 3: Configure Custom Domain (app.domain.com)
 
 1. **In Vercel Dashboard:**
-   - Go to your project → "Settings" → "Domains"
-   - Click "Add Domain"
-   - Enter `app.domain.com` (replace `domain.com` with your actual domain)
-
+  - Go to your project → "Settings" → "Domains"
+  - Click "Add Domain"
+  - Enter `app.domain.com` (replace `domain.com` with your actual domain)
 2. **Configure DNS:**
-   - Vercel will show you DNS records to add
-   - Go to your domain registrar (where you bought the domain)
-   - Add a **CNAME record**:
-     - **Name/Host:** `app`
-     - **Value/Target:** `cname.vercel-dns.com` (or the specific value Vercel provides)
-     - **TTL:** 3600 (or default)
-
+  - Vercel will show you DNS records to add
+  - Go to your domain registrar (where you bought the domain)
+  - Add a **CNAME record**:
+    - **Name/Host:** `app`
+    - **Value/Target:** `cname.vercel-dns.com` (or the specific value Vercel provides)
+    - **TTL:** 3600 (or default)
 3. **Wait for DNS Propagation:**
-   - DNS changes can take a few minutes to 48 hours
-   - Vercel will automatically detect when DNS is configured correctly
-   - Once verified, your app will be live at `app.domain.com`
+  - DNS changes can take a few minutes to 48 hours
+  - Vercel will automatically detect when DNS is configured correctly
+  - Once verified, your app will be live at `app.domain.com`
 
 ### Alternative: Using Vercel CLI
 
@@ -1008,6 +1092,7 @@ vercel --prod
 ### Environment Variables in Vercel
 
 After deployment, you can add/update environment variables:
+
 - Via Dashboard: Project → Settings → Environment Variables
 - Via CLI: `vercel env add VARIABLE_NAME`
 
@@ -1034,21 +1119,21 @@ Enable a fast matching demo that skips event RSVP/payment/check-in and uses pres
 NEXT_PUBLIC_PILOT_PRESEED=true
 ```
 
-2. Start the app:
+1. Start the app:
 
 ```bash
 npm run dev
 ```
 
-3. Sign in (Supabase Auth if configured) or use the existing demo flow.
-   - If the signed-in email matches an entry in `lib/pilot/preseedUsers.ts`, you’ll be mapped to that preseed profile.
-   - If there’s no match, a new deterministic pilot profile is created with default answers \(= 3\).
+1. Sign in (Supabase Auth if configured) or use the existing demo flow.
+  - If the signed-in email matches an entry in `lib/pilot/preseedUsers.ts`, you’ll be mapped to that preseed profile.
+  - If there’s no match, a new deterministic pilot profile is created with default answers = 3.
 
 ### Using the dashboard
 
 - Visit `/match` (it will redirect to `/pilot` when the flag is enabled)
 - The Pilot dashboard shows:
-  - Top matches + score \(0–100\)
+  - Top matches + score 0–100
   - Why you matched (top aligned questions + top mismatch)
   - Optional: edit 10 answers and re-run instantly
 
@@ -1072,6 +1157,7 @@ The app also includes a **demo-ready mocked realtime chat** system for CEO demon
 ### How It Works
 
 The chat system uses:
+
 - **BroadcastChannel API** for realtime synchronization between tabs
 - **localStorage** for message persistence
 - **Window Storage Events** as a fallback for Safari compatibility
@@ -1079,32 +1165,28 @@ The chat system uses:
 ### Demo Instructions
 
 1. **Open Two Browser Tabs**:
-   - Navigate to the app in both tabs
-   - Go to `/messages` in both tabs
-
+  - Navigate to the app in both tabs
+  - Go to `/messages` in both tabs
 2. **Select Different Users**:
-   - In Tab 1: Click the user dropdown in the header → Select "Mikhail"
-   - In Tab 2: Click the user dropdown in the header → Select "Anna"
-
+  - In Tab 1: Click the user dropdown in the header → Select "Mikhail"
+  - In Tab 2: Click the user dropdown in the header → Select "Anna"
 3. **Start a Conversation**:
-   - In Tab 1: Go to `/match` → Click "Message" on Anna's profile
-   - This creates a conversation and opens the chat thread
-
+  - In Tab 1: Go to `/match` → Click "Message" on Anna's profile
+  - This creates a conversation and opens the chat thread
 4. **Send Messages**:
-   - Type a message in Tab 1 and click "Send"
-   - The message will instantly appear in Tab 2
-   - Messages persist in localStorage, so refreshing won't lose data
-
+  - Type a message in Tab 1 and click "Send"
+  - The message will instantly appear in Tab 2
+  - Messages persist in localStorage, so refreshing won't lose data
 5. **Test Realtime Sync**:
-   - Send messages from either tab
-   - Watch them appear instantly in the other tab
-   - Try typing (you'll see "Typing..." indicator)
+  - Send messages from either tab
+  - Watch them appear instantly in the other tab
+  - Try typing (you'll see "Typing..." indicator)
 
 ### Features
 
 - ✅ **Realtime sync** between tabs using BroadcastChannel
 - ✅ **Message persistence** in localStorage
-- ✅ **User switching** via dropdown in chat header
+- ✅ **User switching** via dropdown in chat eader
 - ✅ **Conversation list** with last message preview and timestamps
 - ✅ **Unread badges** (fake, based on message count)
 - ✅ **Message bubbles** aligned left/right based on sender
@@ -1148,12 +1230,11 @@ NEXT_PUBLIC_CHAT_MODE=mock
 
 The chat system respects feature flags:
 
-- **`NEXT_PUBLIC_ENABLE_CHAT`**: 
+- `**NEXT_PUBLIC_ENABLE_CHAT**`: 
   - Set to `"false"` to completely disable chat
   - Default behavior: enabled in dev, disabled in prod (fail-safe)
   - When disabled: "Messages" nav link is hidden, routes show "Chat Disabled"
-
-- **`NEXT_PUBLIC_CHAT_MODE`**:
+- `**NEXT_PUBLIC_CHAT_MODE**`:
   - `"mock"` (default): Uses BroadcastChannel + localStorage
   - `"supabase"`: Future production mode (not implemented yet)
 
@@ -1168,11 +1249,13 @@ The demo chat is designed to be easily removable when transitioning to productio
 #### Option 1: Disable via Environment Variable (Recommended)
 
 Set in Vercel environment variables:
+
 ```bash
 NEXT_PUBLIC_ENABLE_CHAT=false
 ```
 
 This will:
+
 - Hide the "Messages" nav link
 - Show "Chat Disabled" message on chat routes
 - Keep code intact for future use
@@ -1212,14 +1295,14 @@ And remove the Message button from `app/match/page.tsx`.
 
 #### Cleanup Checklist
 
-- [ ] Remove chat routes (`app/messages/*`)
-- [ ] Remove chat components (`components/Chat/*`)
-- [ ] Remove chat store (`lib/chatStore.ts`)
-- [ ] Remove chat types (`types/chat.ts`)
-- [ ] Remove Messages nav link from layout
-- [ ] Remove Message buttons from match page
-- [ ] Remove chat-related environment variables from `.env.example`
-- [ ] Update README to remove chat documentation
+- Remove chat routes (`app/messages/`*)
+- Remove chat components (`components/Chat/*`)
+- Remove chat store (`lib/chatStore.ts`)
+- Remove chat types (`types/chat.ts`)
+- Remove Messages nav link from layout
+- Remove Message buttons from match page
+- Remove chat-related environment variables from `.env.example`
+- Update README to remove chat documentation
 
 ---
 
@@ -1239,56 +1322,48 @@ The app includes a complete, deterministic demo flow that works entirely with lo
 ### Running the Demo
 
 1. **Start the development server:**
-   ```bash
+  ```bash
    npm run dev
-   ```
-
+  ```
 2. **Run the full happy path E2E test:**
-   ```bash
+  ```bash
    npm run test:e2e -- happy-path.spec.ts
-   ```
+  ```
 
 ### Happy Path Flow
 
 The automated test validates this complete flow:
 
 1. **Registration** → `/register`
-   - Fill name, email, city (Singapore)
-   - Enter OTP: `123456`
-   - Redirects to `/events` with "Pending admin approval" banner
-
+  - Fill name, email, city (Singapore)
+  - Enter OTP: `123456`
+  - Redirects to `/events` with "Pending admin approval" banner
 2. **Admin Approval** → `/admin`
-   - Switch to Admin role
-   - Approve user → City locked + notification sent
-
+  - Switch to Admin role
+  - Approve user → City locked + notification sent
 3. **Answer Questions** → `/events/[eventId]/questions`
-   - Shows exactly 10 questions
-   - All pre-filled with default value 3 (Agree)
-   - Save answers → Questionnaire completed
-
+  - Shows exactly 10 questions
+  - All pre-filled with default value 3 (Agree)
+  - Save answers → Questionnaire completed
 4. **RSVP** → `/events`
-   - Click "RSVP" → Creates HOLD registration
-   - Click "Pay Now" → Mock payment → CONFIRMED status
-
+  - Click "RSVP" → Creates HOLD registration
+  - Click "Pay Now" → Mock payment → CONFIRMED status
 5. **Check-in & Matching** → `/admin`
-   - Check in attendee
-   - "Check In All" button
-   - "Run Matching Now" appears after all checked in
-   - Creates matches + sends notifications
-
+  - Check in attendee
+  - "Check In All" button
+  - "Run Matching Now" appears after all checked in
+  - Creates matches + sends notifications
 6. **View Matches** → `/match`
-   - Shows matches for attended events in user's city
-   - Displays match score and alignment highlights
-
+  - Shows matches for attended events in user's city
+  - Displays match score and alignment highlights
 7. **Like Match** → Mutual Like
-   - Like a match
-   - Switch to other user → Like back
-   - "Message" button appears on mutual like
-
+  - Like a match
+  - Switch to other user → Like back
+  - "Message" button appears on mutual like
 8. **Chat** → `/messages/[conversationId]`
-   - Message input visible at bottom
-   - Send messages
-   - Realtime sync works across two tabs (BroadcastChannel)
+  - Message input visible at bottom
+  - Send messages
+  - Realtime sync works across two tabs (BroadcastChannel)
 
 ### Feature Flags
 
@@ -1304,6 +1379,7 @@ NEXT_PUBLIC_DEMO_OTP=123456
 ### Deterministic Data
 
 The demo uses fixed IDs and data:
+
 - Event ID: `event_coffee` (Singapore)
 - Admin ID: `admin_001`
 - Demo users: `usr_mikhail`, `usr_anna`, etc.
@@ -1337,15 +1413,15 @@ npm run test:e2e:report
 
 The test suite is organized into focused spec files:
 
-- **`00_smoke.spec.ts`** - Basic page load validation
-- **`01_navigation.spec.ts`** - Navigation and routing
-- **`02_onboarding.spec.ts`** - Onboarding form and validation
-- **`03_events.spec.ts`** - Events listing and joining
-- **`04_match.spec.ts`** - Match feed, like/skip, match creation
-- **`05_chat_realtime.spec.ts`** - Realtime chat in two tabs
-- **`06_feature_flags.spec.ts`** - Feature flag behavior
-- **`07_api_routes.spec.ts`** - API endpoint validation
-- **`happy-path.spec.ts`** - Complete CEO demo flow (registration → matching → chat)
+- `**00_smoke.spec.ts**` - Basic page load validation
+- `**01_navigation.spec.ts**` - Navigation and routing
+- `**02_onboarding.spec.ts**` - Onboarding form and validation
+- `**03_events.spec.ts**` - Events listing and joining
+- `**04_match.spec.ts**` - Match feed, like/skip, match creation
+- `**05_chat_realtime.spec.ts**` - Realtime chat in two tabs
+- `**06_feature_flags.spec.ts**` - Feature flag behavior
+- `**07_api_routes.spec.ts**` - API endpoint validation
+- `**happy-path.spec.ts**` - Complete CEO demo flow (registration → matching → chat)
 
 ### Test Coverage
 
@@ -1364,7 +1440,7 @@ The suite validates:
 
 The E2E tests run in **demo mode** using localStorage:
 
-- All data persists in browser localStorage (prefix: `ns_*`)
+- All data persists in browser localStorage (prefix: `ns_`*)
 - Tests automatically clear localStorage before each run (via `clearNsLocalStorage()`)
 - No database required - perfect for demos
 - Feature flag: `NEXT_PUBLIC_DEMO_MODE=true` (optional)
@@ -1372,12 +1448,14 @@ The E2E tests run in **demo mode** using localStorage:
 ### Running Against Different Environments
 
 **Local Development:**
+
 ```bash
 npm run test:e2e
 # Uses http://localhost:3000 (auto-starts dev server)
 ```
 
 **Deployed Preview (Vercel):**
+
 ```bash
 PLAYWRIGHT_BASE_URL=https://your-preview-url.vercel.app npm run test:e2e
 ```
@@ -1387,31 +1465,39 @@ PLAYWRIGHT_BASE_URL=https://your-preview-url.vercel.app npm run test:e2e
 All UI elements use stable `data-testid` attributes (never fragile CSS selectors):
 
 **Navigation:**
+
 - `nav-home`, `nav-onboarding`, `nav-events`, `nav-match`, `nav-admin`, `nav-messages`
 
 **Home:**
+
 - `home-title`, `home-cta-onboarding`, `home-cta-match`
 
 **Onboarding:**
+
 - `onboarding-name`, `onboarding-email`, `onboarding-city`
 - `onboarding-interest-{name}` (e.g., `onboarding-interest-running`)
 - `onboarding-submit`, `onboarding-success`
 
 **Events:**
+
 - `events-title`, `event-card-{eventId}`, `event-join-{eventId}`, `event-joined-{eventId}`
 
 **Match:**
+
 - `match-title`, `match-card-{userId}`, `match-like-{userId}`, `match-skip-{userId}`
 - `match-created`, `match-message-{userId}`
 
 **Admin:**
+
 - `admin-title`, `admin-users-table`, `admin-events-table`, `admin-matches-table`
 
 **Chat:**
+
 - `messages-title`, `conversation-{conversationId}`, `chat-user-switcher`
 - `chat-thread-title`, `message-input`, `message-send`, `message-bubble-{messageId}`
 
 **Disabled States:**
+
 - `chat-disabled`
 
 ### Test Helpers
@@ -1442,6 +1528,7 @@ For a **shareable, step-by-step demo script** for CEO/stakeholder presentations,
 📖 **[docs/CEO_DEMO_SCRIPT.md](./docs/CEO_DEMO_SCRIPT.md)**
 
 This script includes:
+
 - 5-minute narrative structure
 - Step-by-step click path
 - "What's mocked vs real" section
@@ -1493,6 +1580,7 @@ The app includes a **demo-ready questionnaire-based matching algorithm** that pr
 #### Answer Scale
 
 Users answer questions on a 1-4 scale:
+
 - **1 = Strongly Disagree**
 - **2 = Disagree**
 - **3 = Agree**
@@ -1510,38 +1598,36 @@ The questionnaire includes 17 questions across 4 categories:
 #### Matching Algorithm
 
 1. **Similarity Calculation per Question**
-   - Difference: `diff = abs(answerA - answerB)` (range: 0-3)
-   - Similarity: `sim = 1 - diff/3` (range: 0-1)
-     - Identical answers (diff=0) → sim=1.0
-     - One point difference (diff=1) → sim=0.67
-     - Two point difference (diff=2) → sim=0.33
-     - Maximum difference (diff=3) → sim=0.0
-
+  - Difference: `diff = abs(answerA - answerB)` (range: 0-3)
+  - Similarity: `sim = 1 - diff/3` (range: 0-1)
+    - Identical answers (diff=0) → sim=1.0
+    - One point difference (diff=1) → sim=0.67
+    - Two point difference (diff=2) → sim=0.33
+    - Maximum difference (diff=3) → sim=0.0
 2. **Weighted Score Calculation**
-   - Each question has a weight (default: 1, important questions: 2-3)
-   - Weighted average: `score = sum(weight_i × sim_i) / sum(weight_i)`
-   - Final score: `round(score × 100)` → 0-100 scale
-
+  - Each question has a weight (default: 1, important questions: 2-3)
+  - Weighted average: `score = sum(weight_i × sim_i) / sum(weight_i)`
+  - Final score: `round(score × 100)` → 0-100 scale
 3. **Dealbreakers**
-   - Questions marked as `isDealbreaker: true` enforce strict matching
-   - If `diff >= 2` on a dealbreaker question → candidate is **excluded** (score = null)
-   - Example dealbreakers:
-     - "I enjoy large social gatherings" vs "I prefer deep 1:1 conversations"
-     - These represent fundamental lifestyle incompatibilities
-
+  - Questions marked as `isDealbreaker: true` enforce strict matching
+  - If `diff >= 2` on a dealbreaker question → candidate is **excluded** (score = null)
+  - Example dealbreakers:
+    - "I enjoy large social gatherings" vs "I prefer deep 1:1 conversations"
+    - These represent fundamental lifestyle incompatibilities
 4. **Match Explanations**
-   - **Aligned Reasons** (top 3):
-     - Questions with highest similarity scores
-     - Prefers perfect matches (sim=1.0)
-     - Format: "You both agree: [question text]"
-   - **Mismatched Reasons** (top 1-2):
-     - Questions with lowest similarity scores
-     - Highlights areas of difference
-     - Format: "You differ on: [question text]"
+  - **Aligned Reasons** (top 3):
+    - Questions with highest similarity scores
+    - Prefers perfect matches (sim=1.0)
+    - Format: "You both agree: [question text]"
+  - **Mismatched Reasons** (top 1-2):
+    - Questions with lowest similarity scores
+    - Highlights areas of difference
+    - Format: "You differ on: [question text]"
 
 ### Demo Users Dataset
 
 The system includes **25 demo users** with realistic answer patterns:
+
 - Varied cities: Singapore, Hong Kong, Bangkok, Tokyo
 - Different genders and intents (Romantic, Platonic, Professional)
 - Diverse answer patterns to ensure varied match scores
@@ -1555,7 +1641,6 @@ The matching algorithm is gated behind `NEXT_PUBLIC_DEMO_MODE`:
   - Questionnaire appears in onboarding
   - Match page uses algorithm to rank candidates
   - Shows match scores, alignment reasons, and differences
-
 - **Disabled** (not set or `false`):
   - Questionnaire hidden in onboarding
   - Match page shows placeholder message
@@ -1580,17 +1665,15 @@ The matching algorithm is gated behind `NEXT_PUBLIC_DEMO_MODE`:
 This questionnaire-based approach can be upgraded to AI embeddings:
 
 1. **Phase 1 (Current)**: Questionnaire-based matching
-   - Fast, explainable, deterministic
-   - Perfect for MVP and demos
-
+  - Fast, explainable, deterministic
+  - Perfect for MVP and demos
 2. **Phase 2 (Future)**: Hybrid approach
-   - Combine questionnaire scores with embedding similarity
-   - Weighted combination: `final_score = 0.6 × questionnaire + 0.4 × embedding`
-
+  - Combine questionnaire scores with embedding similarity
+  - Weighted combination: `final_score = 0.6 × questionnaire + 0.4 × embedding`
 3. **Phase 3 (Future)**: Full AI embeddings
-   - Generate embeddings from user profiles + questionnaire answers
-   - Use pgvector cosine similarity for matching
-   - Keep questionnaire for explainability
+  - Generate embeddings from user profiles + questionnaire answers
+  - Use pgvector cosine similarity for matching
+  - Keep questionnaire for explainability
 
 ### File Structure
 
@@ -1635,6 +1718,7 @@ const matches = getMatchesForUser(currentUser, DEMO_USERS);
 ### Testing
 
 The matching algorithm is deterministic and can be tested by:
+
 1. Completing onboarding with specific answers
 2. Checking match scores on `/match` page
 3. Verifying alignment/mismatch reasons match expectations
@@ -1647,6 +1731,7 @@ The matching algorithm is deterministic and can be tested by:
 The app now supports four distinct user roles with different access levels:
 
 ### Guest
+
 - **Access**: Only `/register` page
 - **Behavior**: 
   - All other tabs/routes hidden in navigation
@@ -1654,6 +1739,7 @@ The app now supports four distinct user roles with different access levels:
   - Default role for new users
 
 ### User
+
 - **Access**: `/events`, `/match`, `/messages` (if enabled)
 - **Behavior**:
   - Can view events in their city
@@ -1662,6 +1748,7 @@ The app now supports four distinct user roles with different access levels:
   - No global "onboarding" anymore - questionnaires are per-event
 
 ### Host
+
 - **Access**: `/host` (Host Dashboard), `/events` (read-only)
 - **Behavior**:
   - Can create/manage events ONLY in their own city
@@ -1671,6 +1758,7 @@ The app now supports four distinct user roles with different access levels:
   - Host dashboard shows events in host's city only
 
 ### Admin
+
 - **Access**: Full access to all routes
 - **Behavior**:
   - Can do everything host can, plus global management
@@ -1681,6 +1769,7 @@ The app now supports four distinct user roles with different access levels:
 ### Role Switching (Demo Mode)
 
 In demo mode, users can switch roles using the role switcher in the navigation bar:
+
 - Click "Role: [Current Role]" dropdown
 - Select: Guest, User, Host, or Admin
 - Page refreshes to apply role changes
@@ -1696,6 +1785,7 @@ The global onboarding flow has been **removed**. Questionnaires are now **per-ev
 ### Per-Event Questionnaire After RSVP
 
 **New RSVP Flow:**
+
 1. User clicks "RSVP" → Creates HOLD (registration.status="hold")
 2. User clicks "Pay Now" → Confirmed payment (paymentStatus="paid", rsvpStatus="confirmed")
 3. **After payment confirmed**: Questionnaire section appears
@@ -1704,6 +1794,7 @@ The global onboarding flow has been **removed**. Questionnaires are now **per-ev
 6. Only questionnaire-completed attendees can appear in matching for that event
 
 **Matching Eligibility:**
+
 - User must have:
   - `rsvpStatus = "confirmed"` (payment confirmed)
   - `attendanceStatus = "checked_in"` (checked in by host)
@@ -1711,6 +1802,7 @@ The global onboarding flow has been **removed**. Questionnaires are now **per-ev
   - Event must be in user's city
 
 **Questionnaire Behavior:**
+
 - Appears only after RSVP + payment confirmed
 - Exactly 10 questions required
 - All questions pre-filled with default value 3 (Agree)
@@ -1720,11 +1812,13 @@ The global onboarding flow has been **removed**. Questionnaires are now **per-ev
 ### Host Workflow
 
 **Creating Events:**
+
 - Host can only create events in their own city
 - If host tries to create event in another city: blocked
 - Host dashboard shows only events in host's city
 
 **Managing Attendees:**
+
 - Host can view list of registrations with confirmed payment
 - Host can:
   - "Check In" - marks attendee as checked in
@@ -1732,6 +1826,7 @@ The global onboarding flow has been **removed**. Questionnaires are now **per-ev
 - Missing state stored on registration: `attendanceStatus: "checked_in" | "missing" | "none"`
 
 **Running Matching:**
+
 - Only admin can run matching (hosts cannot)
 - Matching only includes attendees who:
   - Payment confirmed
@@ -1742,9 +1837,10 @@ The global onboarding flow has been **removed**. Questionnaires are now **per-ev
 ### Route Guards
 
 The app implements role-based route guards:
+
 - **Guest**: Can only access `/register` and `/` (home)
 - **User**: Can access `/events`, `/match`, `/messages` (if enabled)
-- **Host**: Can access `/host/*` and `/events` (read-only)
+- **Host**: Can access `/host/`* and `/events` (read-only)
 - **Admin**: Can access all routes
 
 If a user tries to access a route they don't have permission for, they are automatically redirected to an allowed route.
@@ -1754,11 +1850,13 @@ If a user tries to access a route they don't have permission for, they are autom
 ## 🧪 Testing the New Roles
 
 ### Test Guest Flow
+
 1. Set role to "Guest" (default)
 2. Try to navigate to `/events` → Should redirect to `/register`
 3. Only "Register" tab visible in navigation
 
 ### Test User Flow
+
 1. Set role to "User"
 2. Register and get approved (or use existing approved user)
 3. Navigate to `/events` → See events in user's city
@@ -1769,6 +1867,7 @@ If a user tries to access a route they don't have permission for, they are autom
 8. Navigate to `/match` → See matches from attended events
 
 ### Test Host Flow
+
 1. Set role to "Host"
 2. Navigate to `/host` → See Host Dashboard
 3. Create event in host's city → Success
@@ -1778,6 +1877,7 @@ If a user tries to access a route they don't have permission for, they are autom
 7. Mark missing attendees → Update attendance status
 
 ### Test Admin Flow
+
 1. Set role to "Admin"
 2. Navigate to `/admin` → See Admin Dashboard
 3. Approve/reject users
@@ -1793,3 +1893,4 @@ If a user tries to access a route they don't have permission for, they are autom
 - Preview deployments are created for pull requests
 - Environment variables are encrypted and secure
 - Custom domains support HTTPS automatically via Vercel's SSL certificates
+
