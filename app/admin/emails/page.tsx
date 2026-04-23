@@ -10,6 +10,7 @@ type TemplateSummary = {
   key: string;
   label: string;
   hasOverride: boolean;
+  enabled: boolean;
   vars: string[];
   requiredVars: string[];
   updatedAt: string | null;
@@ -36,9 +37,41 @@ function formatTimeAgo(iso: string): string {
   return `${days}d ago`;
 }
 
+function Toggle({ enabled, onChange }: { enabled: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={enabled}
+      onClick={() => onChange(!enabled)}
+      className="relative inline-flex items-center rounded-full transition-colors focus:outline-none"
+      style={{
+        width: 40,
+        height: 22,
+        background: enabled ? "#16a34a" : "#d1d5db",
+        flexShrink: 0,
+      }}
+    >
+      <span
+        style={{
+          display: "block",
+          width: 16,
+          height: 16,
+          borderRadius: "50%",
+          background: "#fff",
+          boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+          transform: enabled ? "translateX(20px)" : "translateX(3px)",
+          transition: "transform 0.15s ease",
+        }}
+      />
+    </button>
+  );
+}
+
 export default function AdminEmailsPage() {
   const [templates, setTemplates] = useState<TemplateSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [toggling, setToggling] = useState<string | null>(null);
   const [senderName, setSenderName] = useState("Never Strangers");
   const [senderEmail, setSenderEmail] = useState("hello@thisisneverstrangers.com");
   const [senderSaving, setSenderSaving] = useState(false);
@@ -68,6 +101,22 @@ export default function AdminEmailsPage() {
       setSenderEmail(data.sender.email);
     }
     setLoading(false);
+  }
+
+  async function handleToggle(key: string, enabled: boolean) {
+    setToggling(key);
+    // Optimistic update
+    setTemplates((prev) => prev.map((t) => t.key === key ? { ...t, enabled } : t));
+    const res = await fetch(`/api/admin/emails/${key}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled }),
+    });
+    if (!res.ok) {
+      // Rollback on failure
+      setTemplates((prev) => prev.map((t) => t.key === key ? { ...t, enabled: !enabled } : t));
+    }
+    setToggling(null);
   }
 
   async function handleSaveSender() {
@@ -227,12 +276,20 @@ ${bodyHtml}
                 <th className="text-left px-4 py-3 font-semibold" style={{ color: "var(--text-muted)" }}>Status</th>
                 <th className="text-left px-4 py-3 font-semibold" style={{ color: "var(--text-muted)" }}>Sent (7d)</th>
                 <th className="text-left px-4 py-3 font-semibold" style={{ color: "var(--text-muted)" }}>Last updated</th>
+                <th className="text-center px-4 py-3 font-semibold" style={{ color: "var(--text-muted)" }}>Active</th>
                 <th className="px-4 py-3" />
               </tr>
             </thead>
             <tbody>
               {templates.map((t) => (
-                <tr key={t.key} style={{ borderBottom: "1px solid var(--border, #eee)" }}>
+                <tr
+                  key={t.key}
+                  style={{
+                    borderBottom: "1px solid var(--border, #eee)",
+                    opacity: t.enabled ? 1 : 0.5,
+                    transition: "opacity 0.15s ease",
+                  }}
+                >
                   <td className="px-4 py-3">
                     <p className="font-medium" style={{ color: "var(--text)" }}>{t.label}</p>
                     <code className="text-xs" style={{ color: "var(--text-muted)" }}>{t.key}</code>
@@ -279,6 +336,14 @@ ${bodyHtml}
                       <span className="text-xs" style={{ color: "var(--text-muted)" }}>—</span>
                     )}
                   </td>
+                  <td className="px-4 py-3 text-center">
+                    <div className="flex justify-center" style={{ opacity: toggling === t.key ? 0.5 : 1 }}>
+                      <Toggle
+                        enabled={t.enabled}
+                        onChange={(v) => handleToggle(t.key, v)}
+                      />
+                    </div>
+                  </td>
                   <td className="px-4 py-3 text-right">
                     <Button variant="secondary" size="sm" onClick={() => openEdit(t.key)}>
                       Edit
@@ -301,7 +366,6 @@ ${bodyHtml}
               </div>
             ) : (
               <>
-                {/* Header */}
                 <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: "var(--border, #eee)" }}>
                   <div>
                     <p className="font-semibold" style={{ color: "var(--text)" }}>{editing.meta.label}</p>
@@ -311,7 +375,6 @@ ${bodyHtml}
                 </div>
 
                 <div className="flex-1 px-6 py-5 space-y-5">
-                  {/* Alerts */}
                   {error && (
                     <div className="rounded p-3 text-sm font-medium" style={{ background: "#fee2e2", color: "#991b1b" }}>{error}</div>
                   )}
@@ -319,7 +382,6 @@ ${bodyHtml}
                     <div className="rounded p-3 text-sm font-medium" style={{ background: "#dcfce7", color: "#166534" }}>{successMsg}</div>
                   )}
 
-                  {/* Subject */}
                   <div>
                     <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>Subject</label>
                     <input
@@ -330,7 +392,6 @@ ${bodyHtml}
                     />
                   </div>
 
-                  {/* Available vars */}
                   <div>
                     <p className="text-xs font-semibold mb-1.5 uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
                       Available variables <span className="normal-case font-normal">(click to insert at cursor)</span>
@@ -352,7 +413,6 @@ ${bodyHtml}
                     </div>
                   </div>
 
-                  {/* Body HTML */}
                   <div>
                     <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>Body HTML</label>
                     <textarea
@@ -364,7 +424,6 @@ ${bodyHtml}
                     />
                   </div>
 
-                  {/* Preview */}
                   {previewHtml && (
                     <div>
                       <p className="text-xs font-semibold mb-1.5 uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>Preview</p>
@@ -380,7 +439,6 @@ ${bodyHtml}
                   )}
                 </div>
 
-                {/* Footer actions */}
                 <div className="sticky bottom-0 px-6 py-4 border-t flex flex-wrap gap-2 items-center justify-between" style={{ borderColor: "var(--border, #eee)", background: "var(--bg, #fff)" }}>
                   <div className="flex gap-2 flex-wrap">
                     <Button onClick={handleSave} disabled={saving}>

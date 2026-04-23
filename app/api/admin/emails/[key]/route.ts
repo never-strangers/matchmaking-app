@@ -104,3 +104,31 @@ export async function DELETE(_req: NextRequest, ctx: Ctx) {
 
   return Response.json({ ok: true });
 }
+
+export async function PATCH(req: NextRequest, ctx: Ctx) {
+  const user = await getAuthUser();
+  if (!user || user.role !== "admin") {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { key } = await ctx.params;
+  if (!TEMPLATE_META[key]) {
+    return Response.json({ error: "Unknown template key" }, { status: 404 });
+  }
+
+  const body = await req.json();
+  if (typeof body.enabled !== "boolean") {
+    return Response.json({ error: "enabled (boolean) required" }, { status: 400 });
+  }
+
+  const supabase = getServiceSupabaseClient();
+  const { error } = await supabase
+    .from("email_template_overrides")
+    .upsert(
+      { key, enabled: body.enabled, updated_at: new Date().toISOString(), updated_by: user.profile_id },
+      { onConflict: "key" }
+    );
+
+  if (error) return Response.json({ error: error.message }, { status: 500 });
+  return Response.json({ ok: true });
+}

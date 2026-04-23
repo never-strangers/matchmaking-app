@@ -85,6 +85,15 @@ The live/coming-soon split is managed via the `city_config` table in Supabase. A
   `npm run send:password-resets -- --batch batch2 --yes`  
   `npm run send:password-resets -- --batch batch2 --cursor "2026-04-10T00:00:00.000Z" --yes`  
   Uses `auth.admin.generateLink` + `lib/email/resetPasswordHtml.js`; logs each attempt to `password_reset_sends`. JSON reports: `scripts/.seed-output/password-resets-{batch}-{timestamp}.json`.
+  - **Retry failed `email_log` rows (same row updated, no deletes):** pick an anchor row UUID in Table Editor (e.g. the first successful send after a block of errors). By default the script selects `status = 'error'` with `created_at <=` the anchor’s `created_at`. Set `EMAIL_PROVIDER=enveloped` and `ENVLOPED_API_KEY` in `.env.local` (see `lib/email/provider.ts`). Supports templates: `password_reset` (new recovery link), `rsvp_confirmation`, `payment_confirmation`, `approved`, `rejected` (keys `status-approved:<profileId>` / `status-rejected:<profileId>` from admin status changes).
+    - Env is loaded from **project root** `.env.local` / `.env` (run commands from the repo folder). **`NEXT_PUBLIC_SUPABASE_URL` must be the same project** as the Table Editor where you copied the anchor id (prod vs local).
+    - `npm run retry:email-log-errors -- --anchor-id <uuid> --dry-run`
+    - `npm run retry:email-log-errors -- --anchor-id <uuid> --yes`
+    - Or without a row id: `npm run retry:email-log-errors -- --until 2026-04-22T08:00:00.000Z --dry-run` (ISO cutoff). Postgres-style times with a space also work; the script joins argv after `--until` until the next flag, so `2026-04-23 09:07:19.824899+00` does not require quotes (or quote the whole instant if you prefer).
+    - **Why did I see very old errors?** With `created_at <=` your cutoff, the script used to sort **oldest first** and hit `--limit` on ancient rows. It now sorts **newest first** by default so `--limit` applies to the **latest** failures before the cutoff. Use `--oldest-first` only if you need that legacy behavior.
+    - **Narrow window:** `--since <iso> --until <iso>` adds a lower bound (`created_at` between since and until, still `status = 'error'` only).
+    - **Errors newer than a moment:** `--until <iso> --after` (or `--anchor-id <uuid> --after`) selects `created_at >=` that time (forward in time). Default without `--after` is `created_at <=` ref.
+    - `--limit N` caps rows (default 500).
 
 ---
 

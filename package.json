@@ -35,6 +35,7 @@
     "backup:profiles": "npx tsx scripts/backup-profiles.ts",
     "import:wp-users": "npx tsx scripts/import-wp-users-from-csv.ts",
     "send:password-resets": "npx tsx scripts/send-password-resets.ts",
+    "retry:email-log-errors": "npx tsx scripts/retry-email-log-errors.ts",
     "download-media": "node scripts/download-media.js",
     "generate:email-templates": "node -e \"const{resetPasswordHtml}=require('./lib/email/resetPasswordHtml.js');process.stdout.write(resetPasswordHtml('{{ .ConfirmationURL }}'))\" > supabase/email-templates/reset-password.html"
   },

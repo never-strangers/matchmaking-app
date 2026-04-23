@@ -1,12 +1,29 @@
 /**
  * Idempotent email enqueue helper.
  * Writes a row to email_log (unique on idempotency_key) then sends via provider.
+ * Respects the per-template enabled toggle stored in email_template_overrides.
  * Safe to call fire-and-forget — never throws.
  */
 
 import { getServiceSupabaseClient } from "@/lib/supabase/serverClient";
 import { sendEmail } from "@/lib/email/provider";
 import type { EmailTemplate } from "@/lib/email/templates";
+
+async function isTemplateEnabled(template: string): Promise<boolean> {
+  try {
+    const supabase = getServiceSupabaseClient();
+    const { data } = await supabase
+      .from("email_template_overrides")
+      .select("enabled")
+      .eq("key", template)
+      .maybeSingle();
+    // No override row = default enabled
+    if (!data) return true;
+    return data.enabled ?? true;
+  } catch {
+    return true; // fail open — don't silently block emails on DB error
+  }
+}
 
 export async function enqueueEmail(
   idempotencyKey: string,
@@ -15,9 +32,15 @@ export async function enqueueEmail(
   emailTemplate: EmailTemplate
 ): Promise<void> {
   try {
+    // Check if this template is enabled before doing anything
+    const enabled = await isTemplateEnabled(template);
+    if (!enabled) {
+      console.log(`[email] template=${template} is disabled — skipping send to ${to}`);
+      return;
+    }
+
     const supabase = getServiceSupabaseClient();
 
-    // Insert row first — if idempotency_key already exists the upsert is a no-op
     const { error: insertError } = await supabase.from("email_log").upsert(
       {
         idempotency_key: idempotencyKey,
