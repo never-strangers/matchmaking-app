@@ -21,6 +21,7 @@ export const GENDER_VALUES = GENDERS.map((g) => g.value);
 export const ATTRACTED_TO_OPTIONS = [
   { value: "men", label: "Men" },
   { value: "women", label: "Women" },
+  { value: "both", label: "Both" },
 ] as const;
 
 /** Looking for options (registration) */
@@ -44,7 +45,15 @@ export function normalizeAttractedToForSelect(a: string | null): string {
   const lower = a.trim().toLowerCase();
   if (lower === "man") return "men";
   if (lower === "woman") return "women";
+  if (lower === "men,women" || lower === "women,men") return "both";
   return ATTRACTED_TO_VALUES.includes(lower as AttractedToValue) ? lower : "";
+}
+
+/** Convert "both" back to the canonical DB value "men,women" before saving. */
+export function attractedToForDB(a: string | null): string | null {
+  if (!a) return null;
+  if (a === "both") return "men,women";
+  return a;
 }
 
 /** Minimum age for DOB validation */

@@ -19,6 +19,7 @@ export interface MatchUser {
   name: string;
   city: string;
   gender?: string;
+  attracted_to?: string; // "men" | "women" | "men,women" | "both"
   intent?: string;
   answers: QuestionnaireAnswers;
   lastActiveAt?: string;

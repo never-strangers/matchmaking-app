@@ -162,19 +162,21 @@ export async function POST(
     });
   }
 
-  // For dating events: load gender (separate query only when needed)
+  // For dating events: load gender + attracted_to (separate query only when needed)
   const genderById = new Map<string, string>();
+  const attractedToById = new Map<string, string>();
   if (isDatingEvent) {
     const { data: profileRows, error: profilesErr } = await supabase
       .from("profiles")
-      .select("id, gender")
+      .select("id, gender, attracted_to")
       .in("id", attendeeIds);
     if (profilesErr) {
       console.error("Error loading profile genders:", profilesErr);
       return new Response("Failed to load attendee profiles", { status: 500 });
     }
-    (profileRows || []).forEach((p: { id: string; gender: string | null }) => {
+    (profileRows || []).forEach((p: { id: string; gender: string | null; attracted_to: string | null }) => {
       if (p.gender) genderById.set(String(p.id), p.gender.toLowerCase());
+      if (p.attracted_to) attractedToById.set(String(p.id), p.attracted_to.toLowerCase());
     });
   }
 
@@ -275,6 +277,7 @@ export async function POST(
     name: id,
     city: "",
     gender: genderById.get(id),
+    attracted_to: attractedToById.get(id),
     answers: answersByProfile.get(id)!,
   }));
 

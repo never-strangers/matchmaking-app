@@ -35,8 +35,25 @@ function scoreOnly(
   return totalWeight === 0 ? 0 : Math.round((totalWeightedSim / totalWeight) * 100);
 }
 
-function isKnownGender(g: string | undefined): g is "male" | "female" {
-  return g === "male" || g === "female";
+function parseAttractedTo(val: string | undefined): Set<string> {
+  if (!val) return new Set();
+  if (val === "both") return new Set(["men", "women"]);
+  return new Set(val.split(",").map((s) => s.trim().toLowerCase()));
+}
+
+function canDatePair(u1: MatchUser, u2: MatchUser): boolean {
+  const g1 = u1.gender?.toLowerCase();
+  const g2 = u2.gender?.toLowerCase();
+  if (!g1 || !g2) return false;
+  const gLabel1 = g1 === "male" ? "men" : g1 === "female" ? "women" : null;
+  const gLabel2 = g2 === "male" ? "men" : g2 === "female" ? "women" : null;
+  if (!gLabel1 || !gLabel2) return false;
+  const attracted1 = parseAttractedTo(u1.attracted_to);
+  const attracted2 = parseAttractedTo(u2.attracted_to);
+  // If attracted_to is unset, fall back to hetero logic (backwards compat)
+  const u1WantsU2 = attracted1.size > 0 ? attracted1.has(gLabel2) : g1 !== g2;
+  const u2WantsU1 = attracted2.size > 0 ? attracted2.has(gLabel1) : g1 !== g2;
+  return u1WantsU2 && u2WantsU1;
 }
 
 /**
@@ -58,10 +75,7 @@ export function buildAllPairs(
       const u2 = users[j];
 
       if (pairingMode === "dating") {
-        const g1 = u1.gender?.toLowerCase();
-        const g2 = u2.gender?.toLowerCase();
-        if (!isKnownGender(g1) || !isKnownGender(g2)) continue;
-        if (g1 === g2) continue;
+        if (!canDatePair(u1, u2)) continue;
       }
 
       const score = scoreOnly(u1.answers, u2.answers, questions);
