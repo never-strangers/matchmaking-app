@@ -34,8 +34,7 @@ export async function GET(
   if (!event) return new Response("Event not found", { status: 404 });
 
   const paymentRequired =
-    (event as { payment_required?: boolean }).payment_required !== false &&
-    Number((event as { price_cents?: number }).price_cents ?? 0) > 0;
+    (event as { payment_required?: boolean }).payment_required !== false;
 
   // ── Build attendee query ──────────────────────────────────────────────────
   type AttendeeFilter = {

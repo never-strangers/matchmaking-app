@@ -50,9 +50,7 @@ export async function GET(
   };
 
   const posterUrl = getEventPosterUrl(e.poster_path ?? null);
-  const priceCents = Number(e.price_cents ?? 0);
-  const paymentRequired =
-    e.payment_required !== false && priceCents > 0;
+  const paymentRequired = e.payment_required !== false;
 
   const eventPreview: EventPreviewData = {
     id: e.id,

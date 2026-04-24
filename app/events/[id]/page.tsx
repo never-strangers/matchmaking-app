@@ -100,8 +100,7 @@ export default async function EventDetailPage({
       .maybeSingle();
     hasRevealedMatches = Number(roundRow?.last_revealed_round ?? 0) > 0;
   }
-  const priceCents = Number((event as { price_cents?: number }).price_cents ?? 0);
-  const paymentRequired = (event as { payment_required?: boolean }).payment_required !== false && priceCents > 0;
+  const paymentRequired = (event as { payment_required?: boolean }).payment_required !== false;
   const paid =
     paymentStatus === "paid" ||
     paymentStatus === "free" ||

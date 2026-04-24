@@ -76,8 +76,7 @@ export default async function AdminEventDetailPage({
   const totalWaitlisted = waitlistRows.length;
   const paymentRequired =
     event &&
-    (event as { payment_required?: boolean }).payment_required !== false &&
-    Number((event as { price_cents?: number }).price_cents ?? 0) > 0;
+    (event as { payment_required?: boolean }).payment_required !== false;
   const paidAttendees = paymentRequired
     ? allAttendees.filter(
         (a) =>

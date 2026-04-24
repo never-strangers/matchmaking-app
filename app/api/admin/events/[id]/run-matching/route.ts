@@ -35,11 +35,9 @@ export async function POST(
   if (eventError || !event) {
     return new Response("Event not found", { status: 404 });
   }
-  const priceCents = Number((event as { price_cents?: number }).price_cents ?? 0);
-  // paymentRequired is true only when explicitly required AND price > 0
+  // paymentRequired: rely on the flag alone; prices now live on ticket types
   const paymentRequired =
-    (event as { payment_required?: boolean }).payment_required !== false &&
-    priceCents > 0;
+    (event as { payment_required?: boolean }).payment_required !== false;
   const isDatingEvent = (event as { category?: string }).category === "dating";
 
   // Phase 2: Load everything else in parallel

@@ -56,8 +56,7 @@ export async function POST(
     .single();
   const paymentRequired =
     eventRow &&
-    (eventRow as { payment_required?: boolean }).payment_required !== false &&
-    Number((eventRow as { price_cents?: number }).price_cents ?? 0) > 0;
+    (eventRow as { payment_required?: boolean }).payment_required !== false;
   const status = (attendee as { payment_status?: string }).payment_status ?? "unpaid";
   // "free" = admin-comped; always checkable regardless of event payment_required
   const canCheckIn = status === "paid" || status === "free" || status === "not_required";

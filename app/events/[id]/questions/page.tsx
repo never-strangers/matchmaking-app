@@ -110,10 +110,8 @@ async function getEventQuestionsData(eventId: string, profileId: string) {
   const answeredCount = Object.keys(answersMap).length;
   const isComplete = totalQuestions > 0 && answeredCount >= totalQuestions;
 
-  const priceCents = Number((eventRow as { price_cents?: number }).price_cents ?? 0);
   const paymentRequired =
-    (eventRow as { payment_required?: boolean }).payment_required !== false &&
-    priceCents > 0;
+    (eventRow as { payment_required?: boolean }).payment_required !== false;
   let paymentStatus = (attendeeRow as { payment_status?: string } | null)?.payment_status ?? "unpaid";
 
   // Auto-confirm: if Stripe checkout was created but webhook hasn't fired yet,

@@ -225,10 +225,8 @@ async function getEventsPageData(
       joined && totalQuestions > 0 && answerCount >= totalQuestions;
     const matchesRun = matchesRunSet.has(id);
     const paymentStatus = paymentStatusByEvent[id] ?? "unpaid";
-    const priceCents = Number((e as { price_cents?: number }).price_cents ?? 0);
     const paymentRequired =
-      (e as { payment_required?: boolean }).payment_required !== false &&
-      priceCents > 0;
+      (e as { payment_required?: boolean }).payment_required !== false;
     const paid =
       paymentStatus === "paid" ||
       paymentStatus === "free" ||

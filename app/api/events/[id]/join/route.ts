@@ -23,8 +23,7 @@ export async function POST(
 
   const paymentRequired =
     event &&
-    (event as { payment_required?: boolean }).payment_required !== false &&
-    Number((event as { price_cents?: number }).price_cents ?? 0) > 0;
+    (event as { payment_required?: boolean }).payment_required !== false;
 
   const { error } = await supabase
     .from("event_attendees")
