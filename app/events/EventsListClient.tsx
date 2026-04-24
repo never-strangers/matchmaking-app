@@ -149,23 +149,7 @@ export function EventsListClient({
     if (selectedEventId) { closeModal(); router.push(`/events/${selectedEventId}`); }
   }, [selectedEventId, closeModal, router]);
 
-  const handleContinueToPayment = useCallback(async () => {
-    if (!selectedEventId) return;
-    try {
-      const res = await fetch("/api/stripe/create-checkout-session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ event_id: selectedEventId }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) { alert(data?.error || "Failed to start checkout"); return; }
-      if (data?.url) { window.location.href = data.url; }
-    } catch (err) {
-      console.error("Checkout error:", err);
-      alert("Something went wrong. Please try again.");
-    }
-  }, [selectedEventId]);
+
 
   const cityOptions = [
     { value: "", label: "All cities" },
@@ -491,7 +475,6 @@ export function EventsListClient({
         onClose={closeModal}
         onCompleteQuestions={handleCompleteQuestions}
         onContinueToEvent={handleContinueToEvent}
-        onContinueToPayment={handleContinueToPayment}
         loading={previewLoading}
       />
     </>

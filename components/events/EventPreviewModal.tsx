@@ -14,8 +14,7 @@ export type EventPreviewModalProps = {
   onClose: () => void;
   onCompleteQuestions: () => void;
   onContinueToEvent: () => void;
-  /** When paid event and not paid: start Stripe checkout (call API and redirect to URL). */
-  onContinueToPayment?: () => void;
+
   loading?: boolean;
 };
 
@@ -26,7 +25,6 @@ export function EventPreviewModal({
   onClose,
   onCompleteQuestions,
   onContinueToEvent,
-  onContinueToPayment,
   loading = false,
 }: EventPreviewModalProps) {
   useEffect(() => {
@@ -167,17 +165,14 @@ export function EventPreviewModal({
                       className="text-sm font-medium mb-2"
                       style={{ color: "var(--text)" }}
                     >
-                      Payment required — confirm your spot before answering questions.
-                    </p>
-                    <p className="text-sm mb-3" style={{ color: "var(--text-muted)" }}>
-                      Price: {(event.price_cents / 100).toFixed(2)} SGD
+                      Ticket required — select your ticket to confirm your spot.
                     </p>
                     <Button
                       size="md"
-                      onClick={onContinueToPayment ?? onContinueToEvent}
+                      onClick={onContinueToEvent}
                       data-testid="event-preview-go-to-payment"
                     >
-                      Continue to payment
+                      Select ticket →
                     </Button>
                   </>
                 ) : requiresQuestions ? (
