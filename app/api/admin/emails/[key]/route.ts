@@ -122,13 +122,35 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   }
 
   const supabase = getServiceSupabaseClient();
-  const { error } = await supabase
-    .from("email_template_overrides")
-    .upsert(
-      { key, enabled: body.enabled, updated_at: new Date().toISOString(), updated_by: user.profile_id },
-      { onConflict: "key" }
-    );
 
-  if (error) return Response.json({ error: error.message }, { status: 500 });
+  // Try UPDATE first (row already exists — avoids NOT NULL violations on subject/body_html)
+  const { data: existing } = await supabase
+    .from("email_template_overrides")
+    .select("key")
+    .eq("key", key)
+    .maybeSingle();
+
+  if (existing) {
+    const { error } = await supabase
+      .from("email_template_overrides")
+      .update({ enabled: body.enabled, updated_at: new Date().toISOString(), updated_by: user.profile_id })
+      .eq("key", key);
+    if (error) return Response.json({ error: error.message }, { status: 500 });
+  } else {
+    // No override row yet — insert with code defaults so NOT NULL cols are satisfied
+    const meta = TEMPLATE_META[key];
+    const { error } = await supabase
+      .from("email_template_overrides")
+      .insert({
+        key,
+        subject: meta.defaultSubject,
+        body_html: meta.defaultBodyHtml,
+        enabled: body.enabled,
+        updated_at: new Date().toISOString(),
+        updated_by: user.profile_id,
+      });
+    if (error) return Response.json({ error: error.message }, { status: 500 });
+  }
+
   return Response.json({ ok: true });
 }
