@@ -25,8 +25,6 @@ export default function AdminCreateEventPage() {
   const [city, setCity] = useState("");
   const [category, setCategory] = useState<"friends" | "dating">("friends");
   const [whatsIncluded, setWhatsIncluded] = useState("");
-  const [priceCents, setPriceCents] = useState("");
-  const [paymentRequired, setPaymentRequired] = useState(true);
   const [maxMales, setMaxMales] = useState("");
   const [maxFemales, setMaxFemales] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -93,8 +91,8 @@ export default function AdminCreateEventPage() {
           city: city || undefined,
           category,
           whats_included: whatsIncluded.trim() || undefined,
-          price_cents: priceCents === "" ? 0 : parseInt(priceCents, 10) || 0,
-          payment_required: paymentRequired,
+          price_cents: 0,
+          payment_required: true,
           max_males: maxMales !== "" ? parseInt(maxMales, 10) : undefined,
           max_females: maxFemales !== "" ? parseInt(maxFemales, 10) : undefined,
         }),
@@ -313,30 +311,6 @@ export default function AdminCreateEventPage() {
             />
           </div>
 
-          <Input
-            label="Price (SGD cents)"
-            type="number"
-            min={0}
-            placeholder="e.g. 5000 for 50.00 SGD"
-            value={priceCents}
-            onChange={(e) => setPriceCents(e.target.value)}
-            disabled={isSubmitting}
-            data-testid="create-event-price-cents"
-          />
-
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="payment-required"
-              checked={paymentRequired}
-              onChange={(e) => setPaymentRequired(e.target.checked)}
-              disabled={isSubmitting}
-              className="w-4 h-4 text-[var(--primary)] border-[var(--border)] rounded focus:ring-[var(--primary)]"
-            />
-            <label htmlFor="payment-required" className="text-sm font-medium text-[var(--text)]">
-              Payment required to confirm seat
-            </label>
-          </div>
 
           {category === "dating" && (
             <div
