@@ -2,6 +2,9 @@ import { NextRequest } from "next/server";
 import { requireApprovedUserForApi } from "@/lib/auth/requireApprovedUser";
 import { getServiceSupabaseClient } from "@/lib/supabase/serverClient";
 
+const isFemaleTicket = (name: string) => /female/i.test(name);
+const isMaleTicket   = (name: string) => /\bmale\b/i.test(name) && !/female/i.test(name);
+
 export async function POST(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
@@ -29,6 +32,54 @@ export async function POST(
   }
 
   const supabase = getServiceSupabaseClient();
+
+  // ── Gender cap enforcement ────────────────────────────────────────────────
+  // 1. Load the ticket type name + the event's gender caps
+  const [{ data: ticketType }, { data: event }] = await Promise.all([
+    supabase.from("event_ticket_types").select("name").eq("id", ticketTypeId).single(),
+    supabase.from("events").select("max_males, max_females").eq("id", eventId).single(),
+  ]);
+
+  if (ticketType && event) {
+    const name = ticketType.name as string;
+    const maxMales   = (event as { max_males?: number | null }).max_males ?? null;
+    const maxFemales = (event as { max_females?: number | null }).max_females ?? null;
+
+    const isM = isMaleTicket(name);
+    const isF = isFemaleTicket(name);
+
+    if ((isM && maxMales !== null) || (isF && maxFemales !== null)) {
+      // Count currently reserved/paid attendees for this gender across all ticket types
+      const { data: allTicketTypes } = await supabase
+        .from("event_ticket_types")
+        .select("id, name")
+        .eq("event_id", eventId);
+
+      const genderTicketIds = (allTicketTypes || [])
+        .filter(t => isM ? isMaleTicket(t.name) : isFemaleTicket(t.name))
+        .map(t => t.id);
+
+      if (genderTicketIds.length > 0) {
+        const { count } = await supabase
+          .from("event_attendees")
+          .select("profile_id", { count: "exact", head: true })
+          .eq("event_id", eventId)
+          .in("ticket_type_id", genderTicketIds)
+          .in("ticket_status", ["reserved", "paid"]);
+
+        const cap = isM ? maxMales! : maxFemales!;
+        if ((count ?? 0) >= cap) {
+          const gender = isM ? "male" : "female";
+          return new Response(
+            JSON.stringify({ error: `Sorry, the ${gender} spots are full for this event.` }),
+            { status: 400, headers: { "Content-Type": "application/json" } }
+          );
+        }
+      }
+    }
+  }
+  // ─────────────────────────────────────────────────────────────────────────
+
   const { data: attendeeId, error } = await supabase.rpc("reserve_ticket", {
     p_event_id: eventId,
     p_ticket_type_id: ticketTypeId,

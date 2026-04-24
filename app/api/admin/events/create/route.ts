@@ -12,6 +12,8 @@ export type CreateEventBody = {
   whats_included?: string;
   price_cents?: number;
   payment_required?: boolean;
+  max_males?: number | null;
+  max_females?: number | null;
 };
 
 const DEFAULT_QUESTIONS: { prompt: string; type: string; options: null; weight: number; order_index: number }[] = [
@@ -47,7 +49,9 @@ async function createEventWithDirectInserts(
   category: "friends" | "dating",
   whats_included: string | null,
   price_cents: number = 0,
-  payment_required: boolean = true
+  payment_required: boolean = true,
+  max_males: number | null = null,
+  max_females: number | null = null
 ): Promise<string | null> {
   const { data: event, error: eventError } = await supabase
     .from("events")
@@ -63,6 +67,8 @@ async function createEventWithDirectInserts(
       price_cents: price_cents,
       currency: "sgd",
       payment_required: payment_required,
+      max_males: max_males,
+      max_females: max_females,
     })
     .select("id")
     .single();
@@ -150,6 +156,8 @@ export async function POST(req: NextRequest) {
 
   const priceCents = typeof body.price_cents === "number" && body.price_cents >= 0 ? body.price_cents : 0;
   const paymentRequired = body.payment_required !== false;
+  const maxMales   = typeof body.max_males   === "number" && body.max_males   >= 0 ? body.max_males   : null;
+  const maxFemales = typeof body.max_females === "number" && body.max_females >= 0 ? body.max_females : null;
 
   const { data: eventId, error } = await supabase.rpc("create_event_with_default_questions", {
     p_name: name,
@@ -164,6 +172,9 @@ export async function POST(req: NextRequest) {
   });
 
   if (!error) {
+    if (eventId && (maxMales !== null || maxFemales !== null)) {
+      await supabase.from("events").update({ max_males: maxMales, max_females: maxFemales }).eq("id", eventId);
+    }
     return Response.json({ ok: true, event_id: eventId });
   }
 

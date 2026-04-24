@@ -26,6 +26,8 @@ export default function AdminCreateEventPage() {
   const [whatsIncluded, setWhatsIncluded] = useState("");
   const [priceCents, setPriceCents] = useState("");
   const [paymentRequired, setPaymentRequired] = useState(true);
+  const [maxMales, setMaxMales] = useState("");
+  const [maxFemales, setMaxFemales] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [posterFile, setPosterFile] = useState<File | null>(null);
@@ -91,6 +93,8 @@ export default function AdminCreateEventPage() {
           whats_included: whatsIncluded.trim() || undefined,
           price_cents: priceCents === "" ? 0 : parseInt(priceCents, 10) || 0,
           payment_required: paymentRequired,
+          max_males: maxMales !== "" ? parseInt(maxMales, 10) : undefined,
+          max_females: maxFemales !== "" ? parseInt(maxFemales, 10) : undefined,
         }),
       });
 
@@ -327,6 +331,40 @@ export default function AdminCreateEventPage() {
               Payment required to confirm seat
             </label>
           </div>
+
+          {category === "dating" && (
+            <div
+              className="p-4 rounded-xl space-y-3"
+              style={{ backgroundColor: "var(--bg-subtle, var(--bg-panel))", border: "1px solid var(--border)" }}
+            >
+              <p className="text-sm font-semibold" style={{ color: "var(--text)" }}>
+                Gender caps (Dating events)
+              </p>
+              <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                Leave blank for no cap. Applies across all ticket tiers.
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <Input
+                  label="Max males"
+                  type="number"
+                  min={0}
+                  placeholder="e.g. 20"
+                  value={maxMales}
+                  onChange={(e) => setMaxMales(e.target.value)}
+                  disabled={isSubmitting}
+                />
+                <Input
+                  label="Max females"
+                  type="number"
+                  min={0}
+                  placeholder="e.g. 20"
+                  value={maxFemales}
+                  onChange={(e) => setMaxFemales(e.target.value)}
+                  disabled={isSubmitting}
+                />
+              </div>
+            </div>
+          )}
 
           <div className="flex gap-3 pt-2">
             <Button

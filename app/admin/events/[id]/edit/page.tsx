@@ -17,7 +17,7 @@ export default async function AdminEventEditPage({
 
   const { data: event, error: eventError } = await supabase
     .from("events")
-    .select("id, title, description, start_at, end_at, city, category, whats_included, poster_path, price_cents, payment_required")
+    .select("id, title, description, start_at, end_at, city, category, whats_included, poster_path, price_cents, payment_required, max_males, max_females")
     .eq("id", eventId)
     .maybeSingle();
 
@@ -52,6 +52,8 @@ export default async function AdminEventEditPage({
         poster_path: (event as { poster_path?: string | null }).poster_path ?? null,
         price_cents: Number((event as { price_cents?: number }).price_cents ?? 0),
         payment_required: (event as { payment_required?: boolean }).payment_required !== false,
+        max_males: (event as { max_males?: number | null }).max_males ?? null,
+        max_females: (event as { max_females?: number | null }).max_females ?? null,
       }}
       ticketTypes={(ticketTypes || []) as { id: string; event_id: string; code: string; name: string; price_cents: number; currency: string; cap: number; sold: number; is_active: boolean; sort_order: number }[]}
       posterPublicUrl={posterPublicUrl}

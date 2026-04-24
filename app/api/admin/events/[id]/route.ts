@@ -12,6 +12,8 @@ export type UpdateEventBody = {
   whats_included?: string | null;
   price_cents?: number;
   payment_required?: boolean;
+  max_males?: number | null;
+  max_females?: number | null;
 };
 
 export async function PATCH(
@@ -45,6 +47,8 @@ export async function PATCH(
   if (body.whats_included !== undefined) updates.whats_included = body.whats_included?.trim() || null;
   if (typeof body.price_cents === "number" && body.price_cents >= 0) updates.price_cents = body.price_cents;
   if (typeof body.payment_required === "boolean") updates.payment_required = body.payment_required;
+  if (body.max_males   !== undefined) updates.max_males   = typeof body.max_males   === "number" ? body.max_males   : null;
+  if (body.max_females !== undefined) updates.max_females = typeof body.max_females === "number" ? body.max_females : null;
 
   if (Object.keys(updates).length === 0) {
     return Response.json({ ok: true });

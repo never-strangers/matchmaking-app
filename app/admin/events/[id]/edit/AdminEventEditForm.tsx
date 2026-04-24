@@ -27,6 +27,8 @@ type EventData = {
   poster_path: string | null;
   price_cents: number;
   payment_required: boolean;
+  max_males: number | null;
+  max_females: number | null;
 };
 
 type Props = {
@@ -58,6 +60,8 @@ export function AdminEventEditForm({ eventId, event, ticketTypes, posterPublicUr
   const [whatsIncluded, setWhatsIncluded] = useState(event.whats_included || "");
   const [priceCents, setPriceCents] = useState(String(event.price_cents ?? 0));
   const [paymentRequired, setPaymentRequired] = useState(event.payment_required !== false);
+  const [maxMales, setMaxMales] = useState(event.max_males != null ? String(event.max_males) : "");
+  const [maxFemales, setMaxFemales] = useState(event.max_females != null ? String(event.max_females) : "");
   const [posterUrl, setPosterUrl] = useState<string | null>(posterPublicUrl);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -98,6 +102,8 @@ export function AdminEventEditForm({ eventId, event, ticketTypes, posterPublicUr
           whats_included: whatsIncluded.trim() || null,
           price_cents: priceCents === "" ? 0 : parseInt(priceCents, 10) || 0,
           payment_required: paymentRequired,
+          max_males: maxMales !== "" ? parseInt(maxMales, 10) : null,
+          max_females: maxFemales !== "" ? parseInt(maxFemales, 10) : null,
         }),
       });
       if (!res.ok) {
@@ -329,6 +335,40 @@ export function AdminEventEditForm({ eventId, event, ticketTypes, posterPublicUr
               Payment required to confirm seat
             </label>
           </div>
+
+          {category === "dating" && (
+            <div
+              className="p-4 rounded-xl space-y-3"
+              style={{ backgroundColor: "var(--bg-subtle, var(--bg-panel))", border: "1px solid var(--border)" }}
+            >
+              <p className="text-sm font-semibold" style={{ color: "var(--text)" }}>
+                Gender caps (Dating events)
+              </p>
+              <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                Leave blank for no cap. Applies across all ticket tiers.
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <Input
+                  label="Max males"
+                  type="number"
+                  min={0}
+                  placeholder="e.g. 20"
+                  value={maxMales}
+                  onChange={(e) => setMaxMales(e.target.value)}
+                  disabled={isSubmitting}
+                />
+                <Input
+                  label="Max females"
+                  type="number"
+                  min={0}
+                  placeholder="e.g. 20"
+                  value={maxFemales}
+                  onChange={(e) => setMaxFemales(e.target.value)}
+                  disabled={isSubmitting}
+                />
+              </div>
+            </div>
+          )}
 
           <div className="flex gap-3 pt-2">
             <Button type="submit" disabled={isSubmitting}>
