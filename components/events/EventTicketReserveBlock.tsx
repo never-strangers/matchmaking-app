@@ -93,7 +93,7 @@ export function EventTicketReserveBlock({ eventId, ticketTypes }: Props) {
         )}
         {!waitlistMessage && (
           <Button onClick={handleBuy} size="md" disabled={loading} data-testid="reserve-ticket-button">
-            {loading ? "Redirecting to payment…" : "Buy ticket"}
+            {loading ? "Redirecting to payment…" : "Book slot"}
           </Button>
         )}
       </div>
@@ -152,7 +152,7 @@ export function EventTicketReserveBlock({ eventId, ticketTypes }: Props) {
           disabled={loading || !selectedId}
           data-testid="reserve-ticket-button"
         >
-          {loading ? "Redirecting to payment…" : "Buy ticket"}
+          {loading ? "Redirecting to payment…" : "Book slot"}
         </Button>
       )}
     </div>

@@ -134,7 +134,7 @@ export default async function EventDetailPage({
     primaryHref = "";
   } else if (!joined && paymentRequired && !hasTicketTypes) {
     // A2) Not joined, paid event, no ticket types — go straight to checkout
-    primaryLabel = "Buy ticket";
+    primaryLabel = "Book slot";
     primaryHref = "";
   } else if (!joined) {
     // A3) Not joined, free event — enter directly
@@ -301,7 +301,7 @@ export default async function EventDetailPage({
           )}
           {showPrimary && primaryLabel !== "Select ticket" && (
             <div className="mt-4">
-              {primaryLabel === "Pay to confirm" || primaryLabel === "Buy ticket" ? (
+              {primaryLabel === "Pay to confirm" || primaryLabel === "Book slot" ? (
                 <PayToConfirmButton eventId={eventId} label={primaryLabel} />
               ) : (
                 <Link href={primaryHref}>
