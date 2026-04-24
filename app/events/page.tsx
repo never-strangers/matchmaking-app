@@ -187,6 +187,20 @@ async function getEventsPageData(
     ...eqCountByEvent,
   };
 
+  // Min ticket price per event (Angelo model — prices on ticket types, not events.price_cents)
+  const { data: ticketTypeRows } = await supabase
+    .from("event_ticket_types")
+    .select("event_id, price_cents")
+    .in("event_id", eventIds)
+    .eq("is_active", true);
+  const minTicketPriceByEvent: Record<string, number> = {};
+  (ticketTypeRows || []).forEach((r: { event_id: string; price_cents: number }) => {
+    const id = String(r.event_id);
+    if (minTicketPriceByEvent[id] === undefined || r.price_cents < minTicketPriceByEvent[id]) {
+      minTicketPriceByEvent[id] = r.price_cents;
+    }
+  });
+
   // Match runs
   const { data: runRows } = await supabase
     .from("match_runs")
@@ -241,6 +255,7 @@ async function getEventsPageData(
       );
     }
 
+    const minTicketPrice = minTicketPriceByEvent[id] ?? (e as { price_cents?: number }).price_cents ?? 0;
     return {
       ...e,
       joined,
@@ -253,6 +268,7 @@ async function getEventsPageData(
       paid,
       checkedIn,
       hasRevealedMatches,
+      price_cents: minTicketPrice,
       posterUrl: (e as { poster_path?: string | null }).poster_path
         ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/event-posters/${(e as { poster_path: string }).poster_path}`
         : null,

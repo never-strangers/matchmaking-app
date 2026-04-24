@@ -52,6 +52,16 @@ export async function GET(
   const posterUrl = getEventPosterUrl(e.poster_path ?? null);
   const paymentRequired = e.payment_required !== false;
 
+  // Fetch min active ticket price (Angelo model — prices live on ticket types)
+  const { data: ticketTypes } = await supabase
+    .from("event_ticket_types")
+    .select("price_cents")
+    .eq("event_id", eventId)
+    .eq("is_active", true);
+  const minTicketPrice = ticketTypes && ticketTypes.length > 0
+    ? Math.min(...ticketTypes.map((t: { price_cents: number }) => t.price_cents))
+    : (e.price_cents ?? 0);
+
   const eventPreview: EventPreviewData = {
     id: e.id,
     title: e.title,
@@ -63,7 +73,7 @@ export async function GET(
     description: e.description ?? null,
     whats_included: e.whats_included ?? null,
     poster_url: posterUrl,
-    price_cents: priceCents,
+    price_cents: minTicketPrice,
     payment_required: paymentRequired,
   };
 
