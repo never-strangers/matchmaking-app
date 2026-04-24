@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { useCityConfig } from "@/lib/cities/useCityConfig";
+import { EventTicketTypesEditor } from "@/components/admin/EventTicketTypesEditor";
 
 const CATEGORIES = [
   { value: "friends", label: "Friends" },
@@ -30,6 +31,7 @@ export default function AdminCreateEventPage() {
   const [maxFemales, setMaxFemales] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [createdEventId, setCreatedEventId] = useState<string | null>(null);
   const [posterFile, setPosterFile] = useState<File | null>(null);
   const [posterPreview, setPosterPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -124,7 +126,11 @@ export default function AdminCreateEventPage() {
         }
       }
       if (eventId) {
-        router.push(`/admin/events/${eventId}/questions?mode=create`);
+        setCreatedEventId(eventId);
+        // Scroll to ticket section
+        setTimeout(() => {
+          document.getElementById("ticket-setup")?.scrollIntoView({ behavior: "smooth" });
+        }, 100);
       } else {
         router.push("/admin/events");
       }
@@ -385,6 +391,41 @@ export default function AdminCreateEventPage() {
           </div>
         </form>
       </Card>
+      {createdEventId && (
+        <div id="ticket-setup" className="mt-8 space-y-4">
+          <div
+            className="p-4 rounded-xl"
+            style={{ backgroundColor: "var(--bg-subtle, var(--bg-panel))", border: "1px solid var(--border)" }}
+          >
+            <p className="text-sm font-semibold mb-1" style={{ color: "var(--success, #22c55e)" }}>
+              ✓ Event created
+            </p>
+            <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+              Add ticket tiers below, then continue to set up questions.
+            </p>
+          </div>
+
+          <EventTicketTypesEditor
+            eventId={createdEventId}
+            initialTypes={[]}
+            onUpdate={() => {}}
+          />
+
+          <div className="flex gap-3">
+            <Button
+              onClick={() => router.push(`/admin/events/${createdEventId}/questions?mode=create`)}
+            >
+              Continue to Questions →
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => router.push(`/admin/events/${createdEventId}/edit`)}
+            >
+              Go to Edit page
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
