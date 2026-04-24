@@ -130,8 +130,7 @@ export function DeletedEventRow({ event }: { event: EventRow }) {
       <button
         onClick={handleRestore}
         disabled={pending || daysRemaining === 0}
-        className="text-sm px-3 py-1 rounded-md font-medium shrink-0 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
-        style={{ background: "var(--accent)", color: "var(--accent-fg, #fff)" }}
+        className="text-sm px-3 py-1 rounded-md font-medium shrink-0 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed bg-[var(--primary)] text-[var(--primary-foreground)] hover:bg-[var(--primary-hover)]"
         data-testid={`event-restore-${event.id}`}
       >
         {pending ? "Restoring…" : "Restore"}
