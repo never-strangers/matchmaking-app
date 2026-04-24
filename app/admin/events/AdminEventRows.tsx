@@ -112,7 +112,7 @@ export function DeletedEventRow({ event }: { event: EventRow }) {
 
   return (
     <div
-      className="flex items-center gap-4 py-3 -mx-2 px-2 rounded-lg opacity-60"
+      className="flex items-center gap-4 py-3 -mx-2 px-2 rounded-lg bg-[var(--bg-muted)]/60"
       data-testid={`event-row-deleted-${event.id}`}
     >
       <span className="text-sm w-14 shrink-0" style={{ color: "var(--text-muted)" }}>
@@ -130,7 +130,7 @@ export function DeletedEventRow({ event }: { event: EventRow }) {
       <button
         onClick={handleRestore}
         disabled={pending || daysRemaining === 0}
-        className="text-sm px-3 py-1 rounded-md font-medium shrink-0 transition-opacity disabled:opacity-40"
+        className="text-sm px-3 py-1 rounded-md font-medium shrink-0 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
         style={{ background: "var(--accent)", color: "var(--accent-fg, #fff)" }}
         data-testid={`event-restore-${event.id}`}
       >
