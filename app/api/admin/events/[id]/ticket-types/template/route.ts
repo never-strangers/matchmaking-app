@@ -4,9 +4,7 @@ import { getServiceSupabaseClient } from "@/lib/supabase/serverClient";
 
 const DEFAULT_TYPES = [
   { code: "early_bird", name: "Early Bird", price_cents: 4500, cap: 20, sort_order: 0 },
-  { code: "male", name: "Male", price_cents: 5000, cap: 30, sort_order: 1 },
-  { code: "female", name: "Female", price_cents: 5000, cap: 30, sort_order: 2 },
-  { code: "vip", name: "VIP", price_cents: 8000, cap: 10, sort_order: 3 },
+  { code: "regular", name: "Regular", price_cents: 5000, cap: 50, sort_order: 1 },
 ];
 
 export async function POST(

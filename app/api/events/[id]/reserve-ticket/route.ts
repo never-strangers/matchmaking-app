@@ -2,9 +2,6 @@ import { NextRequest } from "next/server";
 import { requireApprovedUserForApi } from "@/lib/auth/requireApprovedUser";
 import { getServiceSupabaseClient } from "@/lib/supabase/serverClient";
 
-const isFemaleTicket = (name: string) => /female/i.test(name);
-const isMaleTicket   = (name: string) => /\bmale\b/i.test(name) && !/female/i.test(name);
-
 export async function POST(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
@@ -33,49 +30,100 @@ export async function POST(
 
   const supabase = getServiceSupabaseClient();
 
-  // ── Gender cap enforcement ────────────────────────────────────────────────
-  // 1. Load the ticket type name + the event's gender caps
-  const [{ data: ticketType }, { data: event }] = await Promise.all([
-    supabase.from("event_ticket_types").select("name").eq("id", ticketTypeId).single(),
+  // ── Gender cap enforcement (Angelo model) ────────────────────────────────
+  // Gender is read from the user profile, not inferred from ticket name.
+  const [{ data: profile }, { data: event }] = await Promise.all([
+    supabase.from("profiles").select("gender").eq("id", auth.profile_id).single(),
     supabase.from("events").select("max_males, max_females").eq("id", eventId).single(),
   ]);
 
-  if (ticketType && event) {
-    const name = ticketType.name as string;
-    const maxMales   = (event as { max_males?: number | null }).max_males ?? null;
-    const maxFemales = (event as { max_females?: number | null }).max_females ?? null;
+  const userGender = (profile as { gender?: string } | null)?.gender?.toLowerCase() ?? null;
+  const maxMales   = (event as { max_males?: number | null } | null)?.max_males   ?? null;
+  const maxFemales = (event as { max_females?: number | null } | null)?.max_females ?? null;
 
-    const isM = isMaleTicket(name);
-    const isF = isFemaleTicket(name);
+  const capForUser =
+    userGender === "male"   ? maxMales :
+    userGender === "female" ? maxFemales :
+    null;
 
-    if ((isM && maxMales !== null) || (isF && maxFemales !== null)) {
-      // Count currently reserved/paid attendees for this gender across all ticket types
-      const { data: allTicketTypes } = await supabase
-        .from("event_ticket_types")
-        .select("id, name")
-        .eq("event_id", eventId);
+  if (userGender && capForUser !== null) {
+    // Count attendees of this gender who are reserved or paid for this event.
+    // Two-step: get profile IDs of that gender, then count matching attendees.
+    const { data: profilesOfGender } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("gender", userGender);
 
-      const genderTicketIds = (allTicketTypes || [])
-        .filter(t => isM ? isMaleTicket(t.name) : isFemaleTicket(t.name))
-        .map(t => t.id);
+    const profileIds = (profilesOfGender ?? []).map((p: { id: string }) => p.id);
 
-      if (genderTicketIds.length > 0) {
-        const { count } = await supabase
-          .from("event_attendees")
-          .select("profile_id", { count: "exact", head: true })
-          .eq("event_id", eventId)
-          .in("ticket_type_id", genderTicketIds)
-          .in("ticket_status", ["reserved", "paid"]);
+    const { count: currentCount } = await supabase
+      .from("event_attendees")
+      .select("profile_id", { count: "exact", head: true })
+      .eq("event_id", eventId)
+      .in("ticket_status", ["reserved", "paid"])
+      .in("profile_id", profileIds);
 
-        const cap = isM ? maxMales! : maxFemales!;
-        if ((count ?? 0) >= cap) {
-          const gender = isM ? "male" : "female";
-          return new Response(
-            JSON.stringify({ error: `Sorry, the ${gender} spots are full for this event.` }),
-            { status: 400, headers: { "Content-Type": "application/json" } }
-          );
-        }
+    if ((currentCount ?? 0) >= capForUser) {
+      // ── Gender cap hit → join waitlist ───────────────────────────────────
+      const { data: existing } = await supabase
+        .from("event_attendees")
+        .select("id, ticket_status, waitlist_position")
+        .eq("event_id", eventId)
+        .eq("profile_id", auth.profile_id)
+        .maybeSingle();
+
+      if (existing && (existing as { ticket_status: string }).ticket_status === "waitlisted") {
+        const pos = (existing as { waitlist_position?: number }).waitlist_position ?? 1;
+        return Response.json({
+          waitlisted: true,
+          position: pos,
+          message: `You're already on the waitlist at position #${pos}.`,
+        });
       }
+
+      // Next position for this gender's waitlist
+      const { data: lastInQueue } = await supabase
+        .from("event_attendees")
+        .select("waitlist_position")
+        .eq("event_id", eventId)
+        .eq("waitlist_gender", userGender)
+        .eq("ticket_status", "waitlisted")
+        .order("waitlist_position", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const nextPosition = ((lastInQueue as { waitlist_position?: number } | null)?.waitlist_position ?? 0) + 1;
+
+      if (existing) {
+        await supabase
+          .from("event_attendees")
+          .update({
+            ticket_status: "waitlisted",
+            waitlist_gender: userGender,
+            waitlist_position: nextPosition,
+            ticket_type_id: null,
+            payment_status: "unpaid",
+            stripe_checkout_session_id: null,
+          })
+          .eq("id", (existing as { id: string }).id);
+      } else {
+        await supabase.from("event_attendees").insert({
+          event_id: eventId,
+          profile_id: auth.profile_id,
+          ticket_status: "waitlisted",
+          waitlist_gender: userGender,
+          waitlist_position: nextPosition,
+          payment_status: "unpaid",
+          joined_at: new Date().toISOString(),
+        });
+      }
+
+      return Response.json({
+        waitlisted: true,
+        position: nextPosition,
+        gender: userGender,
+        message: `The ${userGender} spots are full. You've been added to the waitlist at position #${nextPosition}. We'll notify you if a spot opens up.`,
+      });
     }
   }
   // ─────────────────────────────────────────────────────────────────────────

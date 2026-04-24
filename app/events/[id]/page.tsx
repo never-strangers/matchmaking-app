@@ -41,7 +41,7 @@ export default async function EventDetailPage({
 
   const { data: attendee } = await supabase
     .from("event_attendees")
-    .select("payment_status, ticket_type_id, ticket_status, checked_in")
+    .select("payment_status, ticket_type_id, ticket_status, checked_in, waitlist_position, waitlist_gender")
     .eq("event_id", eventId)
     .eq("profile_id", session.profile_id)
     .maybeSingle();
@@ -50,6 +50,8 @@ export default async function EventDetailPage({
   const paymentStatus = (attendee as { payment_status?: string } | null)?.payment_status ?? "unpaid";
   const hasReservedTicket = !!(attendee as { ticket_type_id?: string | null } | null)?.ticket_type_id;
   const ticketStatus = (attendee as { ticket_status?: string } | null)?.ticket_status;
+  const isWaitlisted = ticketStatus === "waitlisted";
+  const waitlistPosition = (attendee as { waitlist_position?: number | null } | null)?.waitlist_position ?? null;
 
   const { count: answerCount } = await supabase
     .from("answers")
@@ -105,40 +107,14 @@ export default async function EventDetailPage({
     paymentStatus === "free" ||
     paymentStatus === "not_required";
 
-  const [{ data: ticketTypes }, { data: userProfile }] = await Promise.all([
-    supabase
-      .from("event_ticket_types")
-      .select("id, code, name, price_cents, currency, cap, sold, is_active")
-      .eq("event_id", eventId)
-      .eq("is_active", true)
-      .order("sort_order", { ascending: true }),
-    supabase
-      .from("profiles")
-      .select("gender")
-      .eq("id", session.profile_id)
-      .maybeSingle(),
-  ]);
+  const { data: ticketTypes } = await supabase
+    .from("event_ticket_types")
+    .select("id, code, name, price_cents, currency, cap, sold, is_active")
+    .eq("event_id", eventId)
+    .eq("is_active", true)
+    .order("sort_order", { ascending: true });
 
-  const userGender = (userProfile as { gender?: string } | null)?.gender?.toLowerCase() ?? null;
-
-  // Filter ticket types by user gender:
-  // "Male ..." tickets → male users only; "Female ..." → female users only;
-  // gender-neutral names → everyone. Falls back to all if no match found.
-  const isFemaleTicket = (name: string) => /female/i.test(name);
-  const isMaleTicket   = (name: string) => /male/i.test(name) && !/female/i.test(name);
-  const isGendered     = (name: string) => isFemaleTicket(name) || isMaleTicket(name);
-
-  const allTicketTypes = (ticketTypes ?? []) as { id: string; code: string; name: string; price_cents: number; currency: string; cap: number; sold: number; is_active: boolean }[];
-  const filteredTicketTypes = (() => {
-    if (!userGender || !allTicketTypes.some(t => isGendered(t.name))) return allTicketTypes;
-    const matched = allTicketTypes.filter(t =>
-      !isGendered(t.name) ||
-      (userGender === "female" && isFemaleTicket(t.name)) ||
-      (userGender === "male"   && isMaleTicket(t.name))
-    );
-    return matched.length > 0 ? matched : allTicketTypes;
-  })();
-
+  const filteredTicketTypes = (ticketTypes ?? []) as { id: string; code: string; name: string; price_cents: number; currency: string; cap: number; sold: number; is_active: boolean }[];
   const hasTicketTypes = filteredTicketTypes.length > 0;
 
   let primaryLabel = "Enter Event";
@@ -147,7 +123,13 @@ export default async function EventDetailPage({
   let statusMessage: string | null = null;
   let statusAction: { label: string; href: string } | null = null;
 
-  if (!joined && paymentRequired && hasTicketTypes) {
+  if (isWaitlisted) {
+    // W) On waitlist — show status, no action
+    showPrimary = false;
+    statusMessage = waitlistPosition
+      ? `You're on the waitlist at position #${waitlistPosition}. We'll notify you when a spot opens up.`
+      : "You're on the waitlist. We'll notify you when a spot opens up.";
+  } else if (!joined && paymentRequired && hasTicketTypes) {
     // A) Not joined, paid event with ticket types — show selector directly
     primaryLabel = "Select ticket";
     primaryHref = "";
@@ -236,6 +218,7 @@ export default async function EventDetailPage({
               {category === "dating" ? "Dating" : "Friends"}
             </Badge>
             {joined && paid && <Badge variant="success">Joined</Badge>}
+            {isWaitlisted && <Badge variant="warning">Waitlisted #{waitlistPosition}</Badge>}
             {completed && <Badge variant="info">Questionnaire Complete</Badge>}
             {hasReservedTicket && paid && (
               <Badge variant="warning">Ticket Paid</Badge>

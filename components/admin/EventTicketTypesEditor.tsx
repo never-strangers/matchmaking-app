@@ -144,6 +144,10 @@ export function EventTicketTypesEditor({ eventId, initialTypes, onUpdate }: Prop
     }
   };
 
+  const activeCap = types.filter((t) => t.is_active).reduce((s, t) => s + t.cap, 0);
+  const activeSold = types.filter((t) => t.is_active).reduce((s, t) => s + t.sold, 0);
+  const activeRemaining = activeCap - activeSold;
+
   return (
     <Card padding="lg">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
@@ -157,7 +161,7 @@ export function EventTicketTypesEditor({ eventId, initialTypes, onUpdate }: Prop
           disabled={loading !== null}
           onClick={applyTemplate}
         >
-          {loading === "template" ? "Applying…" : "Apply default template (Early Bird, Male, Female, VIP)"}
+          {loading === "template" ? "Applying…" : "Apply default template (Early Bird + Regular)"}
         </Button>
       </div>
       {error && (
@@ -166,39 +170,49 @@ export function EventTicketTypesEditor({ eventId, initialTypes, onUpdate }: Prop
         </p>
       )}
 
-      <div className="space-y-3 mb-6">
-        {types.map((t) => (
-          <div
-            key={t.id}
-            className="flex flex-wrap items-center gap-3 py-2 border-b last:border-0"
-            style={{ borderColor: "var(--border)" }}
-          >
-            <span className="font-medium text-[var(--text)] w-24">{t.name}</span>
-            <span className="text-sm text-[var(--text-muted)]">
-              {(t.price_cents / 100).toFixed(2)} {t.currency.toUpperCase()} · cap {t.cap} · sold {t.sold}
-            </span>
-            <label className="flex items-center gap-1.5 ml-auto">
-              <input
-                type="checkbox"
-                checked={t.is_active}
-                onChange={(e) => updateType(t.id, { is_active: e.target.checked })}
-                disabled={loading === t.id}
-                className="rounded border-[var(--border)] text-[var(--primary)]"
-              />
-              <span className="text-sm text-[var(--text-muted)]">Active</span>
-            </label>
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              disabled={loading === t.id}
-              onClick={() => deleteType(t.id)}
+      {types.length > 0 && (
+        <div className="space-y-3 mb-3">
+          {types.map((t) => (
+            <div
+              key={t.id}
+              className="flex flex-wrap items-center gap-3 py-2 border-b last:border-0"
+              style={{ borderColor: "var(--border)" }}
             >
-              Remove
-            </Button>
-          </div>
-        ))}
-      </div>
+              <span className="font-medium text-[var(--text)] w-24">{t.name}</span>
+              <span className="text-sm text-[var(--text-muted)]">
+                {(t.price_cents / 100).toFixed(2)} {t.currency.toUpperCase()} · cap {t.cap} · sold {t.sold}
+              </span>
+              <label className="flex items-center gap-1.5 ml-auto">
+                <input
+                  type="checkbox"
+                  checked={t.is_active}
+                  onChange={(e) => updateType(t.id, { is_active: e.target.checked })}
+                  disabled={loading === t.id}
+                  className="rounded border-[var(--border)] text-[var(--primary)]"
+                />
+                <span className="text-sm text-[var(--text-muted)]">Active</span>
+              </label>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                disabled={loading === t.id}
+                onClick={() => deleteType(t.id)}
+              >
+                Remove
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {types.length > 0 && (
+        <div className="flex items-center gap-5 mb-5 px-3 py-2 rounded-md text-sm" style={{ background: "var(--bg-subtle, rgba(0,0,0,0.04))", color: "var(--text-muted)" }}>
+          <span>Total capacity: <strong style={{ color: "var(--text)" }}>{activeCap}</strong></span>
+          <span>Sold: <strong style={{ color: "var(--text)" }}>{activeSold}</strong></span>
+          <span>Remaining: <strong style={{ color: activeRemaining > 0 ? "inherit" : "var(--danger, #dc2626)" }}>{activeRemaining}</strong></span>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
         <Input

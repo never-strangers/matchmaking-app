@@ -42,7 +42,7 @@ export default async function AdminEventDetailPage({
     notFound();
   }
 
-  const [attendeesRes, matchRowsRes, matchRoundsRes, roundCountsRes] = await Promise.all([
+  const [attendeesRes, matchRowsRes, matchRoundsRes, roundCountsRes, waitlistRes] = await Promise.all([
     getAttendeesByEvent(supabase, [eventId]),
     supabase
       .from("match_results")
@@ -58,9 +58,22 @@ export default async function AdminEventDetailPage({
       .from("match_results")
       .select("round")
       .eq("event_id", eventId),
+    supabase
+      .from("event_attendees")
+      .select("waitlist_gender, waitlist_position")
+      .eq("event_id", eventId)
+      .eq("ticket_status", "waitlisted")
+      .order("waitlist_position", { ascending: true }),
   ]);
 
   const allAttendees = attendeesRes[eventId] || [];
+  const waitlistRows = (waitlistRes.data || []) as { waitlist_gender: string | null; waitlist_position: number | null }[];
+  const waitlistByGender = waitlistRows.reduce((acc, r) => {
+    const g = r.waitlist_gender || "unknown";
+    acc[g] = (acc[g] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+  const totalWaitlisted = waitlistRows.length;
   const paymentRequired =
     event &&
     (event as { payment_required?: boolean }).payment_required !== false &&
@@ -234,6 +247,20 @@ export default async function AdminEventDetailPage({
             <p className="text-sm mt-3" style={{ color: "var(--text-muted)" }}>
               Fewer than 4 guests are checked in. Run matching will only include checked-in attendees.
             </p>
+          )}
+          {totalWaitlisted > 0 && (
+            <div className="mt-4 pt-4 border-t" style={{ borderColor: "var(--border)" }}>
+              <p className="text-sm font-medium mb-2" style={{ color: "var(--text)" }}>
+                Waitlist ({totalWaitlisted} total)
+              </p>
+              <div className="flex flex-wrap gap-4">
+                {Object.entries(waitlistByGender).map(([gender, count]) => (
+                  <span key={gender} className="text-sm px-3 py-1 rounded-full" style={{ background: "var(--bg-subtle, rgba(0,0,0,0.05))", color: "var(--text-muted)" }}>
+                    {gender.charAt(0).toUpperCase() + gender.slice(1)}: <strong style={{ color: "var(--text)" }}>{count}</strong>
+                  </span>
+                ))}
+              </div>
+            </div>
           )}
         </Card>
 
