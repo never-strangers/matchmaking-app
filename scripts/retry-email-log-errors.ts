@@ -19,6 +19,7 @@
  *
  * Env: reads `.env.local` and `.env` from the **current working directory** first, then from the repo dir next to this script.
  * `NEXT_PUBLIC_SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` must be the **same Supabase project** as Table Editor (prod vs dev).
+ * For `password_reset` retries, set `APP_BASE_URL` or `APP_URL` to production so `generateLink` redirect matches batch resets (see `send-password-resets.ts`).
  */
 
 import * as path from "node:path";
@@ -165,6 +166,16 @@ function getSupabase(): SupabaseClient {
   return createClient(url, key, { auth: { persistSession: false } });
 }
 
+/** Match `scripts/send-password-resets.ts`: prefer prod base so reset links are not localhost-only. */
+function appBaseUrlForRecovery(): string {
+  const raw =
+    process.env.APP_BASE_URL ||
+    process.env.APP_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    "http://localhost:3000";
+  return raw.replace(/\/$/, "");
+}
+
 /** Hint when anchor UUID is missing (wrong project or typo). */
 function logSupabaseProjectHint(): void {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
@@ -209,6 +220,7 @@ async function buildTemplateForRow(
     const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
       type: "recovery",
       email: targetEmail,
+      options: { redirectTo: `${appBaseUrlForRecovery()}/auth/reset-password` },
     });
     if (linkError || !linkData?.properties?.action_link) {
       console.warn(`  ⚠️  ${row.id} generateLink failed:`, linkError?.message);
