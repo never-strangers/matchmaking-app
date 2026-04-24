@@ -145,6 +145,7 @@ async function getEventQuestionsData(eventId: string, profileId: string) {
   }
   const hasReservedTicket = !!(attendeeRow as { ticket_type_id?: string | null } | null)?.ticket_type_id;
   const ticketTypesList = (ticketTypes || []) as { id: string; code: string; name: string; price_cents: number; currency: string; cap: number; sold: number }[];
+  const priceCents = Number((eventRow as { price_cents?: number | null }).price_cents ?? 0);
 
   return {
     eventTitle: eventRow.title as string,

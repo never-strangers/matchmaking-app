@@ -11,8 +11,8 @@
  *      NEXT_PUBLIC_APP_URL is dev-only), else NEXT_PUBLIC_APP_URL,
  *      EMAIL_PROVIDER, RESEND_API_KEY, ENVLOPED_API_KEY, EMAIL_FROM (same as lib/email/provider).
  *
- * Requires migrations: 20260422143000_password_reset_sends.sql,
- *   20260423140000_password_reset_batch_wp_users_only.sql (batch1/2 ∩ wp-users when table exists).
+ * Requires migrations: 20260422143000_password_reset_sends.sql and later password_reset RPC
+ *   migrations (batch1/2: approved + profiles.wp_user_id IS NOT NULL only).
  */
 
 import * as fs from "node:fs";
@@ -69,13 +69,15 @@ function parseArgs(argv: string[]) {
 
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
-    if (a === "--batch" && argv[i + 1]) batch = argv[++i] as BatchName;
-    else if (a === "--emails" && argv[i + 1]) emailsRaw = argv[++i];
-    else if (a === "--limit" && argv[i + 1]) limit = parseInt(argv[++i], 10);
-    else if (a === "--cursor" && argv[i + 1]) cursor = argv[++i];
+    if (a === "--batch" && argv[i + 1] && !argv[i + 1].startsWith("--")) batch = argv[++i] as BatchName;
+    else if (a === "--emails") {
+      const next = argv[i + 1];
+      if (next && !next.startsWith("--")) emailsRaw = argv[++i];
+    } else if (a === "--limit" && argv[i + 1] && !argv[i + 1].startsWith("--")) limit = parseInt(argv[++i], 10);
+    else if (a === "--cursor" && argv[i + 1] && !argv[i + 1].startsWith("--")) cursor = argv[++i];
     else if (a === "--dry-run") dryRun = true;
     else if (a === "--yes") yes = true;
-    else if (a === "--provider" && argv[i + 1]) provider = argv[++i];
+    else if (a === "--provider" && argv[i + 1] && !argv[i + 1].startsWith("--")) provider = argv[++i];
   }
 
   return { batch, emailsRaw, limit, cursor, dryRun, yes, provider };
@@ -151,23 +153,40 @@ async function sendBrandedPasswordReset(
   return { ok: true, messageId: result.id };
 }
 
-async function confirmInteractive(opts: {
+const PREVIEW_EMAIL_LINES = 15;
+
+/** Always log before dry-run JSON or confirm prompt so stdout never skips the list. */
+function logRecipientPreview(opts: {
   batch: string;
   count: number;
-  sampleEmails: string[];
+  emails: string[];
   dryRun: boolean;
-  yes: boolean;
-}): Promise<void> {
+}): void {
+  console.log(`\n── ${opts.dryRun ? "Dry run preview" : "Recipient preview"} ──`);
+  console.log(`  Batch:           ${opts.batch}`);
+  console.log(`  Recipients:      ${opts.count}`);
+  if (opts.emails.length === 0) {
+    console.log(`  Emails:          —`);
+  } else {
+    const head = opts.emails.slice(0, PREVIEW_EMAIL_LINES);
+    head.forEach((e, i) => console.log(`  ${String(i + 1).padStart(3, " ")}. ${e}`));
+    if (opts.emails.length > PREVIEW_EMAIL_LINES) {
+      console.log(`      … and ${opts.emails.length - PREVIEW_EMAIL_LINES} more (full list in JSON report)`);
+    }
+  }
+  const filterLine =
+    opts.batch === "batch0"
+      ? "approved only; manual list; not already sent."
+      : "approved; WordPress imports only (wp_user_id set); not already sent.";
+  console.log(`  Filter:          ${filterLine}`);
+}
+
+async function confirmInteractive(opts: { dryRun: boolean; yes: boolean }): Promise<void> {
   if (opts.dryRun || opts.yes) return;
   if (!input.isTTY) {
     console.error("Not a TTY: pass --yes to send, or use --dry-run.");
     process.exit(1);
   }
-  console.log("\n── Confirm send ──");
-  console.log(`  Batch:           ${opts.batch}`);
-  console.log(`  Recipients:      ${opts.count}`);
-  console.log(`  First 5 emails:  ${opts.sampleEmails.slice(0, 5).join(", ") || "—"}`);
-  console.log(`  Filter:          approved profiles only; already-sent excluded.`);
   const rl = readline.createInterface({ input, output });
   const ans = await rl.question('\nType "yes" to continue: ');
   await rl.close();
@@ -177,17 +196,82 @@ async function confirmInteractive(opts: {
   }
 }
 
+/** PostgREST `.in('id', …)` is URL-encoded; keep chunks small to avoid UND_ERR_HEADERS_OVERFLOW (~16KB). */
+const WP_ID_LOOKUP_CHUNK = 80;
+
+/** Enforce WordPress imports only even if list_approved_password_reset_batch is outdated in DB. */
+async function filterToWpImports(supabase: SupabaseClient, rows: Recipient[]): Promise<Recipient[]> {
+  if (rows.length === 0) return rows;
+  const ids = [...new Set(rows.map((r) => r.id))];
+  const wpOk = new Set<string>();
+  for (let i = 0; i < ids.length; i += WP_ID_LOOKUP_CHUNK) {
+    const chunk = ids.slice(i, i + WP_ID_LOOKUP_CHUNK);
+    const { data: idWp, error: wpErr } = await supabase
+      .from("profiles")
+      .select("id, wp_user_id")
+      .in("id", chunk);
+    if (wpErr) throw wpErr;
+    for (const p of idWp ?? []) {
+      if (p.wp_user_id != null) wpOk.add(String(p.id));
+    }
+  }
+  return rows.filter((r) => wpOk.has(r.id));
+}
+
+/**
+ * Fills `limit` recipients using the RPC, then drops native signups (wp_user_id null).
+ * If the RPC is stale and includes natives, we paginate with the same cursor rules until full or exhausted.
+ */
 async function fetchBatchCandidates(
   supabase: SupabaseClient,
   limit: number,
   cursorIso: string | null
 ): Promise<Recipient[]> {
-  const { data, error } = await supabase.rpc("list_approved_password_reset_batch", {
-    p_limit: limit,
-    p_cursor: cursorIso,
-  });
-  if (error) throw error;
-  return (data ?? []) as Recipient[];
+  const out: Recipient[] = [];
+  let cursor: string | null = cursorIso;
+  const pageSize = Math.min(1000, Math.max(limit, 300));
+  let droppedNonWp = 0;
+  let pages = 0;
+  const maxPages = 30;
+
+  while (out.length < limit && pages < maxPages) {
+    pages++;
+    const { data, error } = await supabase.rpc("list_approved_password_reset_batch", {
+      p_limit: pageSize,
+      p_cursor: cursor,
+    });
+    if (error) throw error;
+    const batch = (data ?? []) as Recipient[];
+    if (batch.length === 0) break;
+
+    const filtered = await filterToWpImports(supabase, batch);
+    droppedNonWp += batch.length - filtered.length;
+    for (const r of filtered) {
+      if (out.length >= limit) break;
+      if (!out.some((x) => x.id === r.id)) out.push(r);
+    }
+
+    if (batch.length < pageSize) break;
+    const next = nextCursorFromRecipients(batch);
+    if (!next) break;
+    cursor = next;
+    if (out.length >= limit) break;
+  }
+
+  if (droppedNonWp > 0) {
+    console.warn(
+      `[send-password-resets] Excluded ${droppedNonWp} row(s) with null wp_user_id (native signups). ` +
+        `Apply supabase/migrations/20260424120000_password_reset_batch_require_wp_user_id.sql in this project ` +
+        `so list_approved_password_reset_batch matches your SQL editor and this client filter is redundant.`
+    );
+  }
+  if (out.length < limit) {
+    console.warn(
+      `[send-password-resets] Collected ${out.length} WP-import recipient(s) (wanted ${limit}); RPC has no more pages or cap hit.`
+    );
+  }
+
+  return out;
 }
 
 async function inferBatch2Cursor(supabase: SupabaseClient): Promise<string> {
@@ -363,13 +447,10 @@ async function main() {
   console.log(`Dry run: ${dryRun}`);
   console.log(`Recipients to attempt: ${recipients.length}`);
 
-  await confirmInteractive({
-    batch: batchLabel,
-    count: recipients.length,
-    sampleEmails: recipients.map((r) => r.email),
-    dryRun,
-    yes,
-  });
+  const previewEmails = recipients.map((r) => r.email).filter((e) => typeof e === "string" && e.length > 0);
+  logRecipientPreview({ batch: batchLabel, count: recipients.length, emails: previewEmails, dryRun });
+
+  await confirmInteractive({ dryRun, yes });
 
   const nextCursor = nextCursorFromRecipients(recipients);
 
@@ -377,7 +458,10 @@ async function main() {
     console.log("\n── Dry run (no sends, no DB log rows) ──");
     console.log(JSON.stringify({ ...stats, attempted: recipients.length }, null, 2));
     if (nextCursor) console.log(`Next cursor (oldest registered_at in this batch): ${nextCursor}`);
-    writeReport(batchLabel, { ...stats, attempted: recipients.length }, nextCursor, { dryRun: true });
+    writeReport(batchLabel, { ...stats, attempted: recipients.length }, nextCursor, {
+      dryRun: true,
+      emails: recipients.map((r) => r.email),
+    });
     return;
   }
 

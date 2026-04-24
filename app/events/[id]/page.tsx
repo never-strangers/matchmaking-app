@@ -115,6 +115,7 @@ export default async function EventDetailPage({
 
   const filteredTicketTypes = (ticketTypes ?? []) as { id: string; code: string; name: string; price_cents: number; currency: string; cap: number; sold: number; is_active: boolean }[];
   const hasTicketTypes = filteredTicketTypes.length > 0;
+  const priceCents = Number((event as { price_cents?: number | null }).price_cents ?? 0);
 
   let primaryLabel = "Enter Event";
   let primaryHref = `/events/${eventId}/questions`;
