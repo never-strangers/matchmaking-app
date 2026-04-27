@@ -16,7 +16,7 @@ export async function POST(
 
   const { data: event } = await supabase
     .from("events")
-    .select("id, title, date, start_at, end_at, description, payment_required, price_cents")
+    .select("id, title, start_at, end_at, description, payment_required, price_cents")
     .eq("id", eventId)
     .is("deleted_at", null)
     .single();
@@ -60,9 +60,9 @@ export async function POST(
         const nameParts = (profile.name ?? "").split(" ");
         const firstName = nameParts[0] ?? "";
         const lastName = nameParts.slice(1).join(" ");
-        const ev = event as { title?: string; date?: string; start_at?: string; end_at?: string; description?: string };
+        const ev = event as { title?: string; start_at?: string; end_at?: string; description?: string };
         const eventTitle = ev?.title ?? "an event";
-        const eventDate = ev?.date ?? (ev?.start_at ? new Date(ev.start_at).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }) : "");
+        const eventDate = ev?.start_at ? new Date(ev.start_at).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }) : "";
         const eventStartTime = ev?.start_at ? new Date(ev.start_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : "";
         const eventEndTime = ev?.end_at ? new Date(ev.end_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : "";
         const eventDescription = ev?.description ?? "";
