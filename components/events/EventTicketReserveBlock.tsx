@@ -81,20 +81,34 @@ export function EventTicketReserveBlock({ eventId, ticketTypes }: Props) {
     }
   };
 
+  const allSoldOut = ticketTypes.every((t) => t.cap - t.sold <= 0);
+
   // Single ticket: skip selector
   if (single) {
+    const singleSoldOut = single.cap - single.sold <= 0;
     return (
       <div className="mt-4 space-y-3">
-        {error && <p className="text-sm" style={{ color: "var(--danger)" }}>{error}</p>}
-        {waitlistMessage && (
-          <div className="p-3 rounded-lg text-sm" style={{ backgroundColor: "var(--warning-subtle, #fef9c3)", border: "1px solid var(--warning, #eab308)", color: "var(--text)" }}>
-            {waitlistMessage}
+        {singleSoldOut ? (
+          <div
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border text-sm font-medium"
+            style={{ opacity: 0.5, borderColor: "var(--border)", color: "var(--text-muted)", background: "var(--bg-subtle, rgba(0,0,0,0.04))" }}
+          >
+            Full
           </div>
-        )}
-        {!waitlistMessage && (
-          <Button onClick={handleBuy} size="md" disabled={loading} data-testid="reserve-ticket-button">
-            {loading ? "Redirecting to payment…" : "Book slot"}
-          </Button>
+        ) : (
+          <>
+            {error && <p className="text-sm" style={{ color: "var(--danger)" }}>{error}</p>}
+            {waitlistMessage && (
+              <div className="p-3 rounded-lg text-sm" style={{ backgroundColor: "var(--warning-subtle, #fef9c3)", border: "1px solid var(--warning, #eab308)", color: "var(--text)" }}>
+                {waitlistMessage}
+              </div>
+            )}
+            {!waitlistMessage && (
+              <Button onClick={handleBuy} size="md" disabled={loading} data-testid="reserve-ticket-button">
+                {loading ? "Redirecting to payment…" : "Book slot"}
+              </Button>
+            )}
+          </>
         )}
       </div>
     );
@@ -109,6 +123,7 @@ export function EventTicketReserveBlock({ eventId, ticketTypes }: Props) {
       <div className="space-y-2">
         {ticketTypes.map((t) => {
           const left = t.cap - t.sold;
+          const soldOut = left <= 0;
           return (
             <label
               key={t.id}
@@ -116,8 +131,9 @@ export function EventTicketReserveBlock({ eventId, ticketTypes }: Props) {
               style={{
                 borderColor: selectedId === t.id ? "var(--primary)" : "var(--border)",
                 backgroundColor: selectedId === t.id ? "var(--primary)" + "15" : "transparent",
-                opacity: left === 0 ? 0.5 : 1,
-                pointerEvents: left === 0 ? "none" : "auto",
+                opacity: soldOut ? 0.5 : 1,
+                pointerEvents: soldOut ? "none" : "auto",
+                cursor: soldOut ? "not-allowed" : "pointer",
               }}
             >
               <input
@@ -126,14 +142,16 @@ export function EventTicketReserveBlock({ eventId, ticketTypes }: Props) {
                 value={t.id}
                 checked={selectedId === t.id}
                 onChange={() => setSelectedId(t.id)}
-                disabled={left === 0}
+                disabled={soldOut}
                 className="w-4 h-4 text-[var(--primary)] border-[var(--border)] focus:ring-[var(--primary)]"
               />
               <span className="flex-1 text-sm font-medium" style={{ color: "var(--text)" }}>
                 {t.name}
               </span>
-              <span className="text-sm" style={{ color: "var(--text-muted)" }}>
-                {(t.price_cents / 100).toFixed(2)} {t.currency.toUpperCase()} · {left > 0 ? `${left} left` : "Sold out"}
+              <span className="text-sm font-medium" style={{ color: soldOut ? "var(--text-muted)" : "var(--text-muted)" }}>
+                {soldOut
+                  ? <span style={{ color: "var(--danger, #dc2626)" }}>Full</span>
+                  : `${(t.price_cents / 100).toFixed(2)} ${t.currency.toUpperCase()} · ${left} left`}
               </span>
             </label>
           );
@@ -145,7 +163,7 @@ export function EventTicketReserveBlock({ eventId, ticketTypes }: Props) {
           {waitlistMessage}
         </div>
       )}
-      {!waitlistMessage && (
+      {!waitlistMessage && !allSoldOut && (
         <Button
           onClick={handleBuy}
           size="md"
@@ -154,6 +172,11 @@ export function EventTicketReserveBlock({ eventId, ticketTypes }: Props) {
         >
           {loading ? "Redirecting to payment…" : "Book slot"}
         </Button>
+      )}
+      {allSoldOut && (
+        <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+          All ticket tiers are currently full.
+        </p>
       )}
     </div>
   );
